@@ -350,8 +350,37 @@ Rozhodnutí:
 - Start hry zatím dál vytváří nový svět (hlavní menu s „Pokračovat“ může přijít později).
 
 ### Fáze 9+ — Mysl a kmen
-Větev Mysl: sociální skupiny, sběr a nošení zdrojů, sklad, první stavby, joby.
-Detailní návrh se doplní do tohoto dokumentu **před** začátkem fáze.
+Rozděleno do podfází; každá má vlastní DoD, commit a vydání a začíná se až po schválení předchozí. Detail každé podfáze se doplní sem **před** jejím začátkem (9a je rozepsaná).
+
+| Podfáze | Obsah | DoD |
+|---|---|---|
+| **9a Skupiny** | uzel *Sociální skupiny*, stáda s vůdcem, `FollowLeader`, sdílená paměť skupiny | po odemčení se populace rozpadne do skupin, které se pohybují spolu (viditelné a měřitelné) |
+| **9b Vzpřímená chůze** | větev Tělo: vzpřímení → chůze po dvou → šikovné ruce; humanoidní model (trup nahoře, 2 nohy, 2 ruce, animace rukou) | odemčení postupně mění čtyřnožce v dvounožce; ruce jsou podmínkou nástrojů |
+| **9c Nástroje a sběr** | stromy a kámen ve světě, uzel *Nástroje*, `Gather` / `Carry` / `Deliver`, sběrné místo skupiny | suroviny se sbírají a hromadí, je vidět, kdo co nese |
+| **9d Řeč a kmen** | uzel *Kmen*: z největší skupiny vznikne kmen s tábořištěm, zásoby, role (sběrač, stavitel), stavby sklad / přístřešek / ohniště, `Build` | kmen sám postaví ≥ 3 druhy staveb a ty mají měřitelný efekt |
+
+Rozhodnutí k fázi 9 (celé):
+- **Stavby (9d):** kmen staví sám podle potřeb; hráč navíc může za Víru umístit *božský plán* stavby, který má přednost (kombinace Black & White a Universim).
+- **Kmeny (9d):** kmen vznikne z největší skupiny, ostatní skupiny se k němu časem přidají, nebo později založí vlastní kmen (příprava na soupeření). Ve fázi 9 jen jeden kmen hráčova druhu.
+- **Morálka (9d):** víra se promítne do kmene. Dobrý bůh = spokojenější kmen, rychlejší rozmnožování. Zlý bůh = strach, rychlejší práce, ale méně mláďat a občas útěk z kmene.
+- **Pořadí:** vzpřímená chůze a humanoidní model (9b) předchází nošení surovin a stavbám.
+- **Fáze 10 — Divoká zvěř:** kořist a predátoři jako druhy bez hráče, akce `Hunt`; základ pro boj. Detail před začátkem fáze.
+
+#### 9a Skupiny (detail)
+- **Uzel** `mind_social_groups` „Sociální skupiny“ (větev Mysl, vyžaduje Paměť, podmínka populace ≥ 60, cena ~80 EP), efekt `unlock_ability: groups`.
+- **Komponenta** `GroupMember` (ID skupiny); **registr skupin** ve světě (`Groups`: ID, vůdce, počet členů, sdílená paměť vody a jídla).
+- **`GroupSystem`** (každých `groups.updateSeconds`, deterministicky podle ID):
+  - bez skupiny: přidá se k nejbližší skupině do `joinRadius`, má-li místo (`maxSize`); jinak ≥ `minFounders` volných bytostí v okolí založí novou skupinu, vůdcem je nejstarší dospělý,
+  - skupina větší než `maxSize` se rozdělí (nový vůdce = nejstarší z odcházející poloviny),
+  - vůdce zemře → vůdcem se stane nejstarší dospělý člen; skupina pod `minSize` se rozpadne,
+  - člen, který je dlouho dál než `leaveDistance` od vůdce, ze skupiny odejde,
+  - mládě se narodí do skupiny rodiče.
+- **Akce `FollowLeader`:** člen dál než `followDistance` od vůdce jde k němu; skóre roste se vzdáleností, ale zůstává pod potřebami (hlad, žízeň, spánek mají přednost) a nad bloumáním. Vůdce se chová normálně (bloudí, hledá jídlo), skupina ho následuje.
+- **Sdílená paměť:** kde se člen napil / najedl, zapíše se i do paměti skupiny; `SeekFood` / `SeekWater` bez vlastní vzpomínky použije paměť skupiny (jen s Pamětí).
+- **Data:** blok `groups` v `species.json` (joinRadius, maxSize, minSize, minFounders, followDistance, leaveDistance, updateSeconds, followScore).
+- **UI:** klávesa G / tlačítko zapne zobrazení skupin (barevný kroužek pod členy, značka nad vůdcem); panel bytosti ukazuje skupinu a roli; panel druhu počet a průměrnou velikost skupin.
+- **Save:** `saveVersion` 2 (skupiny a členství); save verze 1 se načte bez skupin (vytvoří se znovu).
+- **Testy:** skupiny vzniknou jen po odemčení, velikosti v mezích, členové jsou u vůdce výrazně blíž než bez skupin, výměna vůdce po smrti, dělení velké skupiny, mládě ve skupině rodiče, save → load → identický běh i se skupinami.
 
 ### Průřezová infrastruktura (mimo fáze)
 Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádné fáze.
@@ -391,6 +420,6 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 
 - Finální název hry
 - Velikost mapy pro první hratelnou verzi (256² vs 512²)
-- Zda má být v první verzi divoká zvěř jako predátor/kořist
+- ~~Zda má být v první verzi divoká zvěř jako predátor/kořist~~ → **rozhodnuto: ano, Fáze 10** (před soupeřícími kmeny).
 - ~~Ovládání evolučního stromu~~ → **rozhodnuto: EP utrácí hráč** (automatická evoluce případně později jako volitelný režim).
-- Kmeny, války a boj proti jiným kmenům (soupeřící AI druhy jsou dnes v §13 mimo scope) — rozebrat později.
+- Kmeny, války a boj proti jiným kmenům (soupeřící AI druhy jsou dnes v §13 mimo scope): přesunout do plánu jako Fázi 11+? — čeká na rozhodnutí.
