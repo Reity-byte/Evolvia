@@ -56,7 +56,7 @@ Nepoužívat nic nad OpenGL 4.1.
 - Hráč za EP odemyká uzly **evolučního stromu** → mění se schopnosti, chování i vzhled celého druhu.
 - Pozdější větve vedou k inteligenci: nástroje, kmen, sběr zdrojů, stavby.
 - Hráč má **božské zásahy** (déšť, jídlo, terraforming, trest/odměna), placené **Vírou**.
-- Cíl první verze: sandbox bez výhry/prohry, jen vyhynutí druhu = game over.
+- Cíl první verze: sandbox bez výhry; game over = vyhynutí druhu, hrozbu přinášejí divoká zvěř a soupeřící kmeny (fáze 10 a 11+, přesná pravidla prohry se doplní s fází 11+).
 
 **Vizuální styl:** low-poly, jednobarevné plochy, jednoduché osvětlení. Bytosti se skládají **procedurálně z primitiv** (tělo, hlava, nohy, ocas…) podle svých vlastností, takže evoluce je vidět bez ručně modelovaných assetů.
 
@@ -365,6 +365,7 @@ Rozhodnutí k fázi 9 (celé):
 - **Morálka (9d):** víra se promítne do kmene. Dobrý bůh = spokojenější kmen, rychlejší rozmnožování. Zlý bůh = strach, rychlejší práce, ale méně mláďat a občas útěk z kmene.
 - **Pořadí:** vzpřímená chůze a humanoidní model (9b) předchází nošení surovin a stavbám.
 - **Fáze 10 — Divoká zvěř:** kořist a predátoři jako druhy bez hráče, akce `Hunt`; základ pro boj. Detail před začátkem fáze.
+- **Fáze 11+ — Soupeřící kmeny a války:** AI kmeny jiného druhu, území, nájezdy, souboje, vliv dobrého / zlého boha; spolu s vyhynutím tvoří game over. Detail před začátkem fáze.
 
 #### 9a Skupiny (detail)
 - **Uzel** `mind_social_groups` „Sociální skupiny“ (větev Mysl, vyžaduje Paměť, podmínka populace ≥ 60, cena ~80 EP), efekt `unlock_ability: groups`.
@@ -408,7 +409,7 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 ## 13. Mimo scope první verze
 
 - Sférická planeta
-- Více hráčem řízených druhů / soupeřící AI druhy (ale konkurenční divoká zvěř je v pozdějších fázích OK)
+- Více hráčem řízených druhů (soupeřící AI kmeny a divoká zvěř naopak do první verze patří, fáze 10 a 11+)
 - Good/evil morální systém
 - Multiplayer
 - Ručně modelované assety a kosterní animace
@@ -422,4 +423,4 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 - Velikost mapy pro první hratelnou verzi (256² vs 512²)
 - ~~Zda má být v první verzi divoká zvěř jako predátor/kořist~~ → **rozhodnuto: ano, Fáze 10** (před soupeřícími kmeny).
 - ~~Ovládání evolučního stromu~~ → **rozhodnuto: EP utrácí hráč** (automatická evoluce případně později jako volitelný režim).
-- Kmeny, války a boj proti jiným kmenům (soupeřící AI druhy jsou dnes v §13 mimo scope): přesunout do plánu jako Fázi 11+? — čeká na rozhodnutí.
+- ~~Kmeny, války a boj proti jiným kmenům~~ → **rozhodnuto: patří do první verze jako Fáze 11+** (bez soupeřů by nebyl pořádný game over). Detail před začátkem fáze.
