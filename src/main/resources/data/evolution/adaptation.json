@@ -31,7 +31,8 @@
       "cost": 40,
       "effects": [
         { "type": "stat_add", "stat": "comfortMax", "value": 0.12 },
-        { "type": "stat_mul", "stat": "thirstRate", "value": 1.1 }
+        { "type": "stat_mul", "stat": "thirstRate", "value": 1.1 },
+        { "type": "visual", "part": "skin", "variant": "bare" }
       ]
     },
     {

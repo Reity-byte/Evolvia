@@ -24,7 +24,7 @@
       "decayPerSecond": 0.008,
       "spawnOnDeath": true,
       "spawnDensity": 0,
-      "size": 0.55,
+      "size": 0.8,
       "color": "#8a4a3a",
       "emptyColor": "#5a4a40"
     },

@@ -45,7 +45,8 @@
       "requires": ["diet_omnivore"],
       "effects": [
         { "type": "stat_mul", "stat": "plantNutrition", "value": 1.15 },
-        { "type": "stat_mul", "stat": "meatNutrition", "value": 1.3 }
+        { "type": "stat_mul", "stat": "meatNutrition", "value": 1.3 },
+        { "type": "visual", "part": "belly", "variant": "round" }
       ]
     }
   ]

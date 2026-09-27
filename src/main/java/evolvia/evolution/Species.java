@@ -33,6 +33,7 @@ public final class Species {
     private SpeciesDefinition stats;
     private float points;
     private float pointsEarned;
+    private int revision;
 
     public Species(SpeciesDefinition base, EvolutionTree tree) {
         this.base = base;
@@ -68,6 +69,11 @@ public final class Species {
     /** Visual part variants chosen by evolution (part -> variant). */
     public Map<String, String> visuals() {
         return Collections.unmodifiableMap(visuals);
+    }
+
+    /** Increases whenever the unlocked nodes change (e.g. so renderers know to rebuild the creature mesh). */
+    public int revision() {
+        return revision;
     }
 
     public boolean isUnlocked(String nodeId) {
@@ -152,6 +158,7 @@ public final class Species {
             nodes.add(tree.node(id));
         }
         stats = SpeciesStats.compute(base, nodes);
+        revision++;
         abilities.clear();
         actions.clear();
         visuals.clear();

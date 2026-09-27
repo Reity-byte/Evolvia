@@ -6,56 +6,84 @@ import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
+import evolvia.components.Velocity;
+import evolvia.core.Time;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import org.joml.Matrix4f;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
+
 /**
- * Draws all creatures in one instanced draw call. Position and heading are interpolated between
- * the last two ticks. Size and shade come from the genome, young creatures are smaller and grow;
- * sleeping creatures are darker, the selected creature is highlighted.
- * <p>
- * Placeholder shape: a box body with a smaller box head in front (+Z), so the heading is visible.
- * Procedural bodies come in phase 6. Only reads simulation data.
+ * Draws all creatures instanced, one draw call per species. Each species has a procedural mesh
+ * from {@link CreatureMeshBuilder}, rebuilt when its unlocked nodes change. Position and heading
+ * are interpolated between the last two ticks. Size and shade come from the genome, young creatures
+ * are smaller and grow; walking creatures swing their legs and bob, sleeping ones are darker,
+ * the selected creature is highlighted. Only reads simulation data.
  */
 public final class CreatureRenderer implements AutoCloseable {
 
     /** Newborns are drawn at this fraction of the adult size and grow linearly until adulthood. */
     private static final float NEWBORN_SCALE = 0.45f;
     private static final float SLEEP_DARKEN = 0.5f;
+    private static final float WALK_AMPLITUDE = 0.6f;
+    /** Body lift at the top of each step, as a fraction of the body size. */
+    private static final float BOB_HEIGHT = 0.035f;
+    /** Tiles walked per leg cycle, as a multiple of the body size. */
+    private static final float STRIDE = 0.9f;
     private static final float PI = (float) Math.PI;
+    private static final double TWO_PI = 2 * Math.PI;
 
     private final Shader shader;
-    private final InstanceBatch batch;
+    private final Map<Species, SpeciesMesh> meshes = new IdentityHashMap<>();
     private final Matrix4f model = new Matrix4f();
+
+    private static final class SpeciesMesh {
+        final InstanceBatch batch;
+        final int revision;
+
+        SpeciesMesh(Species species) {
+            batch = new InstanceBatch(CreatureMeshBuilder.build(species.stats().rgb(), species.visuals()).toMesh());
+            revision = species.revision();
+        }
+    }
 
     public CreatureRenderer() {
         shader = Shader.fromResources("shaders/creature.vert", "shaders/terrain.frag");
-        batch = new InstanceBatch(new BoxMeshBuilder()
-                .box(0f, 0.26f, -0.08f, 0.46f, 0.42f, 0.72f, 1.0f)   // body
-                .box(0f, 0.44f, 0.38f, 0.30f, 0.30f, 0.30f, 0.78f)   // head
-                .build());
     }
 
     /**
-     * @param alpha    interpolation factor between the previous (0) and the current (1) tick
-     * @param selected entity to highlight, or -1
+     * @param alpha      interpolation factor between the previous (0) and the current (1) tick
+     * @param simSeconds simulation time (for the walk animation; stops when paused)
+     * @param selected   entity to highlight, or -1
      */
-    public void render(Camera camera, Lighting lighting, EcsWorld ecs, float alpha, int selected) {
+    public void render(Camera camera, Lighting lighting, EcsWorld ecs, float alpha, double simSeconds, int selected) {
         ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
         ComponentStore<Transform> transforms = ecs.store(Transform.class);
         ComponentStore<PrevTransform> previous = ecs.store(PrevTransform.class);
         ComponentStore<Needs> needsStore = ecs.store(Needs.class);
         ComponentStore<Genome> genomes = ecs.store(Genome.class);
         ComponentStore<Age> ages = ecs.store(Age.class);
+        ComponentStore<Velocity> velocities = ecs.store(Velocity.class);
 
-        batch.begin();
+        for (SpeciesMesh mesh : meshes.values()) {
+            mesh.batch.begin();
+        }
+        Species lastKind = null;
+        InstanceBatch batch = null;
         for (int i = 0; i < creatures.size(); i++) {
             int entity = creatures.entityAt(i);
             Transform current = transforms.get(entity);
             if (current == null) {
                 continue;
+            }
+            Species kind = creatures.componentAt(i).species;
+            if (kind != lastKind) {
+                batch = batchFor(kind);
+                lastKind = kind;
             }
             PrevTransform prev = previous.get(entity);
             float x = current.position.x;
@@ -68,33 +96,60 @@ public final class CreatureRenderer implements AutoCloseable {
                 z = prev.position.z + (z - prev.position.z) * alpha;
                 yaw = lerpAngle(prev.yaw, yaw, alpha);
             }
-            SpeciesDefinition species = creatures.componentAt(i).species.stats();
+            SpeciesDefinition species = kind.stats();
             Genome genome = genomes.get(entity);
             float size = species.bodySize() * (genome != null ? genome.size : 1f) * growth(ages.get(entity), species);
+
+            Needs needs = needsStore.get(entity);
+            boolean sleeping = needs != null && needs.sleeping;
+            Velocity velocity = velocities.get(entity);
+            float phase = 0f;
+            float amplitude = 0f;
+            if (velocity != null && velocity.speed > 0f && !sleeping) {
+                // Leg cycles per second from the walking speed; entity id offsets the phase.
+                double cyclesPerSecond = velocity.speed * Time.TICKS_PER_SECOND / (STRIDE * size);
+                phase = (float) ((simSeconds * cyclesPerSecond * TWO_PI + entity * 1.7) % TWO_PI);
+                amplitude = WALK_AMPLITUDE;
+                y += Math.abs((float) Math.sin(phase)) * BOB_HEIGHT * size;
+            }
             model.translation(x, y, z).rotateY(yaw).scale(size);
 
-            int rgb = species.rgb();
             float brightness = genome != null ? genome.tint : 1f;
-            Needs needs = needsStore.get(entity);
-            if (needs != null && needs.sleeping) {
+            if (sleeping) {
                 brightness *= SLEEP_DARKEN;
             }
-            float r = ((rgb >> 16) & 0xFF) / 255f * brightness;
-            float g = ((rgb >> 8) & 0xFF) / 255f * brightness;
-            float b = (rgb & 0xFF) / 255f * brightness;
+            float r = brightness;
+            float g = brightness;
+            float b = brightness;
             if (entity == selected) {
-                r = 0.5f + 0.5f * r;
-                g = 0.5f + 0.5f * g;
-                b = 0.9f;
+                r = 1.25f;
+                g = 1.3f;
+                b = 1.9f;
             }
-            batch.add(model, r, g, b);
+            batch.add(model, r, g, b, phase, amplitude);
         }
 
         shader.bind();
         shader.setUniform("uProjection", camera.projection());
         shader.setUniform("uView", camera.view());
         lighting.apply(shader, camera);
-        batch.draw();
+        for (SpeciesMesh mesh : meshes.values()) {
+            mesh.batch.draw();
+        }
+    }
+
+    /** The species' batch, (re)building its mesh when the species has evolved since. */
+    private InstanceBatch batchFor(Species kind) {
+        SpeciesMesh mesh = meshes.get(kind);
+        if (mesh == null || mesh.revision != kind.revision()) {
+            if (mesh != null) {
+                mesh.batch.close();
+            }
+            mesh = new SpeciesMesh(kind);
+            mesh.batch.begin();
+            meshes.put(kind, mesh);
+        }
+        return mesh.batch;
     }
 
     /** Interpolates angles along the shorter way around the circle. */
@@ -121,7 +176,10 @@ public final class CreatureRenderer implements AutoCloseable {
 
     @Override
     public void close() {
-        batch.close();
+        for (SpeciesMesh mesh : meshes.values()) {
+            mesh.batch.close();
+        }
+        meshes.clear();
         shader.close();
     }
 }

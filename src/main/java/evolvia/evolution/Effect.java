@@ -15,7 +15,7 @@ public sealed interface Effect {
     record UnlockAbility(String ability) implements Effect {
     }
 
-    /** Changes a visual body part (used by procedural creature meshes in phase 6). */
+    /** Changes a visual body part (drawn by the procedural creature mesh, {@code CreatureMeshBuilder}). */
     record Visual(String part, String variant) implements Effect {
     }
 

@@ -39,15 +39,16 @@ public final class SceneRenderer implements AutoCloseable {
     }
 
     /**
-     * @param alpha    interpolation factor between the previous and the current tick
-     * @param selected creature to highlight, or -1
+     * @param alpha      interpolation factor between the previous and the current tick
+     * @param simSeconds simulation time in seconds (drives animations, stops when paused)
+     * @param selected   creature to highlight, or -1
      */
-    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, int selected) {
+    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, double simSeconds, int selected) {
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         terrainRenderer.render(camera, lighting);
         resourceRenderer.render(camera, lighting, world.ecs());
-        creatureRenderer.render(camera, lighting, world.ecs(), alpha, selected);
+        creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         waterRenderer.render(camera, lighting);
     }
 

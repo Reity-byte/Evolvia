@@ -13,7 +13,7 @@ import static org.lwjgl.system.MemoryUtil.memFree;
 
 /**
  * Debug text overlay (toggled with F3) drawn with stb_easy_font, which needs no font file.
- * Proper font rendering via stb_truetype comes with the UI in phase 6.
+ * ASCII only; the game UI uses real fonts ({@link Ui}, {@link FontAtlas}).
  */
 public final class DebugOverlay implements AutoCloseable {
 
@@ -22,7 +22,6 @@ public final class DebugOverlay implements AutoCloseable {
     private static final int VERTEX_BYTES = 16;
     private static final int QUAD_BYTES = 4 * VERTEX_BYTES;
     private static final float SCALE = 2f;
-    private static final float MARGIN = 6f;
     /** Line height of stb_easy_font in overlay units. */
     private static final float LINE_HEIGHT = 12f;
 
@@ -78,14 +77,6 @@ public final class DebugOverlay implements AutoCloseable {
         visible = !visible;
     }
 
-    /** Draws multi-line text in the top-left corner. Does nothing when hidden. */
-    public void render(String text, int framebufferWidth, int framebufferHeight) {
-        if (!visible) {
-            return;
-        }
-        draw(text, MARGIN, MARGIN, framebufferWidth, framebufferHeight, false);
-    }
-
     /**
      * Draws text centred horizontally above a point on the screen (e.g. over a creature's head),
      * independent of the F3 toggle.
@@ -135,7 +126,7 @@ public final class DebugOverlay implements AutoCloseable {
 
     /**
      * The debug font has ASCII only: removes diacritics (Czech names stay readable: "Silne nohy")
-     * and replaces other non-ASCII characters. Proper fonts come with the UI in phase 6.
+     * and replaces other non-ASCII characters (debug text only).
      */
     static String toAscii(String text) {
         String stripped = Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}", "");

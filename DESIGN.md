@@ -78,8 +78,8 @@ src/main/java/evolvia/
   evolution/   SpeciesDefinition (základ ze species.json), Species (stav druhu: EP, odemčené uzly, přepočtené statistiky, schopnosti), SpeciesStats, EvolutionTree, EvolutionNode, Effect, Condition, Stat
   ai/          Pathfinder (A*), Navigation (souš / plavání), akce utility AI (WanderAction, SeekResourceAction, ConsumeAction, SleepAction, SeekMateAction)
   god/         Faith, DivinePower, konkrétní zásahy
-  render/      Shader, Mesh, Camera, TerrainRenderer, CreatureRenderer, CreatureMeshBuilder
-  ui/          TextRenderer, DebugOverlay, panely
+  render/      Shader, Mesh, MeshData, Camera, TerrainRenderer, CreatureRenderer, CreatureMeshBuilder, PartMeshBuilder
+  ui/          Ui (immediate-mode UI), UiRenderer, FontAtlas + Font (stb_truetype), Hud, EvolutionTreeView, TreeLayout, CreatureSelection, DebugOverlay (F3)
   data/        načítání JSON definic
   save/        SaveManager, serializace
 src/main/resources/
@@ -89,6 +89,7 @@ src/main/resources/
   data/species.json       základní statistiky startovního druhu (velikost, rychlost, bloudění, počáteční populace)
   data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
   data/resources.json
+  fonts/                  Droid Sans (Apache 2.0, licence vedle), UI font s češtinou
 src/test/java/evolvia/
 packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lokální release)
 .github/workflows/        release.yml (matrix build + GitHub Release)
@@ -104,7 +105,8 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru, změna přes `--fps-cap <n>` (0 = vypnuto). Když V-Sync funguje, omezovač prakticky nic nedělá.
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
-- Ladicí klávesy: F3 přehled + graf populace, F4 evoluční panel (šipky, Enter = odemknout), F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP.
+- Klávesy: F4 evoluční strom (jinak tlačítko Evoluce), ESC zavře otevřené okno / zruší výběr, bez otevřeného okna ukončí hru.
+- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
@@ -237,6 +239,13 @@ Každý jedinec má `Genome` = malé odchylky (±10 %) od statistik druhu. Při 
 
 `CreatureMeshBuilder` složí mesh z primitiv podle vizuálních dílů druhu. Mesh se generuje **jednou na druh** (+ při změně stromu), jedinci se kreslí **instancovaně** s per-instance daty (matice, barevný odstín, velikost).
 
+**Rozhodnutí k fázi 6:**
+- Díly jsou natočené kvádry (low-poly). Základ: tělo, hlava s čumákem, oči, uši, 4 nohy, ocas. Barva = barva druhu (`species.json`), odstín z genomu, spící tmavší, vybraná zvýrazněná.
+- Vizuální díly (`visual` efekt: `part` → `variant`, první varianta = výchozí): `legs` normal/strong/long, `body` normal/large, `skin` normal/thick/sandy/moist/bare, `fur` none/thick/white, `feet` normal/webbed, `teeth` none/flat/mixed/sharp, `eyes` normal/big, `ears` normal/alert, `head` normal/large, `belly` normal/round. Při odemčení dalšího uzlu se stejným dílem vyhrává poslední odemčený. Nepodporovaný díl ve stromu = pád při startu s jasnou hláškou.
+- Geometrie dílů je v kódu (`CreatureMeshBuilder`), ne v JSON: je to vzhled, ne balancování.
+- Animace ve vertex shaderu: nohy (a chodidla, srst na nohou) se kývají kolem kyčle podle fáze chůze (per-instance fáze + amplituda), tělo se pohupuje. Rychlost kroku podle skutečné rychlosti, animace běží v simulačním čase (pauza ji zastaví).
+- Mršiny mají vlastní tvar (ležící tělo), rozlišené podle `foodType: meat`.
+
 Animace jen procedurální: pohupování těla a kmitání nohou podle rychlosti. Žádné kostry.
 
 ---
@@ -304,6 +313,7 @@ Načítání JSON, validace, EP, odemykání, přepočet statistik, efekty na AI
 
 ### Fáze 6 — Procedurální vzhled + UI
 CreatureMeshBuilder, text rendering, výběr bytosti, panel druhu, UI evolučního stromu.
+Rozhodnutí: UI je vlastní immediate-mode (`Ui`), celé v jednom draw callu; rozvržení a kliknutí se zpracují při vstupu, vykreslí se po scéně. Jednotky UI = body obrazovky × měřítko systému (Retina, Windows škálování). Font Droid Sans přes `stb_truetype` (ASCII, Latin-1, Latin Extended-A, pomlčky, uvozovky, …) v jednom atlasu; F3 zůstává ladicí `stb_easy_font`. Rozložení stromu se počítá z dat (`TreeLayout`: řádek = hloubka prerekvizit, sloupec pod rodičem, větve se zalamují podle šířky okna), pozice uzlů nejsou v JSON. Panel bytosti umí kameru „Sledovat“; kamera startuje nad populací.
 **DoD:** odemknutí uzlu viditelně změní vzhled bytostí; celý strom jde ovládat myší bez debug kláves.
 
 ### Fáze 7 — Božské zásahy

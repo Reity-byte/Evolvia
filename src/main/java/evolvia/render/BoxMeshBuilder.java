@@ -3,7 +3,7 @@ package evolvia.render;
 import java.util.Arrays;
 
 /**
- * Builds a mesh from axis-aligned boxes (placeholder shapes until procedural meshes in phase 6).
+ * Builds a mesh from axis-aligned boxes (resources: bushes, carcasses). Creatures use {@link PartMeshBuilder}.
  * Vertex layout: position (3), normal (3), shade (1) - the shade multiplies the instance color.
  */
 public final class BoxMeshBuilder {

@@ -7,7 +7,8 @@
       "description": "Pozornější k okolí: o něco dál vidí.",
       "cost": 20,
       "effects": [
-        { "type": "stat_mul", "stat": "sight", "value": 1.15 }
+        { "type": "stat_mul", "stat": "sight", "value": 1.15 },
+        { "type": "visual", "part": "ears", "variant": "alert" }
       ]
     },
     {
@@ -17,7 +18,8 @@
       "cost": 50,
       "requires": ["mind_instincts"],
       "effects": [
-        { "type": "unlock_ability", "ability": "memory" }
+        { "type": "unlock_ability", "ability": "memory" },
+        { "type": "visual", "part": "head", "variant": "large" }
       ]
     }
   ]

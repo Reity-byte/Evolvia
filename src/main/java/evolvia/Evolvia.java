@@ -1,5 +1,7 @@
 package evolvia;
 
+import evolvia.components.SpeciesRef;
+import evolvia.components.Transform;
 import evolvia.core.GameLoop;
 import evolvia.core.Input;
 import evolvia.core.LaunchOptions;
@@ -8,15 +10,19 @@ import evolvia.core.Time;
 import evolvia.core.Time.Speed;
 import evolvia.core.Window;
 import evolvia.data.DataLoader;
+import evolvia.ecs.ComponentStore;
 import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
 import evolvia.render.CameraController;
+import evolvia.render.CreatureMeshBuilder;
 import evolvia.render.SceneRenderer;
 import evolvia.ui.CreatureSelection;
 import evolvia.ui.DebugOverlay;
-import evolvia.ui.EvolutionPanel;
+import evolvia.ui.EvolutionTreeView;
+import evolvia.ui.Hud;
 import evolvia.ui.PopulationGraph;
+import evolvia.ui.Ui;
 import evolvia.world.Biome;
 import evolvia.world.BiomeTable;
 import evolvia.world.DeathStats;
@@ -53,7 +59,8 @@ public final class Evolvia implements GameLoop.Handler {
     private final LoopStats stats = new LoopStats();
     private final Camera camera = new Camera();
     private final CreatureSelection selection = new CreatureSelection();
-    private final EvolutionPanel evolutionPanel = new EvolutionPanel();
+    private final EvolutionTreeView treeView = new EvolutionTreeView();
+    private final Hud hud = new Hud();
 
     private WorldConfig worldConfig;
     private BiomeTable biomes;
@@ -67,6 +74,7 @@ public final class Evolvia implements GameLoop.Handler {
     private SceneRenderer sceneRenderer;
     private DebugOverlay debugOverlay;
     private PopulationGraph populationGraph;
+    private Ui ui;
     private CameraController cameraController;
     private String contextInfo;
     private int frameCap;
@@ -82,6 +90,7 @@ public final class Evolvia implements GameLoop.Handler {
         species = DataLoader.loadSpecies();
         resources = DataLoader.loadResources();
         evolutionTree = DataLoader.loadEvolutionTree(biomes);
+        CreatureMeshBuilder.validate(evolutionTree);
         world = createWorld(options.seed().orElseGet(Evolvia::randomSeed));
 
         window = new Window("Evolvia", WINDOW_WIDTH, WINDOW_HEIGHT, true);
@@ -93,11 +102,16 @@ public final class Evolvia implements GameLoop.Handler {
             sceneRenderer = new SceneRenderer(world, worldConfig.water());
             debugOverlay = new DebugOverlay();
             populationGraph = new PopulationGraph();
+            ui = new Ui();
             cameraController = new CameraController(camera, world.terrain());
+            focusOnPopulation();
 
             frameCap = options.fpsCap().orElseGet(window::refreshRate);
             new GameLoop(window, input, time, stats, this, frameCap).run();
         } finally {
+            if (ui != null) {
+                ui.close();
+            }
             if (populationGraph != null) {
                 populationGraph.close();
             }
@@ -128,10 +142,22 @@ public final class Evolvia implements GameLoop.Handler {
     @Override
     public void handleInput(float frameSeconds) {
         if (input.isKeyPressed(GLFW_KEY_ESCAPE)) {
-            window.requestClose();
+            // Close the topmost open window first; quit when nothing is open.
+            if (treeView.isVisible()) {
+                treeView.close();
+            } else if (selection.selected(world) >= 0) {
+                selection.clear();
+            } else if (hud.isSpeciesPanelVisible()) {
+                hud.toggleSpeciesPanel();
+            } else {
+                window.requestClose();
+            }
         }
         if (input.isKeyPressed(GLFW_KEY_F3)) {
             debugOverlay.toggle();
+        }
+        if (input.isKeyPressed(GLFW_KEY_F4)) {
+            treeView.toggle();
         }
         if (input.isKeyPressed(GLFW_KEY_F5)) {
             regenerateWorld();
@@ -139,13 +165,9 @@ public final class Evolvia implements GameLoop.Handler {
         if (input.isKeyPressed(GLFW_KEY_F6)) {
             world.emptyAllFood();
         }
-        if (input.isKeyPressed(GLFW_KEY_F4)) {
-            evolutionPanel.toggle();
-        }
         if (input.isKeyPressed(GLFW_KEY_F7)) {
             world.species().addPoints(100f); // debug
         }
-        evolutionPanel.handleInput(input, world);
         if (input.isKeyPressed(GLFW_KEY_SPACE)) {
             time.togglePause();
         }
@@ -158,8 +180,27 @@ public final class Evolvia implements GameLoop.Handler {
         if (input.isKeyPressed(GLFW_KEY_3)) {
             time.setSpeed(Speed.FASTEST);
         }
-        cameraController.update(input, window, frameSeconds);
-        selection.handleInput(input, window, camera, world);
+
+        // UI first: it decides whether the mouse belongs to a panel or to the world.
+        ui.beginFrame(input, window);
+        hud.build(ui, world, time, treeView);
+        if (treeView.isVisible()) {
+            treeView.build(ui, world, Hud.BAR_HEIGHT);
+        } else {
+            selection.buildPanel(ui, world, Hud.BAR_HEIGHT);
+        }
+        boolean mouseOnUi = ui.wantsMouse();
+
+        if (selection.isFollowing()) {
+            Transform followed = world.ecs().get(selection.selected(world), Transform.class);
+            if (followed != null) {
+                cameraController.follow(followed.position.x, followed.position.z);
+            }
+        }
+        cameraController.update(input, window, frameSeconds, !mouseOnUi, !treeView.isVisible());
+        if (!mouseOnUi) {
+            selection.handleInput(input, window, camera, world);
+        }
     }
 
     /** Debug: replaces the world with a new one from a random seed. */
@@ -168,7 +209,24 @@ public final class Evolvia implements GameLoop.Handler {
         sceneRenderer.close();
         sceneRenderer = new SceneRenderer(world, worldConfig.water());
         cameraController.setTerrain(world.terrain());
+        focusOnPopulation();
         selection.clear();
+    }
+
+    /** Points the camera at the middle of the population (the player's creatures). */
+    private void focusOnPopulation() {
+        ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
+        if (creatures.size() == 0) {
+            return;
+        }
+        double x = 0;
+        double z = 0;
+        for (int i = 0; i < creatures.size(); i++) {
+            Transform t = world.ecs().get(creatures.entityAt(i), Transform.class);
+            x += t.position.x;
+            z += t.position.z;
+        }
+        cameraController.focusOn((float) (x / creatures.size()), (float) (z / creatures.size()), 45f);
     }
 
     @Override
@@ -181,14 +239,19 @@ public final class Evolvia implements GameLoop.Handler {
         int width = window.framebufferWidth();
         int height = window.framebufferHeight();
         camera.setViewport(width, height);
-        sceneRenderer.render(camera, width, height, alpha, selection.selected(world));
-        selection.renderLabel(debugOverlay, camera, world, alpha, width, height);
+        double simSeconds = (time.tickCount() + alpha) / Time.TICKS_PER_SECOND;
+        sceneRenderer.render(camera, width, height, alpha, simSeconds, selection.selected(world));
 
-        if (debugOverlay.isVisible() && !evolutionPanel.isVisible()) { // one debug panel at a time
-            debugOverlay.render(debugText(), width, height);
+        if (debugOverlay.isVisible() && !treeView.isVisible()) {
+            selection.renderLabel(debugOverlay, camera, world, alpha, width, height);
+            float left = hud.isSpeciesPanelVisible() ? 350f : 10f;
+            debugOverlay.renderPanel(debugText(), left * ui.scale(), (Hud.BAR_HEIGHT + 12f) * ui.scale(), width, height);
             populationGraph.render(world.history(), debugOverlay, width, height);
         }
-        evolutionPanel.render(debugOverlay, world, width, height);
+        if (!treeView.isVisible()) {
+            selection.renderMarker(ui, camera, world, alpha, width, height);
+        }
+        ui.render(width, height);
     }
 
     private String debugText() {
@@ -225,7 +288,7 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(contextInfo).append("\n\n");
         sb.append("WASD / screen edge: pan | wheel: zoom | MMB drag, Q/E: rotate\n");
         sb.append("LMB: select creature | Space: pause | 1/2/3: speed 1x/3x/10x\n");
-        sb.append("F4: evolution | F5: new world | F6: empty all food | F7: +100 EP (debug) | F3: overlay | ESC: quit");
+        sb.append("F4: evolution tree | F5: new world | F6: empty all food | F7: +100 EP (debug) | F3: overlay | ESC: close / quit");
         return sb.toString();
     }
 }

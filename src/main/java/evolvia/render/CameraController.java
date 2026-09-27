@@ -20,7 +20,7 @@ import static org.lwjgl.glfw.GLFW.*;
  */
 public final class CameraController {
 
-    private static final float MIN_DISTANCE = 8f;
+    private static final float MIN_DISTANCE = 4f;
     private static final float MAX_DISTANCE = 280f;
     private static final float MIN_PITCH = (float) Math.toRadians(15);
     private static final float MAX_PITCH = (float) Math.toRadians(85);
@@ -57,12 +57,34 @@ public final class CameraController {
         this.terrain = terrain;
     }
 
+    /** Moves the focus to a ground point, keeping the zoom and rotation (e.g. following a creature). */
+    public void follow(float x, float z) {
+        focus.x = Math.clamp(x, 0f, terrain.width());
+        focus.z = Math.clamp(z, 0f, terrain.depth());
+    }
+
+    /** Moves the camera to look at a ground point from the given distance. */
+    public void focusOn(float x, float z, float newDistance) {
+        focus.set(Math.clamp(x, 0f, terrain.width()), 0f, Math.clamp(z, 0f, terrain.depth()));
+        focus.y = groundHeight(focus.x, focus.z);
+        distance = Math.clamp(newDistance, MIN_DISTANCE, MAX_DISTANCE);
+        applyToCamera();
+    }
+
     /** Point on the ground the camera orbits around. */
     public Vector3fc focus() {
         return focus;
     }
 
     public void update(Input input, Window window, float frameSeconds) {
+        update(input, window, frameSeconds, true, true);
+    }
+
+    /**
+     * @param allowZoom    false while the mouse is over UI (the wheel belongs to the UI)
+     * @param allowEdgePan false while a full-screen UI window is open
+     */
+    public void update(Input input, Window window, float frameSeconds, boolean allowZoom, boolean allowEdgePan) {
         float dt = Math.min(frameSeconds, MAX_FRAME_SECONDS);
 
         // Rotation
@@ -79,7 +101,7 @@ public final class CameraController {
         pitch = Math.clamp(pitch, MIN_PITCH, MAX_PITCH);
 
         // Zoom
-        if (input.scrollY() != 0) {
+        if (allowZoom && input.scrollY() != 0) {
             distance *= (float) Math.pow(ZOOM_STEP, input.scrollY());
             distance = Math.clamp(distance, MIN_DISTANCE, MAX_DISTANCE);
         }
@@ -91,7 +113,7 @@ public final class CameraController {
         if (input.isKeyDown(GLFW_KEY_S)) forwardInput -= 1;
         if (input.isKeyDown(GLFW_KEY_D)) rightInput += 1;
         if (input.isKeyDown(GLFW_KEY_A)) rightInput -= 1;
-        if (window.isFocused() && window.isHovered() && !input.isButtonDown(GLFW_MOUSE_BUTTON_MIDDLE)) {
+        if (allowEdgePan && window.isFocused() && window.isHovered() && !input.isButtonDown(GLFW_MOUSE_BUTTON_MIDDLE)) {
             double mx = input.mouseX();
             double my = input.mouseY();
             if (mx <= EDGE_PAN_MARGIN_PX) rightInput -= 1;
