@@ -1,0 +1,72 @@
+package evolvia.ai.actions;
+
+import evolvia.ai.Action;
+import evolvia.ai.ActionContext;
+import evolvia.ai.ActionType;
+import evolvia.components.ResourceNode;
+import evolvia.components.Transform;
+import evolvia.evolution.SpeciesDefinition;
+import evolvia.world.ResourceKind;
+
+/**
+ * Eat / Drink from a node within reach until satisfied. Eating takes whole food units from the
+ * node (one per {@code secondsPerUnit}); drinking is continuous and water never runs out.
+ */
+public final class ConsumeAction implements Action {
+
+    /** Stop eating / drinking once the need is this low. */
+    public static final float SATISFIED = 0.02f;
+
+    private final ResourceKind kind;
+
+    public ConsumeAction(ResourceKind kind) {
+        this.kind = kind;
+    }
+
+    @Override
+    public ActionType type() {
+        return kind == ResourceKind.FOOD ? ActionType.EAT : ActionType.DRINK;
+    }
+
+    @Override
+    public float score(ActionContext c) {
+        float need = need(c);
+        if (need <= SATISFIED * 2 || c.inReach(kind) < 0) {
+            return 0f;
+        }
+        return 0.3f + 0.7f * need; // being at the food makes eating attractive even when only a bit hungry
+    }
+
+    @Override
+    public void start(ActionContext c) {
+        c.stopMoving();
+        c.ai.targetEntity = c.inReach(kind);
+    }
+
+    @Override
+    public Status update(ActionContext c) {
+        int node = c.ai.targetEntity;
+        if (node < 0 || !c.isUsable(node)) {
+            return Status.DONE; // empty now: re-evaluate
+        }
+        Transform target = c.transforms.get(node);
+        c.face(target.position.x, target.position.z);
+
+        SpeciesDefinition.Eating eating = c.species.eating();
+        if (kind == ResourceKind.FOOD) {
+            int ticksPerUnit = Math.max(1, SpeciesDefinition.secondsToTicks(eating.secondsPerUnit()));
+            if (c.ai.actionTicks > 0 && c.ai.actionTicks % ticksPerUnit == 0) {
+                ResourceNode food = c.resources.get(node);
+                food.amount -= 1f;
+                c.needs.hunger = Math.max(0f, c.needs.hunger - eating.hungerPerUnit());
+            }
+        } else {
+            c.needs.thirst = Math.max(0f, c.needs.thirst - SpeciesDefinition.perTick(eating.thirstReliefPerSecond()));
+        }
+        return need(c) <= SATISFIED ? Status.DONE : Status.RUNNING;
+    }
+
+    private float need(ActionContext c) {
+        return kind == ResourceKind.FOOD ? c.needs.hunger : c.needs.thirst;
+    }
+}

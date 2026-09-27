@@ -22,6 +22,8 @@ public final class DebugOverlay implements AutoCloseable {
     private static final int QUAD_BYTES = 4 * VERTEX_BYTES;
     private static final float SCALE = 2f;
     private static final float MARGIN = 6f;
+    /** Line height of stb_easy_font in overlay units. */
+    private static final float LINE_HEIGHT = 12f;
 
     private final Shader shader;
     private final int vao;
@@ -77,14 +79,44 @@ public final class DebugOverlay implements AutoCloseable {
 
     /** Draws multi-line text in the top-left corner. Does nothing when hidden. */
     public void render(String text, int framebufferWidth, int framebufferHeight) {
-        if (!visible || framebufferWidth <= 0 || framebufferHeight <= 0) {
+        if (!visible) {
             return;
         }
+        draw(text, MARGIN, MARGIN, framebufferWidth, framebufferHeight);
+    }
 
+    /**
+     * Draws text centred horizontally above a point on the screen (e.g. over a creature's head),
+     * independent of the F3 toggle.
+     *
+     * @param screenX framebuffer pixels from the left
+     * @param screenY framebuffer pixels from the top (bottom edge of the text)
+     */
+    public void renderLabel(String text, float screenX, float screenY, int framebufferWidth, int framebufferHeight) {
+        float width = 0;
+        int lines = 1;
+        for (String line : text.split("\n", -1)) {
+            width = Math.max(width, STBEasyFont.stb_easy_font_width(line));
+        }
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                lines++;
+            }
+        }
+        float x = screenX / SCALE - width / 2f;
+        float y = screenY / SCALE - lines * LINE_HEIGHT;
+        draw(text, x, y, framebufferWidth, framebufferHeight);
+    }
+
+    /** Draws text at overlay coordinates (framebuffer pixels / SCALE) with a drop shadow. */
+    private void draw(String text, float x, float y, int framebufferWidth, int framebufferHeight) {
+        if (framebufferWidth <= 0 || framebufferHeight <= 0) {
+            return;
+        }
         vertices.clear();
-        int quads = STBEasyFont.stb_easy_font_print(MARGIN + 1, MARGIN + 1, text, shadowColor, vertices);
+        int quads = STBEasyFont.stb_easy_font_print(x + 1, y + 1, text, shadowColor, vertices);
         vertices.position(quads * QUAD_BYTES);
-        quads += STBEasyFont.stb_easy_font_print(MARGIN, MARGIN, text, null, vertices);
+        quads += STBEasyFont.stb_easy_font_print(x, y, text, null, vertices);
         vertices.position(0).limit(quads * QUAD_BYTES);
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);

@@ -7,7 +7,7 @@ import org.joml.Vector3fc;
 import static org.lwjgl.opengl.GL33C.*;
 
 /**
- * Renders the world: opaque terrain and creatures first, then the transparent water.
+ * Renders the world: opaque terrain, resources and creatures first, then the transparent water.
  * Reads the simulation state, never changes it.
  */
 public final class SceneRenderer implements AutoCloseable {
@@ -15,13 +15,15 @@ public final class SceneRenderer implements AutoCloseable {
     private final Lighting lighting = new Lighting();
     private final World world;
     private final TerrainRenderer terrainRenderer;
+    private final ResourceRenderer resourceRenderer;
     private final CreatureRenderer creatureRenderer;
     private final WaterRenderer waterRenderer;
 
     public SceneRenderer(World world, WorldConfig.WaterSettings water) {
         this.world = world;
         terrainRenderer = new TerrainRenderer(world.terrain());
-        creatureRenderer = new CreatureRenderer(world.species());
+        resourceRenderer = new ResourceRenderer();
+        creatureRenderer = new CreatureRenderer();
         waterRenderer = new WaterRenderer(world.terrain(), water);
 
         glEnable(GL_DEPTH_TEST);
@@ -37,19 +39,22 @@ public final class SceneRenderer implements AutoCloseable {
     }
 
     /**
-     * @param alpha interpolation factor between the previous and the current tick
+     * @param alpha    interpolation factor between the previous and the current tick
+     * @param selected creature to highlight, or -1
      */
-    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha) {
+    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, int selected) {
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         terrainRenderer.render(camera, lighting);
-        creatureRenderer.render(camera, lighting, world.ecs(), alpha);
+        resourceRenderer.render(camera, lighting, world.ecs());
+        creatureRenderer.render(camera, lighting, world.ecs(), alpha, selected);
         waterRenderer.render(camera, lighting);
     }
 
     @Override
     public void close() {
         terrainRenderer.close();
+        resourceRenderer.close();
         creatureRenderer.close();
         waterRenderer.close();
     }

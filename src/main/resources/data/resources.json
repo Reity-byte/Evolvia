@@ -1,0 +1,20 @@
+{
+  "resources": [
+    {
+      "id": "berry_bush",
+      "name": "Keř s bobulemi",
+      "kind": "food",
+      "capacity": 8,
+      "regrowPerSecond": 0.03,
+      "spawnDensity": 0.03,
+      "size": 0.9,
+      "color": "#c23a52",
+      "emptyColor": "#3d6b2c"
+    },
+    {
+      "id": "water",
+      "name": "Voda",
+      "kind": "water"
+    }
+  ]
+}

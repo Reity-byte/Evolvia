@@ -152,6 +152,8 @@ Input → GodPowers → Needs → Ai (rozhodování) → Pathfinding → Movemen
 - **Biomy** z kombinace teploty a vlhkosti (dva další noise kanály): tráva, les, poušť, tundra, bažina, voda. Definice v `biomes.json`.
 - Každá dlaždice má: výšku, biom, průchodnost, úrodnost.
 - **Zdroje ve světě** (`ResourceNode` entity): keře s bobulemi, stromy, voda, kámen. Jídlo **dorůstá** v čase podle úrodnosti biomu.
+  - Voda = neomezený `ResourceNode` na každé dlaždici souše u vody (bytost pije ze břehu). Stromy a kámen přijdou se sběrem (fáze 9).
+  - Zdroje jsou ve `SpatialGrid` zvlášť podle druhu (jídlo / voda), aby hledání jídla neprocházelo vodu.
 - **SpatialGrid**: rozdělení mapy do buněk (např. 16 × 16) pro rychlé dotazy „co je v okolí X“. Žádné O(n²) hledání.
 - Rendering terénu: jeden mesh rozdělený do chunků, barva podle biomu, per-vertex normály, jednoduché směrové světlo. Voda jako plochá průhledná rovina.
 
@@ -227,9 +229,13 @@ Animace jen procedurální: pohupování těla a kmitání nohou podle rychlosti
 **Utility AI:** každý tick (nebo každých N ticků kvůli výkonu, rozloženě mezi entity) bytost ohodnotí dostupné akce skóre 0..1 podle svých potřeb a okolí a vybere nejvyšší. Akce pak běží jako malý stavový automat, dokud neskončí nebo není přerušena výrazně silnější potřebou.
 
 **Akce (první verze):** `Wander`, `SeekFood`, `Eat`, `SeekWater`, `Drink`, `Sleep`, `SeekMate`, `Flee`.
+
+- Hodnocení každých `ai.evaluateEverySeconds` (rozloženo podle ID entity); akce se skóre 0 je nahrazena hned, jinak jen akcí s vyšším skóre o `ai.switchMargin`. Neúspěšná akce má krátký cooldown.
+- Hladová / žíznivá bytost, která nic nevidí, bloudí dál (`ai.exploreRadiusFactor`); při žízni preferuje nižší terén. Při kritickém hladu/žízni nespí.
+- Parametry potřeb, stravování a AI jsou v `data/species.json`.
 Později: `Hunt`, `Gather`, `Deliver`, `Build`, `FollowLeader`.
 
-**Pathfinding:** A* na mřížce dlaždic. Rozpočet výpočtů na tick (max X hledání cest za tick, zbytek čeká ve frontě), aby tisíc bytostí nezablokovalo tick. Cesty cachovat, přepočítat až při zablokování.
+**Pathfinding:** A* na mřížce dlaždic (8 směrů, bez řezání rohů), cesta se vyhlazuje přímou viditelností. Rozpočet na tick: max 40 hledání a ~20 000 prohledaných dlaždic, zbytek čeká ve frontě. Souvislé oblasti souše se spočítají předem, cesta mezi oblastmi selže bez hledání. Cesty se cachují, přepočítají se až při zablokování (max 3×).
 
 ---
 

@@ -4,6 +4,31 @@
   "color": "#d0843f",
   "bodySize": 0.8,
   "speed": 1.5,
+  "maxHealth": 1.0,
+  "lifespanSeconds": [1200, 1800],
+  "senseRadius": 40.0,
+  "needs": {
+    "hungerPerSecond": 0.004,
+    "thirstPerSecond": 0.0055,
+    "energyDrainPerSecond": 0.003,
+    "energyRecoverPerSecond": 0.02,
+    "sleepingNeedFactor": 0.5,
+    "damagePerSecond": 0.04,
+    "healthRegenPerSecond": 0.01
+  },
+  "eating": {
+    "hungerPerUnit": 0.25,
+    "secondsPerUnit": 1.0,
+    "thirstReliefPerSecond": 0.15
+  },
+  "ai": {
+    "evaluateEverySeconds": 0.5,
+    "switchMargin": 0.15,
+    "needThreshold": 0.3,
+    "sleepThreshold": 0.5,
+    "wanderScore": 0.1,
+    "exploreRadiusFactor": 3.0
+  },
   "wander": {
     "radius": 10.0,
     "pauseSeconds": [0.5, 3.0]
