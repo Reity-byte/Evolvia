@@ -25,7 +25,32 @@ class DataLoaderTest {
     }
 
     @Test
+    void parsesSpecies() {
+        var species = DataLoader.parseSpecies("""
+                {"id": "x", "color": "#102030", "bodySize": 0.5, "speed": 2,
+                 "wander": {"radius": 8, "pauseSeconds": [1, 2]}, "startingPopulation": 10}
+                """, "species.json");
+        assertEquals(0x102030, species.rgb());
+        assertEquals(0.1f, species.speedPerTick(), 1e-6f);
+        assertEquals(10, species.startingPopulation());
+        assertEquals("x", species.name(), "name defaults to id");
+    }
+
+    @Test
+    void rejectsInvalidSpecies() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> DataLoader.parseSpecies("""
+                {"id": "x", "color": "#102030", "bodySize": 0.5, "speed": 2,
+                 "wander": {"radius": 8, "pauseSeconds": [3, 1]}, "startingPopulation": 10}
+                """, "species.json"));
+        assertTrue(e.getMessage().contains("pauseSeconds"), e.getMessage());
+        assertThrows(IllegalStateException.class, () -> DataLoader.parseSpecies(
+                "{\"id\": \"x\", \"color\": \"#102030\", \"bodySize\": 0.5, \"wander\": {\"radius\": 8, \"pauseSeconds\": [1, 2]}, \"startingPopulation\": 1}",
+                "species.json"), "missing speed");
+    }
+
+    @Test
     void shippedDataFilesAreValid() {
+        assertNotNull(DataLoader.loadSpecies());
         assertNotNull(DataLoader.loadWorldConfig());
         BiomeTable biomes = DataLoader.loadBiomes();
         assertNotNull(biomes.water());

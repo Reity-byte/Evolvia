@@ -29,6 +29,8 @@ public final class Time {
     }
 
     private Speed speed = Speed.NORMAL;
+    /** Speed restored by {@link #togglePause()}. */
+    private Speed resumeSpeed = Speed.NORMAL;
     /** Accumulated, not yet simulated game time in nanoseconds. */
     private long accumulatorNanos;
     /** Index of the next tick to run. */
@@ -77,7 +79,15 @@ public final class Time {
     }
 
     public void setSpeed(Speed speed) {
+        if (speed == Speed.PAUSED && this.speed != Speed.PAUSED) {
+            resumeSpeed = this.speed;
+        }
         this.speed = speed;
+    }
+
+    /** Pauses, or resumes at the speed that was active before the pause. */
+    public void togglePause() {
+        setSpeed(speed == Speed.PAUSED ? resumeSpeed : Speed.PAUSED);
     }
 
     public long droppedTicks() {

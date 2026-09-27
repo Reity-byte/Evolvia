@@ -11,6 +11,7 @@ public final class Mesh implements AutoCloseable {
     private final int vbo;
     private final int ebo;
     private final int indexCount;
+    private final int attributeCount;
 
     /**
      * @param vertices       interleaved vertex data
@@ -28,6 +29,7 @@ public final class Mesh implements AutoCloseable {
         }
 
         indexCount = indices.length;
+        attributeCount = attributeSizes.length;
         vao = glGenVertexArrays();
         glBindVertexArray(vao);
 
@@ -53,6 +55,26 @@ public final class Mesh implements AutoCloseable {
     public void draw() {
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+
+    /**
+     * Binds this mesh's VAO, e.g. to attach per-instance attributes at locations from
+     * {@link #attributeCount()} up. Unbind with {@code glBindVertexArray(0)}.
+     */
+    public void bind() {
+        glBindVertexArray(vao);
+    }
+
+    /** Number of per-vertex attributes (locations 0 .. attributeCount-1). */
+    public int attributeCount() {
+        return attributeCount;
+    }
+
+    /** Draws {@code instances} copies in one call (instanced rendering). */
+    public void drawInstanced(int instances) {
+        glBindVertexArray(vao);
+        glDrawElementsInstanced(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0, instances);
         glBindVertexArray(0);
     }
 

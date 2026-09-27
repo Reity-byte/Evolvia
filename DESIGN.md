@@ -74,8 +74,8 @@ src/main/java/evolvia/
   ecs/         Entity, ComponentStore, EcsWorld, GameSystem
   components/  Transform, Velocity, Needs, Genome, Species, Diet, AiState, ...
   systems/     MovementSystem, NeedsSystem, AiSystem, ReproductionSystem, ...
-  world/       Terrain, TerrainGenerator, Biome, SpatialGrid, ResourceNode
-  evolution/   EvolutionTree, EvolutionNode, Effect, EvolutionState
+  world/       World (terén + entity + systémy, jeden Random), Terrain, TerrainGenerator, Biome, SpatialGrid, ResourceNode
+  evolution/   SpeciesDefinition (základní statistiky druhu), EvolutionTree, EvolutionNode, Effect, EvolutionState
   ai/          Pathfinder (A*), UtilityAi, akce (EatAction, WanderAction, ...)
   god/         Faith, DivinePower, konkrétní zásahy
   render/      Shader, Mesh, Camera, TerrainRenderer, CreatureRenderer, CreatureMeshBuilder
@@ -86,6 +86,7 @@ src/main/resources/
   shaders/
   data/evolution/*.json
   data/biomes.json
+  data/species.json       základní statistiky startovního druhu (velikost, rychlost, bloudění, počáteční populace)
   data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
   data/resources.json
 src/test/java/evolvia/
@@ -102,6 +103,7 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - Rendering běží tak rychle, jak to jde (V-Sync), a **interpoluje** pozice mezi posledními dvěma ticky.
 - **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru, změna přes `--fps-cap <n>` (0 = vypnuto). Když V-Sync funguje, omezovač prakticky nic nedělá.
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
+- Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 

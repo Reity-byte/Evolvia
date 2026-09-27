@@ -32,6 +32,11 @@ public final class Shader implements AutoCloseable {
                 readResource(basePath + ".frag"));
     }
 
+    /** Loads a vertex and a fragment shader with explicit classpath paths (lets shaders share a stage). */
+    public static Shader fromResources(String vertexPath, String fragmentPath) {
+        return new Shader(vertexPath + " + " + fragmentPath, readResource(vertexPath), readResource(fragmentPath));
+    }
+
     public Shader(String name, String vertexSource, String fragmentSource) {
         this.name = name;
         int vertex = compile(GL_VERTEX_SHADER, vertexSource, name + ".vert");

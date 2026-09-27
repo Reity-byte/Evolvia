@@ -67,6 +67,23 @@ class TimeTest {
     }
 
     @Test
+    void togglePauseResumesPreviousSpeed() {
+        Time time = new Time();
+        time.setSpeed(Time.Speed.FASTEST);
+        time.togglePause();
+        assertEquals(Time.Speed.PAUSED, time.speed());
+        time.togglePause();
+        assertEquals(Time.Speed.FASTEST, time.speed());
+
+        time.togglePause();
+        time.setSpeed(Time.Speed.FAST); // choosing a speed while paused resumes at that speed
+        assertEquals(Time.Speed.FAST, time.speed());
+        time.togglePause();
+        time.togglePause();
+        assertEquals(Time.Speed.FAST, time.speed());
+    }
+
+    @Test
     void nextTickCountsUp() {
         Time time = new Time();
         assertEquals(0, time.nextTick());

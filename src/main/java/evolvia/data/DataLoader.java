@@ -2,6 +2,7 @@ package evolvia.data;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
+import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
 import evolvia.world.BiomeTable;
@@ -24,6 +25,7 @@ public final class DataLoader {
 
     public static final String WORLD_CONFIG = "data/world.json";
     public static final String BIOMES = "data/biomes.json";
+    public static final String SPECIES = "data/species.json";
 
     private static final Gson GSON = new Gson();
 
@@ -45,6 +47,41 @@ public final class DataLoader {
         config.validate(source);
         Colors.parseHex(config.water().color(), source + ": water.color");
         return config;
+    }
+
+    /** Loads and validates {@code data/species.json}. */
+    public static SpeciesDefinition loadSpecies() {
+        return parseSpecies(readResource(SPECIES), SPECIES);
+    }
+
+    public static SpeciesDefinition parseSpecies(String json, String source) {
+        SpeciesJson s = fromJson(json, SpeciesJson.class, source);
+        require(s.id() != null && !s.id().isBlank(), source, "missing \"id\"");
+        require(s.bodySize() != null && s.bodySize() > 0, source, "bodySize must be positive");
+        require(s.speed() != null && s.speed() > 0, source, "speed must be positive");
+        require(s.wander() != null, source, "missing \"wander\"");
+        require(s.wander().radius() != null && s.wander().radius() > 0, source, "wander.radius must be positive");
+        float[] pause = s.wander().pauseSeconds();
+        require(pause != null && pause.length == 2 && pause[0] >= 0 && pause[0] <= pause[1], source,
+                "wander.pauseSeconds must be [min, max] with 0 <= min <= max");
+        require(s.startingPopulation() != null && s.startingPopulation() >= 0 && s.startingPopulation() <= 100_000, source,
+                "startingPopulation must be between 0 and 100000");
+        return new SpeciesDefinition(
+                s.id(),
+                s.name() != null ? s.name() : s.id(),
+                Colors.parseHex(s.color(), source + ": color"),
+                s.bodySize(),
+                s.speed(),
+                s.wander().radius(),
+                pause[0],
+                pause[1],
+                s.startingPopulation());
+    }
+
+    private static void require(boolean condition, String source, String message) {
+        if (!condition) {
+            throw new IllegalStateException(source + ": " + message);
+        }
     }
 
     public static BiomeTable parseBiomes(String json, String source) {
@@ -114,6 +151,14 @@ public final class DataLoader {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read data file: " + path, e);
         }
+    }
+
+    /** JSON shape of {@code species.json}; boxed types so a missing value is null. */
+    private record SpeciesJson(String id, String name, String color, Float bodySize, Float speed,
+                               WanderJson wander, Integer startingPopulation) {
+    }
+
+    private record WanderJson(Float radius, float[] pauseSeconds) {
     }
 
     /** JSON shape of {@code biomes.json}. */

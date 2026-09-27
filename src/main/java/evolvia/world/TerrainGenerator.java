@@ -16,9 +16,16 @@ public final class TerrainGenerator {
     private TerrainGenerator() {
     }
 
+    /** Generates a terrain with a fresh {@code Random(seed)}. */
     public static Terrain generate(WorldConfig config, BiomeTable biomes, long seed) {
-        // One Random per world; noise channels are created from it in a fixed order.
-        Random random = new Random(seed);
+        return generate(config, biomes, seed, new Random(seed));
+    }
+
+    /**
+     * Generates a terrain using the world's {@link Random}, which the simulation then continues to use
+     * (one Random per world). Noise channels are created from it in a fixed order.
+     */
+    public static Terrain generate(WorldConfig config, BiomeTable biomes, long seed, Random random) {
         SimplexNoise heightNoise = new SimplexNoise(random);
         SimplexNoise temperatureNoise = new SimplexNoise(random);
         SimplexNoise moistureNoise = new SimplexNoise(random);
