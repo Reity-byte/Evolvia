@@ -42,7 +42,7 @@ glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 ```
 Nepoužívat nic nad OpenGL 4.1.
 
-**Distribuce:** fat jar s LWJGL natives pro `windows`, `linux`, `macos`, `macos-arm64`.
+**Distribuce:** fat jar (s LWJGL natives pro `windows`, `linux`, `macos`, `macos-arm64`) → jpackage app-image (hra + launcher) pro windows/macos/linux, publikované přes GitHub Releases (`.github/workflows/release.yml` na tag `v*`). Hráč instaluje jen launcher, ten stahuje a aktualizuje hru do `<data>/versions/`. Vývoj: `java -jar`, data v `./run`. Lokální test balení: `packaging/package.ps1 -Launch`. Detaily viz §11 „Průřezová infrastruktura“.
 
 **Známý problém vývojového prostředí:** spuštění `Main` přes IntelliJ Run configuration padá nativně v `lwjgl_opengl.dll` kvůli IntelliJ javaagentovi. Ruční testování probíhá přes `mvn package` a `java -jar target/<jar>.jar`. Na macOS je navíc potřeba `-XstartOnFirstThread`.
 
@@ -66,8 +66,11 @@ Nepoužívat nic nad OpenGL 4.1.
 
 ```
 src/main/java/evolvia/
-  Main.java
-  core/        GameLoop, Time (tick rate, rychlost hry), Input, Window
+  Main.java           vstupní bod pro vývoj (IDE, java -jar), data v ./run
+  Launch.java         vstupní bod hry pro hráče (nastaví GameDirs, pak Main)
+  LauncherMain.java   vstupní bod launcheru
+  core/        GameLoop, Time (tick rate, rychlost hry), Input, Window, GameDirs (datová složka), Platform
+  launcher/    LauncherCore (logika, testovatelná offline), LauncherWindow (Swing), Archives (bezpečné rozbalení)
   ecs/         Entity, ComponentStore, EcsWorld, GameSystem
   components/  Transform, Velocity, Needs, Genome, Species, Diet, AiState, ...
   systems/     MovementSystem, NeedsSystem, AiSystem, ReproductionSystem, ...
@@ -86,6 +89,8 @@ src/main/resources/
   data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
   data/resources.json
 src/test/java/evolvia/
+packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lokální release)
+.github/workflows/        release.yml (matrix build + GitHub Release)
 ```
 
 ---
@@ -282,11 +287,23 @@ Víra, 4 zásahy z sekce 9, vizuální efekty (jednoduché).
 
 ### Fáze 8 — Save/Load
 Serializace světa, entit, stavu druhu a stromu do JSON (s polem `saveVersion`). Autosave.
+Savy a nastavení se ukládají pod `GameDirs.root()` (např. `saves/`). Cesty se nesmí počítat ve statických konstantách tříd načtených před `Launch` — kořen dat nastavuje vstupní bod.
 **DoD:** uložení a načtení vrátí hru do identického stavu (ověřit testem: save → load → porovnání).
 
 ### Fáze 9+ — Mysl a kmen
 Větev Mysl: sociální skupiny, sběr a nošení zdrojů, sklad, první stavby, joby.
 Detailní návrh se doplní do tohoto dokumentu **před** začátkem fáze.
+
+### Průřezová infrastruktura (mimo fáze)
+Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádné fáze.
+
+- **Jeden fat jar, tři vstupní body:** `Main` (vývoj, data v `./run`), `Launch` (hra pro hráče), `LauncherMain` (launcher).
+- **Datová složka (`GameDirs`):** Windows `%APPDATA%\Evolvia`, macOS `~/Library/Application Support/Evolvia`, Linux `$XDG_DATA_HOME/evolvia` (jinak `~/.local/share/evolvia`). Přebíjí `-Devolvia.home` a proměnná `EVOLVIA_HOME` (launcher ji předává hře). Všechny verze sdílí savy; nainstalované verze leží v `versions/<tag>/`, aktuální v `versions/current.txt`.
+- **Release:** push tagu `v*` → `.github/workflows/release.yml` (matrix Windows/macOS/Linux, jpackage nemá cross-compile) → GitHub Release se 6 soubory `Evolvia-<os>` a `EvolviaLauncher-<os>` (`.zip`, Linux `.tar.gz`). macOS: ad-hoc `codesign`, `ditto`; hra s `-XstartOnFirstThread`.
+- **Moduly JDK:** hra `java.base,java.sql,jdk.unsupported` (ověřit `jdeps --print-module-deps` při nové závislosti), launcher navíc `java.desktop,java.net.http,jdk.crypto.ec` (bez `jdk.crypto.ec` selže TLS s GitHubem). Seznam je v `release.yml` i `package.ps1` a musí být shodný.
+- **Launcher:** GitHub API `releases/latest` bez tokenu (repo musí být veřejné, limit 60 req/h), porovnání verzí číselně po částech, rozbalení odmítá zip slip, převádí zpětná lomítka z PowerShell zipů, obnovuje unixová práva a symlinky. Offline spustí poslední nainstalovanou verzi.
+- **Lokální test bez CI:** `packaging/package.ps1 -SkipTests -Launch` (lokální release v `dist/`, data v `./run`).
+- **Známé limity:** launcher se sám neaktualizuje, chybí checksum stažení, macOS balíček je jen pro Apple Silicon (`macos-latest`), bez notarizace zůstává varování Gatekeeperu, staré verze v `versions/` se nemažou.
 
 ---
 

@@ -24,18 +24,18 @@ class LauncherCoreTest {
     /** Trimmed real-world shape of GitHub's GET /repos/{owner}/{repo}/releases/latest. */
     private static final String GITHUB_JSON = """
             {
-              "url": "https://api.github.com/repos/Reity-byte/evolvia/releases/1",
+              "url": "https://api.github.com/repos/Reity-byte/Evolvia/releases/1",
               "tag_name": "v0.2",
               "name": "Evolvia 0.2",
               "draft": false,
               "prerelease": false,
               "assets": [
-                {"name": "Evolvia-windows.zip", "size": 50000000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/Evolvia-windows.zip"},
-                {"name": "EvolviaLauncher-windows.zip", "size": 40000000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/EvolviaLauncher-windows.zip"},
-                {"name": "Evolvia-macos.zip", "size": 52000000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/Evolvia-macos.zip"},
-                {"name": "EvolviaLauncher-macos.zip", "size": 41000000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/EvolviaLauncher-macos.zip"},
-                {"name": "Evolvia-linux.tar.gz", "size": 51000000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/Evolvia-linux.tar.gz"},
-                {"name": "EvolviaLauncher-linux.tar.gz", "size": 40500000, "browser_download_url": "https://github.com/Reity-byte/evolvia/releases/download/v0.2/EvolviaLauncher-linux.tar.gz"}
+                {"name": "Evolvia-windows.zip", "size": 50000000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/Evolvia-windows.zip"},
+                {"name": "EvolviaLauncher-windows.zip", "size": 40000000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/EvolviaLauncher-windows.zip"},
+                {"name": "Evolvia-macos.zip", "size": 52000000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/Evolvia-macos.zip"},
+                {"name": "EvolviaLauncher-macos.zip", "size": 41000000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/EvolviaLauncher-macos.zip"},
+                {"name": "Evolvia-linux.tar.gz", "size": 51000000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/Evolvia-linux.tar.gz"},
+                {"name": "EvolviaLauncher-linux.tar.gz", "size": 40500000, "browser_download_url": "https://github.com/Reity-byte/Evolvia/releases/download/v0.2/EvolviaLauncher-linux.tar.gz"}
               ]
             }
             """;
@@ -53,7 +53,7 @@ class LauncherCoreTest {
         assertEquals("v0.2", release.tag());
         assertEquals(6, release.assets().size());
         assertEquals(50000000, release.assets().get(0).size());
-        assertEquals(URI.create("https://github.com/Reity-byte/evolvia/releases/download/v0.2/Evolvia-windows.zip"),
+        assertEquals(URI.create("https://github.com/Reity-byte/Evolvia/releases/download/v0.2/Evolvia-windows.zip"),
                 release.assets().get(0).url());
     }
 

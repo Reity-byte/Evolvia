@@ -39,7 +39,7 @@ import java.util.stream.Stream;
 public final class LauncherCore {
 
     /** GitHub repository that publishes the releases (must be public: the API is used without a token). */
-    public static final String REPO = "Reity-byte/evolvia";
+    public static final String REPO = "Reity-byte/Evolvia";
     public static final URI GITHUB_LATEST_RELEASE = URI.create("https://api.github.com/repos/" + REPO + "/releases/latest");
     /** Game packages are named {@code Evolvia-<os>.<ext>}; compared case-insensitively. */
     static final String PACKAGE_PREFIX = "evolvia-";
