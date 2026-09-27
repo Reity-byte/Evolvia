@@ -57,6 +57,11 @@ public final class Births {
     }
 
     /** Offspring born since the world started. */
+    /** Restores the total from a save game. */
+    public void restoreTotal(int total) {
+        this.total = total;
+    }
+
     public int total() {
         return total;
     }

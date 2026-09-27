@@ -74,6 +74,17 @@ public final class GodPowers {
         return taken;
     }
 
+    /** Commands waiting for the next tick (normally none between ticks). */
+    public List<Command> queued() {
+        return Collections.unmodifiableList(queue);
+    }
+
+    /** Restores a queued command from a save game (without checking the faith again). */
+    public void restoreQueued(Command command) {
+        queue.add(command);
+        queuedCost += config.of(command.power()).cost();
+    }
+
     public void addRain(RainArea rain) {
         rains.add(rain);
     }

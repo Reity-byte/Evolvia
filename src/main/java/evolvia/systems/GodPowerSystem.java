@@ -15,7 +15,9 @@ import evolvia.god.GodPowers;
 import evolvia.world.ResourceKind;
 import evolvia.world.World;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * Applies the god powers the player used since the last tick (DESIGN.md §9), paying their faith and
@@ -29,6 +31,7 @@ public final class GodPowerSystem implements GameSystem {
 
     private final World world;
     private final GodPowers powers;
+    private final List<Integer> rained = new ArrayList<>();
 
     public GodPowerSystem(World world, GodPowers powers) {
         this.world = world;
@@ -100,7 +103,10 @@ public final class GodPowerSystem implements GameSystem {
                     node.amount = Math.min(node.type.capacity(), node.amount + node.regrowPerTick * (rain.regrowMultiplier() - 1f));
                 }
             });
-            world.creatureGrid().forEachWithin(area.x(), area.z(), area.radius(), entity -> {
+            rained.clear();
+            world.creatureGrid().forEachWithin(area.x(), area.z(), area.radius(), rained::add);
+            rained.sort(null); // by ID: independent of the grid's internal order (save games)
+            for (int entity : rained) {
                 Needs needs = needsStore.get(entity);
                 if (needs != null && needs.thirst >= RAIN_THIRST) {
                     needs.thirst = Math.max(0f, needs.thirst - relief);
@@ -108,7 +114,7 @@ public final class GodPowerSystem implements GameSystem {
                         ecs.add(entity, new Believer()); // drank the god's rain
                     }
                 }
-            });
+            }
         }
     }
 

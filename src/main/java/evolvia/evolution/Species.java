@@ -133,6 +133,28 @@ public final class Species {
     }
 
     /**
+     * Restores a saved species state: points and unlocked nodes (in their order), without paying or
+     * checking conditions. Nodes the current tree does not have are skipped.
+     *
+     * @return ids of skipped nodes
+     */
+    public List<String> restore(float points, float pointsEarned, List<String> unlockedNodes) {
+        this.points = points;
+        this.pointsEarned = pointsEarned;
+        unlocked.clear();
+        List<String> skipped = new ArrayList<>();
+        for (String id : unlockedNodes) {
+            if (tree.node(id) != null) {
+                unlocked.add(id);
+            } else {
+                skipped.add(id);
+            }
+        }
+        recompute();
+        return skipped;
+    }
+
+    /**
      * Unlocks a node: pays its cost and recomputes the stats.
      *
      * @throws IllegalStateException if the node is not available (unknown id, missing requirements, ...)

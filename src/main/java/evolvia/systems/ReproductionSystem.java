@@ -65,6 +65,11 @@ public final class ReproductionSystem implements GameSystem {
         births.clear(born);
     }
 
+    /** Restores the highest generation from a save game. */
+    public void restoreMaxGeneration(int generation) {
+        maxGeneration = generation;
+    }
+
     /** Highest generation born so far. */
     public int maxGeneration() {
         return maxGeneration;

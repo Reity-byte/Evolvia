@@ -82,6 +82,17 @@ public final class Faith {
         }
     }
 
+    /** Restores the state from a save game. */
+    public void restore(float points, float earned, float perMinute, int believers, float alignment, int kindActs, int cruelActs) {
+        this.points = points;
+        this.earned = earned;
+        this.perMinute = perMinute;
+        this.believers = believers;
+        this.alignment = alignment;
+        this.kindActs = kindActs;
+        this.cruelActs = cruelActs;
+    }
+
     /** Called by the faith income once per game second. */
     public void setIncome(int believers, float perMinute) {
         this.believers = believers;

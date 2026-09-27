@@ -7,6 +7,11 @@ public final class DeathStats {
 
     private final int[] counts = new int[Cause.values().length];
 
+    /** Restores a saved count (save games). */
+    public void restore(Cause cause, int count) {
+        counts[cause.ordinal()] = count;
+    }
+
     public void record(Cause cause) {
         counts[cause.ordinal()]++;
     }

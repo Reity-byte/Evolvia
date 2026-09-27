@@ -32,8 +32,13 @@ public final class Hud {
         speciesPanel = !speciesPanel;
     }
 
-    /** Lays out, draws and handles clicks of the top bar (and the species panel when open). */
-    public void build(Ui ui, World world, Time time, EvolutionTreeView tree) {
+    /**
+     * Lays out, draws and handles clicks of the top bar (and the species panel when open).
+     *
+     * @param menuOpen whether the game menu is open (its button is highlighted)
+     * @return true if the game menu button was clicked
+     */
+    public boolean build(Ui ui, World world, Time time, EvolutionTreeView tree, boolean menuOpen) {
         Species species = world.species();
         float w = ui.width();
         ui.draw().rect(0, 0, w, BAR_HEIGHT, 0xF0161920);
@@ -41,7 +46,9 @@ public final class Hud {
         ui.block(0, 0, w, BAR_HEIGHT);
 
         float y = (BAR_HEIGHT - ui.regular.lineHeight()) / 2f;
-        float x = 12f;
+        float x = 6f;
+        boolean menuClicked = ui.button("Hra", x, 5f, ui.buttonWidth("Hra"), BAR_HEIGHT - 10f, menuOpen);
+        x += ui.buttonWidth("Hra") + 14f;
         x += ui.text(ui.bold, species.stats().name(), x, y, Ui.TEXT) + 18f;
         x += stat(ui, "Populace", Integer.toString(world.population()), x, y);
         x += stat(ui, "Generace", Integer.toString(world.maxGeneration()), x, y);
@@ -88,9 +95,10 @@ public final class Hud {
         }
         ui.text(ui.small, "Rychlost", sx - ui.small.width("Rychlost") - 6f, y + 2f, Ui.TEXT_DIM);
 
-        if (speciesPanel && !tree.isVisible()) {
+        if (speciesPanel && !tree.isVisible() && !menuOpen) {
             speciesPanel(ui, world);
         }
+        return menuClicked;
     }
 
     /** Faith, believers and the god's alignment (good / evil). */

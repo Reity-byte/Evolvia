@@ -20,6 +20,13 @@ class LaunchOptionsTest {
         LaunchOptions options = LaunchOptions.parse(new String[]{"--seed", "-42", "--fps-cap", "0"});
         assertEquals(-42, options.seed().getAsLong());
         assertEquals(0, options.fpsCap().getAsInt());
+        assertTrue(options.load().isEmpty());
+    }
+
+    @Test
+    void parsesSaveToLoad() {
+        assertEquals("Můj svět", LaunchOptions.parse(new String[]{"--load", "Můj svět"}).load().orElseThrow());
+        assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(new String[]{"--load"}));
     }
 
     @Test

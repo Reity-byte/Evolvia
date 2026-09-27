@@ -2,6 +2,7 @@ package evolvia;
 
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
+import evolvia.core.GameDirs;
 import evolvia.core.GameLoop;
 import evolvia.core.Input;
 import evolvia.core.LaunchOptions;
@@ -16,19 +17,24 @@ import evolvia.evolution.SpeciesDefinition;
 import evolvia.god.DivinePower;
 import evolvia.god.GodConfig;
 import evolvia.god.GodPowers;
-import evolvia.render.GodEffectsRenderer;
-import evolvia.ui.GroundPicker;
-import evolvia.ui.PowerBar;
-import org.joml.Vector3f;
 import evolvia.render.Camera;
 import evolvia.render.CameraController;
 import evolvia.render.CreatureMeshBuilder;
+import evolvia.render.GodEffectsRenderer;
 import evolvia.render.SceneRenderer;
+import evolvia.save.SaveData;
+import evolvia.save.SaveException;
+import evolvia.save.SaveManager;
+import evolvia.save.WorldCodec;
 import evolvia.ui.CreatureSelection;
 import evolvia.ui.DebugOverlay;
 import evolvia.ui.EvolutionTreeView;
+import evolvia.ui.GameMenu;
+import evolvia.ui.GroundPicker;
 import evolvia.ui.Hud;
+import evolvia.ui.Notifications;
 import evolvia.ui.PopulationGraph;
+import evolvia.ui.PowerBar;
 import evolvia.ui.Ui;
 import evolvia.world.Biome;
 import evolvia.world.BiomeTable;
@@ -37,8 +43,12 @@ import evolvia.world.ResourceTable;
 import evolvia.world.Terrain;
 import evolvia.world.World;
 import evolvia.world.WorldConfig;
+import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -52,6 +62,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F6;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F9;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
 /**
@@ -70,6 +81,14 @@ public final class Evolvia implements GameLoop.Handler {
     private final EvolutionTreeView treeView = new EvolutionTreeView();
     private final Hud hud = new Hud();
     private final PowerBar powerBar = new PowerBar();
+    private final GameMenu gameMenu = new GameMenu();
+    private final Notifications notifications = new Notifications();
+    /** Autosave every 5 minutes of real time while the game runs (not while paused). */
+    private static final float AUTOSAVE_SECONDS = 300f;
+    private float autosaveTimer;
+    /** Set by the background save writer; the open menu then reloads its list. */
+    private volatile boolean savesChanged;
+    private SaveManager saves;
     private final GroundPicker groundPicker = new GroundPicker();
     private GodEffectsRenderer.Brush brush;
     private static final double FLASH_SECONDS = 0.25;
@@ -107,7 +126,16 @@ public final class Evolvia implements GameLoop.Handler {
         evolutionTree = DataLoader.loadEvolutionTree(biomes);
         CreatureMeshBuilder.validate(evolutionTree);
         godConfig = DataLoader.loadGodConfig();
-        world = createWorld(options.seed().orElseGet(Evolvia::randomSeed));
+        // Resolved here, not in a static constant: the entry point decides where the data folder is.
+        saves = new SaveManager(GameDirs.root().resolve("saves"));
+        WorldCodec.Loaded startSave = null;
+        if (options.load().isPresent()) {
+            startSave = WorldCodec.restore(saves.load(options.load().get()), gameData());
+            world = startSave.world();
+            time.restore(startSave.tick(), startSave.speed());
+        } else {
+            world = createWorld(options.seed().orElseGet(Evolvia::randomSeed));
+        }
 
         window = new Window("Evolvia", WINDOW_WIDTH, WINDOW_HEIGHT, true);
         try {
@@ -120,11 +148,17 @@ public final class Evolvia implements GameLoop.Handler {
             populationGraph = new PopulationGraph();
             ui = new Ui();
             cameraController = new CameraController(camera, world.terrain());
-            focusOnPopulation();
+            if (startSave != null && startSave.view() != null) {
+                setView(startSave.view());
+            } else {
+                focusOnPopulation();
+            }
 
             frameCap = options.fpsCap().orElseGet(window::refreshRate);
             new GameLoop(window, input, time, stats, this, frameCap).run();
+            autosave(); // on quit
         } finally {
+            saves.close(); // waits for the save being written
             if (ui != null) {
                 ui.close();
             }
@@ -159,7 +193,9 @@ public final class Evolvia implements GameLoop.Handler {
     public void handleInput(float frameSeconds) {
         if (input.isKeyPressed(GLFW_KEY_ESCAPE)) {
             // Put away the selected power / close the topmost open window first; quit when nothing is open.
-            if (powerBar.armed() != null) {
+            if (gameMenu.isVisible()) {
+                gameMenu.close();
+            } else if (powerBar.armed() != null) {
                 powerBar.disarm();
             } else if (treeView.isVisible()) {
                 treeView.close();
@@ -178,7 +214,10 @@ public final class Evolvia implements GameLoop.Handler {
             treeView.toggle();
         }
         if (input.isKeyPressed(GLFW_KEY_F5)) {
-            regenerateWorld();
+            saveAsync(SaveManager.QUICK_SAVE, "Rychle uloženo");
+        }
+        if (input.isKeyPressed(GLFW_KEY_F9)) {
+            load(SaveManager.QUICK_SAVE);
         }
         if (input.isKeyPressed(GLFW_KEY_F6)) {
             world.emptyAllFood();
@@ -204,17 +243,43 @@ public final class Evolvia implements GameLoop.Handler {
 
         // UI first: it decides whether the mouse belongs to a panel or to the world.
         ui.beginFrame(input, window);
-        hud.build(ui, world, time, treeView);
-        if (treeView.isVisible()) {
+        if (hud.build(ui, world, time, treeView, gameMenu.isVisible())) {
+            if (gameMenu.isVisible()) {
+                gameMenu.close();
+            } else {
+                gameMenu.open(saves.list());
+                treeView.close();
+                powerBar.disarm();
+            }
+        }
+        if (gameMenu.isVisible()) {
+            if (savesChanged) {
+                savesChanged = false;
+                gameMenu.setSaves(saves.list());
+            }
+            GameMenu.Choice choice = gameMenu.build(ui, Hud.BAR_HEIGHT, input.scrollY());
+            if (choice != null) {
+                menuChoice(choice);
+            }
+        } else if (treeView.isVisible()) {
             treeView.build(ui, world, Hud.BAR_HEIGHT);
         } else {
             selection.buildPanel(ui, world, Hud.BAR_HEIGHT);
             powerBar.build(ui, world);
         }
+        notifications.build(ui, Hud.BAR_HEIGHT);
         boolean mouseOnUi = ui.wantsMouse();
 
+        if (time.speed() != Speed.PAUSED) {
+            autosaveTimer += frameSeconds;
+            if (autosaveTimer >= AUTOSAVE_SECONDS) {
+                autosaveTimer = 0f;
+                saveAsync(SaveManager.AUTOSAVE, "Automaticky uloženo");
+            }
+        }
+
         brush = null;
-        if (!treeView.isVisible() && !mouseOnUi && powerBar.armed() != null) {
+        if (!treeView.isVisible() && !gameMenu.isVisible() && !mouseOnUi && powerBar.armed() != null) {
             Vector3f ground = groundPicker.pick(input, window, camera, world.terrain());
             brush = powerBar.handleWorld(input, world, ground, frameSeconds);
         }
@@ -234,14 +299,116 @@ public final class Evolvia implements GameLoop.Handler {
         }
     }
 
-    /** Debug: replaces the world with a new one from a random seed. */
+    /** Replaces the world with a new one from a random seed (menu: "Nový svět"). */
     private void regenerateWorld() {
-        world = createWorld(randomSeed());
+        replaceWorld(createWorld(randomSeed()));
+        focusOnPopulation();
+    }
+
+    private void replaceWorld(World replacement) {
+        world = replacement;
         sceneRenderer.close();
         sceneRenderer = new SceneRenderer(world, worldConfig.water());
         cameraController.setTerrain(world.terrain());
-        focusOnPopulation();
         selection.clear();
+        powerBar.disarm();
+        treeView.close();
+        autosaveTimer = 0f;
+    }
+
+    // ---------------------------------------------------------------- save games
+
+    private WorldCodec.GameData gameData() {
+        return new WorldCodec.GameData(worldConfig.water().shallowDepth(), biomes, species, evolutionTree, resources, godConfig);
+    }
+
+    private void menuChoice(GameMenu.Choice choice) {
+        switch (choice) {
+            case GameMenu.Choice.SaveNew ignored -> saveAsync(species.name() + " "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm-ss")), "Uloženo");
+            case GameMenu.Choice.QuickSave ignored -> saveAsync(SaveManager.QUICK_SAVE, "Rychle uloženo");
+            case GameMenu.Choice.Load load -> {
+                if (load(load.name())) {
+                    gameMenu.close();
+                }
+            }
+            case GameMenu.Choice.Delete delete -> {
+                try {
+                    saves.delete(delete.name());
+                    notifications.info("Smazáno: " + delete.name());
+                } catch (IOException e) {
+                    notifications.error("Smazání selhalo: " + e.getMessage());
+                }
+                gameMenu.setSaves(saves.list());
+            }
+            case GameMenu.Choice.NewWorld ignored -> {
+                regenerateWorld();
+                gameMenu.close();
+            }
+            case GameMenu.Choice.Quit ignored -> window.requestClose(); // autosaves on the way out
+        }
+    }
+
+    /** Takes a snapshot now (between ticks) and writes it in the background. */
+    private void saveAsync(String name, String doneMessage) {
+        SaveData data;
+        try {
+            data = WorldCodec.snapshot(world, name, time.tickCount(), time.speed(), view());
+        } catch (RuntimeException e) {
+            notifications.error("Uložení selhalo: " + e.getMessage());
+            return;
+        }
+        saves.saveAsync(data).whenComplete((file, error) -> {
+            if (error != null) {
+                Throwable cause = error.getCause() != null ? error.getCause() : error;
+                notifications.error("Uložení selhalo: " + cause.getMessage());
+            } else {
+                notifications.info(doneMessage);
+                savesChanged = true;
+            }
+        });
+    }
+
+    /** Autosave when quitting: written before the game exits. */
+    private void autosave() {
+        try {
+            saves.save(WorldCodec.snapshot(world, SaveManager.AUTOSAVE, time.tickCount(), time.speed(), view()));
+        } catch (IOException | RuntimeException e) {
+            System.err.println("Autosave on quit failed: " + e);
+        }
+    }
+
+    /** Loads a save and replaces the world; returns false (with a message) if it failed. */
+    private boolean load(String name) {
+        WorldCodec.Loaded loaded;
+        try {
+            saves.flush(); // a save of the same name may still be being written
+            loaded = WorldCodec.restore(saves.load(name), gameData());
+        } catch (SaveException e) {
+            notifications.error(e.getMessage());
+            return false;
+        }
+        replaceWorld(loaded.world());
+        time.restore(loaded.tick(), loaded.speed());
+        if (loaded.view() != null) {
+            setView(loaded.view());
+        } else {
+            focusOnPopulation();
+        }
+        notifications.info("Načteno: " + name);
+        if (!loaded.skippedNodes().isEmpty()) {
+            notifications.error("Evoluční uzly, které už hra nezná, byly přeskočeny: " + String.join(", ", loaded.skippedNodes()));
+        }
+        return true;
+    }
+
+    private SaveData.View view() {
+        CameraController.View v = cameraController.view();
+        return new SaveData.View(v.focusX(), v.focusZ(), v.yaw(), v.pitch(), v.distance());
+    }
+
+    private void setView(SaveData.View v) {
+        cameraController.setView(new CameraController.View(v.focusX(), v.focusZ(), v.yaw(), v.pitch(), v.distance()));
     }
 
     /** Points the camera at the middle of the population (the player's creatures). */
@@ -343,7 +510,7 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(contextInfo).append("\n\n");
         sb.append("WASD / screen edge: pan | wheel: zoom | MMB drag, Q/E: rotate\n");
         sb.append("LMB: select creature | Space: pause | 1/2/3: speed 1x/3x/10x\n");
-        sb.append("F4: evolution tree | F5: new world | F6: empty all food | F7: +100 EP, F8: +100 faith (debug) | F3: overlay | ESC: close / quit");
+        sb.append("F4: evolution tree | F5/F9: quick save/load | F6: empty all food | F7: +100 EP, F8: +100 faith (debug) | F3: overlay | ESC: close / quit");
         return sb.toString();
     }
 }

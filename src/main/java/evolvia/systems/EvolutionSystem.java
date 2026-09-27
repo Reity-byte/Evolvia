@@ -64,6 +64,17 @@ public final class EvolutionSystem implements GameSystem {
         pointsPerMinute = perSecond * 60f;
     }
 
+    /** Last generation already paid for (save games). */
+    public int lastGeneration() {
+        return lastGeneration;
+    }
+
+    /** Restores the state from a save game. */
+    public void restore(int lastGeneration, float pointsPerMinute) {
+        this.lastGeneration = lastGeneration;
+        this.pointsPerMinute = pointsPerMinute;
+    }
+
     /** Current steady income (population + harsh conditions) in points per game minute, without generation bonuses. */
     public float pointsPerMinute() {
         return pointsPerMinute;

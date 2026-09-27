@@ -45,7 +45,7 @@ import java.util.Random;
  * The simulated world: terrain, resources, the player's species and its creatures, and the systems
  * that advance them.
  * <p>
- * Everything random comes from one {@link Random} seeded with the world seed (terrain generation,
+ * Everything random comes from one {@link SimRandom} seeded with the world seed (terrain generation,
  * then resources, then creatures, then the systems), so the same seed replays the same world.
  * The system order is defined here and nowhere else.
  */
@@ -79,13 +79,13 @@ public final class World implements EvolutionConditions {
     private final AgingSystem agingSystem;
     private final GodPowerSystem godPowerSystem;
     private final GodPowers godPowers;
-    private final Random random;
+    private final SimRandom random;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
     private final long[] systemNanos;
 
     private World(long seed, Terrain terrain, Species species, ResourceTable resourceTable,
-                  float shallowDepth, GodConfig godConfig, Random random) {
+                  float shallowDepth, GodConfig godConfig, SimRandom random) {
         this.seed = seed;
         this.random = random;
         this.godPowers = new GodPowers(godConfig);
@@ -125,13 +125,46 @@ public final class World implements EvolutionConditions {
     /** Generates the terrain, places resources and spawns the starting population. */
     public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
                                EvolutionTree tree, ResourceTable resources, GodConfig god, long seed) {
-        Random random = new Random(seed);
+        SimRandom random = new SimRandom(seed);
         Terrain terrain = TerrainGenerator.generate(config, biomes, seed, random);
         World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(), god, random);
         world.spawnResources(random);
         world.spawnPopulation(random);
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
+    }
+
+    /**
+     * World for a save game: the given terrain, species and random state, no entities yet. The caller adds
+     * the saved entities and then calls {@link #rebuildSpatialIndex()}.
+     */
+    public static World restore(long seed, Terrain terrain, Species species, ResourceTable resources,
+                                float shallowDepth, GodConfig god, SimRandom random) {
+        return new World(seed, terrain, species, resources, shallowDepth, god, random);
+    }
+
+    /** Puts all creatures and resource nodes into the spatial grids (after loading). */
+    public void rebuildSpatialIndex() {
+        ComponentStore<Transform> transforms = ecs.store(Transform.class);
+        ComponentStore<ResourceNode> nodes = ecs.store(ResourceNode.class);
+        for (int i = 0; i < nodes.size(); i++) {
+            Transform t = transforms.get(nodes.entityAt(i));
+            resourceGrid(nodes.componentAt(i).type.kind()).insert(nodes.entityAt(i), t.position.x, t.position.z);
+        }
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        for (int i = 0; i < creatures.size(); i++) {
+            Transform t = transforms.get(creatures.entityAt(i));
+            creatureGrid.insert(creatures.entityAt(i), t.position.x, t.position.z);
+        }
+    }
+
+    /** State of the world's random generator (save games). */
+    public SimRandom.State randomState() {
+        return random.state();
+    }
+
+    public ReproductionSystem reproductionSystem() {
+        return reproductionSystem;
     }
 
     /** Like the full {@code create} with the god powers from {@code data/powers.json}. */
@@ -422,6 +455,7 @@ public final class World implements EvolutionConditions {
         // Water sources: exactly one on every shore tile.
         List<Integer> water = new ArrayList<>();
         waterGrid.forEachWithin(centerX, centerZ, reach, water::add);
+        water.sort(null); // by ID: independent of the grid's internal order (save games)
         boolean[] hasWater = new boolean[(x1 - x0) * (z1 - z0)];
         for (int entity : water) {
             Transform t = transforms.get(entity);
@@ -449,6 +483,7 @@ public final class World implements EvolutionConditions {
         // Food: gone under water, otherwise follows the ground.
         List<Integer> food = new ArrayList<>();
         foodGrid.forEachWithin(centerX, centerZ, reach, food::add);
+        food.sort(null);
         for (int entity : food) {
             Transform t = transforms.get(entity);
             if (terrain.isPassable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
@@ -462,6 +497,7 @@ public final class World implements EvolutionConditions {
         // Creatures follow the ground; whoever is now where it cannot be climbs out to the nearest walkable tile.
         List<Integer> creatures = new ArrayList<>();
         creatureGrid.forEachWithin(centerX, centerZ, reach, creatures::add);
+        creatures.sort(null);
         for (int entity : creatures) {
             Transform t = transforms.get(entity);
             SpeciesRef ref = ecs.get(entity, SpeciesRef.class);

@@ -84,7 +84,8 @@ public final class SpatialGrid {
     /**
      * Nearest entity within {@code maxRadius} of (x, z) that passes {@code filter}, or -1.
      * Searches cell rings outwards (only cells the radius can reach) and stops once no closer
-     * entity is possible.
+     * entity is possible. Of equally distant entities the lowest ID wins, so the result does not
+     * depend on the order inside the cells (a loaded save rebuilds the grid in another order).
      */
     public int nearest(float x, float z, float maxRadius, IntPredicate filter) {
         int cx = clampColumn(x);
@@ -114,7 +115,8 @@ public final class SpatialGrid {
                         float dx = cell.xs[i] - x;
                         float dz = cell.zs[i] - z;
                         float dSq = dx * dx + dz * dz;
-                        if (dSq < bestSq && dSq <= maxDistanceSq && filter.test(cell.ids[i])) {
+                        boolean closer = dSq < bestSq || (dSq == bestSq && cell.ids[i] < best);
+                        if (closer && dSq <= maxDistanceSq && filter.test(cell.ids[i])) {
                             bestSq = dSq;
                             best = cell.ids[i];
                         }

@@ -15,6 +15,20 @@ public final class Path {
         this.zs = zs;
     }
 
+    /** Path restored from a save game, continuing at waypoint {@code next}. */
+    public Path(float[] xs, float[] zs, int next) {
+        this(xs, zs);
+        if (next < 0 || next > xs.length) {
+            throw new IllegalArgumentException("Waypoint index " + next + " outside the path");
+        }
+        this.next = next;
+    }
+
+    /** Index of the next waypoint. */
+    public int nextIndex() {
+        return next;
+    }
+
     public int length() {
         return xs.length;
     }

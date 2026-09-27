@@ -21,6 +21,11 @@ public final class PathQueue {
     }
 
     /** Number of waiting requests (may include cancelled ones, which are skipped when served). */
+    /** Waiting entities, first to be served first (for save games). */
+    public int[] toArray() {
+        return entities.stream().mapToInt(Integer::intValue).toArray();
+    }
+
     public int size() {
         return entities.size();
     }

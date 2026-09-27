@@ -1,6 +1,8 @@
 package evolvia.ecs;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -62,6 +64,49 @@ public final class EcsWorld {
             freeIds[freeCount++] = entity;
         }
         pendingCount = 0;
+    }
+
+    /** Entity ID allocation state, for save games. */
+    public record IdState(int nextId, int[] alive, int[] free) {
+    }
+
+    /** Current ID allocation: next new ID, live entities (ascending) and freed IDs (in reuse order). Call between ticks. */
+    public IdState idState() {
+        int[] live = new int[aliveCount];
+        int n = 0;
+        for (int id = 0; id < nextId; id++) {
+            if (alive[id]) {
+                live[n++] = id;
+            }
+        }
+        return new IdState(nextId, live, Arrays.copyOf(freeIds, freeCount));
+    }
+
+    /**
+     * Restores the ID allocation of a saved world into this empty world; components are added afterwards.
+     *
+     * @throws IllegalStateException if the world already has entities
+     */
+    public void restoreIds(IdState state) {
+        if (aliveCount > 0 || nextId > 0) {
+            throw new IllegalStateException("restoreIds needs an empty world");
+        }
+        nextId = state.nextId();
+        alive = new boolean[Math.max(64, nextId)];
+        for (int id : state.alive()) {
+            if (id < 0 || id >= nextId) {
+                throw new IllegalArgumentException("Entity " + id + " outside 0.." + (nextId - 1));
+            }
+            alive[id] = true;
+        }
+        aliveCount = state.alive().length;
+        freeIds = Arrays.copyOf(state.free(), Math.max(16, state.free().length));
+        freeCount = state.free().length;
+    }
+
+    /** Component types that have a store (some may be empty). */
+    public Set<Class<?>> componentTypes() {
+        return Collections.unmodifiableSet(stores.keySet());
     }
 
     public boolean isAlive(int entity) {

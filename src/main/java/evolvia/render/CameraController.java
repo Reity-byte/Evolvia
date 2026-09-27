@@ -57,6 +57,20 @@ public final class CameraController {
         this.terrain = terrain;
     }
 
+    /** Camera view (for save games). */
+    public record View(float focusX, float focusZ, float yaw, float pitch, float distance) {
+    }
+
+    public View view() {
+        return new View(focus.x, focus.z, yaw, pitch, distance);
+    }
+
+    public void setView(View view) {
+        yaw = view.yaw();
+        pitch = Math.clamp(view.pitch(), MIN_PITCH, MAX_PITCH);
+        focusOn(view.focusX(), view.focusZ(), view.distance());
+    }
+
     /** Moves the focus to a ground point, keeping the zoom and rotation (e.g. following a creature). */
     public void follow(float x, float z) {
         focus.x = Math.clamp(x, 0f, terrain.width());

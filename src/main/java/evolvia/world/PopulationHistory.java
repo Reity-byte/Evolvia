@@ -28,6 +28,12 @@ public final class PopulationHistory {
     }
 
     /** Number of samples (at most {@link #CAPACITY}). */
+    /** Removes all samples (before restoring a saved history). */
+    public void clear() {
+        start = 0;
+        size = 0;
+    }
+
     public int size() {
         return size;
     }

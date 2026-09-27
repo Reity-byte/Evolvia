@@ -153,6 +153,50 @@ public final class Terrain {
         return moisture[index(tx, tz)];
     }
 
+    // ---------------------------------------------------------------- save games
+
+    /**
+     * Complete terrain state (copies of the arrays). Biomes are ids per tile, so a save does not depend
+     * on the order of biomes.json.
+     */
+    public record Snapshot(long seed, int width, int depth, float seaLevel, float maxHeight, float altitudeCooling,
+                           float[] cornerHeights, float[] temperature, float[] baseTemperature, float[] moisture,
+                           String[] biomes) {
+    }
+
+    public Snapshot snapshot() {
+        String[] ids = new String[biomes.length];
+        for (int i = 0; i < biomes.length; i++) {
+            ids[i] = biomes[i].id();
+        }
+        return new Snapshot(seed, width, depth, seaLevel, maxHeight, altitudeCooling, cornerHeights.clone(),
+                temperature.clone(), baseTemperature.clone(), moisture.clone(), ids);
+    }
+
+    /**
+     * Terrain from a snapshot.
+     *
+     * @throws IllegalArgumentException if array sizes do not fit or a biome is unknown
+     */
+    public static Terrain restore(Snapshot s, BiomeTable biomeTable) {
+        int tiles = s.width() * s.depth();
+        if (s.width() <= 0 || s.depth() <= 0 || s.cornerHeights().length != (s.width() + 1) * (s.depth() + 1)
+                || s.temperature().length != tiles || s.baseTemperature().length != tiles
+                || s.moisture().length != tiles || s.biomes().length != tiles) {
+            throw new IllegalArgumentException("Terrain data does not fit a " + s.width() + "x" + s.depth() + " map");
+        }
+        Biome[] tileBiomes = new Biome[tiles];
+        for (int i = 0; i < tiles; i++) {
+            tileBiomes[i] = biomeTable.byId(s.biomes()[i]);
+            if (tileBiomes[i] == null) {
+                throw new IllegalArgumentException("Unknown biome '" + s.biomes()[i] + "'");
+            }
+        }
+        return new Terrain(s.seed(), biomeTable, s.width(), s.depth(), s.seaLevel(), s.maxHeight(),
+                s.cornerHeights().clone(), tileBiomes, s.temperature().clone(), s.moisture().clone(),
+                s.baseTemperature().clone(), s.altitudeCooling());
+    }
+
     // ---------------------------------------------------------------- changes (god powers)
 
     /**

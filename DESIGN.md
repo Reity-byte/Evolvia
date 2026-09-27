@@ -107,7 +107,8 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
 - Klávesy: F4 evoluční strom (jinak tlačítko Evoluce), ESC zavře otevřené okno / zruší výběr, bez otevřeného okna ukončí hru.
-- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry.
+- Ukládání: F5 rychlé uložení, F9 rychlé načtení, menu *Hra* (uložit, načíst, smazat, nový svět, ukončit).
+- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
@@ -338,6 +339,15 @@ Víra, 4 zásahy z sekce 9, vizuální efekty (jednoduché).
 Serializace světa, entit, stavu druhu a stromu do JSON (s polem `saveVersion`). Autosave.
 Savy a nastavení se ukládají pod `GameDirs.root()` (např. `saves/`). Cesty se nesmí počítat ve statických konstantách tříd načtených před `Launch` — kořen dat nastavuje vstupní bod.
 **DoD:** uložení a načtení vrátí hru do identického stavu (ověřit testem: save → load → porovnání).
+
+Rozhodnutí:
+- **Soubor:** `<GameDirs.root()>/saves/<název>.evsave` = JSON zabalený gzipem (terén má stovky kB), pole `saveVersion` (teď 1). Zápis do dočasného souboru a pak přesun, takže pád při ukládání nepoškodí starý save.
+- **Co se ukládá:** vše, co ovlivní další vývoj simulace, aby načtená hra pokračovala *stejně* jako neuložená: tick, stav generátoru náhody (vlastní `SimRandom` se stejným algoritmem jako `java.util.Random`, stav jde přečíst a obnovit), přidělování ID entit (volná ID v pořadí), komponenty v pořadí úložišť (pořadí iterace systémů), fronta pathfindingu, statistiky a graf, terén (výšky, klima, biomy jako base64 pole), druh (body EP + odemčené uzly v pořadí; statistiky se přepočítají z aktuálních dat), Víra, morálka, aktivní déšť. Navíc pohled kamery a rychlost hry.
+- **Nezávislost na vnitřním pořadí mřížek:** `SpatialGrid.nearest` při shodné vzdálenosti vybere nižší ID a zásahy zpracovávají entity seřazené podle ID. Mřížky se proto při načtení jen znovu postaví.
+- **Kompatibilita:** save z novější verze (vyšší `saveVersion`) se odmítne s jasnou hláškou; neznámý biom / zdroj = chyba; neznámý evoluční uzel (strom se změnil) se přeskočí a hra to oznámí.
+- **Ovládání:** F5 rychlé uložení, F9 rychlé načtení; tlačítko *Hra* v horní liště: uložit, seznam savů (načíst / smazat s potvrzením), nový svět, ukončit. Ladicí „nový svět“ z F5 se přesouvá do menu. Spuštění s `--load <název>` načte save.
+- **Autosave:** každých 5 minut reálného času (když hra neběží v pauze) a při ukončení, pozice `autosave`. Snímek stavu se vytvoří mezi ticky na hlavním vlákně, JSON + gzip se zapisují na pozadí.
+- Start hry zatím dál vytváří nový svět (hlavní menu s „Pokračovat“ může přijít později).
 
 ### Fáze 9+ — Mysl a kmen
 Větev Mysl: sociální skupiny, sběr a nošení zdrojů, sklad, první stavby, joby.

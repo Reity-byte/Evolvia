@@ -64,6 +64,15 @@ public final class Time {
         return tick++;
     }
 
+    /** Continues counting from a loaded save game's tick. */
+    public void restore(long tickCount, Speed speed) {
+        this.tick = tickCount;
+        setSpeed(speed);
+        if (speed == Speed.PAUSED) {
+            resumeSpeed = Speed.NORMAL;
+        }
+    }
+
     /** Number of ticks simulated so far. */
     public long tickCount() {
         return tick;
