@@ -42,6 +42,7 @@ public final class Evolvia implements GameLoop.Handler {
     private DebugOverlay debugOverlay;
     private Mesh cube;
     private String contextInfo;
+    private int frameCap;
 
     // Phase 0 simulation state (per tick) — rendered with interpolation.
     private float cubeAngle;
@@ -59,7 +60,8 @@ public final class Evolvia implements GameLoop.Handler {
             cube = Primitives.coloredCube();
             camera.lookAt(2.2f, 1.6f, 2.8f, 0f, 0f, 0f);
 
-            new GameLoop(window, input, time, stats, this).run();
+            frameCap = window.refreshRate();
+            new GameLoop(window, input, time, stats, this, frameCap).run();
         } finally {
             if (cube != null) {
                 cube.close();
@@ -113,8 +115,8 @@ public final class Evolvia implements GameLoop.Handler {
 
     private String debugText() {
         return String.format(Locale.ROOT,
-                "FPS: %d%nTPS: %d (target %d, speed %dx)%nTick: %.3f ms%nTicks total: %d%nDropped ticks: %d%n%s%n%nF3 overlay | ESC quit",
-                stats.fps(),
+                "FPS: %d (cap %d)%nTPS: %d (target %d, speed %dx)%nTick: %.3f ms%nTicks total: %d%nDropped ticks: %d%n%s%n%nF3 overlay | ESC quit",
+                stats.fps(), frameCap,
                 stats.tps(), Time.TICKS_PER_SECOND * time.speed().multiplier, time.speed().multiplier,
                 stats.avgTickMillis(),
                 time.tickCount(),

@@ -94,6 +94,7 @@ src/test/java/evolvia/
 - **Simulace a rendering jsou oddělené.**
 - Simulace běží s **pevným tickem 20 ticků/s** (fixed timestep s akumulátorem).
 - Rendering běží tak rychle, jak to jde (V-Sync), a **interpoluje** pozice mezi posledními dvěma ticky.
+- **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru. Když V-Sync funguje, omezovač prakticky nic nedělá.
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 

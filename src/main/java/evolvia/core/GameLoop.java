@@ -3,6 +3,9 @@ package evolvia.core;
 /**
  * Main loop: fixed-timestep simulation (see {@link Time}) decoupled from rendering,
  * which runs as fast as V-Sync allows and interpolates between the last two ticks.
+ * <p>
+ * A frame limiter caps the frame rate as a safety net for drivers that ignore V-Sync
+ * (the GPU would otherwise render thousands of frames per second).
  */
 public final class GameLoop {
 
@@ -23,19 +26,29 @@ public final class GameLoop {
     }
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
+    /** Below this remaining wait the limiter spins instead of sleeping (Windows sleep granularity is ~1-2 ms). */
+    private static final long SPIN_THRESHOLD_NANOS = 1_000_000L;
 
     private final Window window;
     private final Input input;
     private final Time time;
     private final LoopStats stats;
     private final Handler handler;
+    /** Minimum frame duration, 0 = unlimited. */
+    private final long framePeriodNanos;
 
-    public GameLoop(Window window, Input input, Time time, LoopStats stats, Handler handler) {
+    private long nextFrameNanos;
+
+    /**
+     * @param frameCap maximum frames per second, 0 = unlimited
+     */
+    public GameLoop(Window window, Input input, Time time, LoopStats stats, Handler handler, int frameCap) {
         this.window = window;
         this.input = input;
         this.time = time;
         this.stats = stats;
         this.handler = handler;
+        this.framePeriodNanos = frameCap > 0 ? NANOS_PER_SECOND / frameCap : 0;
     }
 
     /** Runs until the window is asked to close. */
@@ -77,6 +90,34 @@ public final class GameLoop {
                 ticks = 0;
                 tickNanos = 0;
             }
+
+            waitForNextFrame();
         }
+    }
+
+    /** Frame limiter: waits until the next frame slot. Slots are fixed-spaced so the average rate is exact. */
+    private void waitForNextFrame() {
+        if (framePeriodNanos == 0) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (nextFrameNanos == 0 || now - nextFrameNanos > framePeriodNanos) {
+            // First frame, or fell behind by more than a frame: resynchronize instead of rushing to catch up.
+            nextFrameNanos = now;
+        }
+        long remaining;
+        while ((remaining = nextFrameNanos - System.nanoTime()) > 0) {
+            if (remaining > SPIN_THRESHOLD_NANOS) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            } else {
+                Thread.onSpinWait();
+            }
+        }
+        nextFrameNanos += framePeriodNanos;
     }
 }

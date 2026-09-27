@@ -69,6 +69,12 @@ public final class Window {
         }
     }
 
+    /** Refresh rate of the primary monitor in Hz, or 60 if unknown. */
+    public int refreshRate() {
+        GLFWVidMode mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+        return mode != null && mode.refreshRate() > 0 ? mode.refreshRate() : 60;
+    }
+
     public long handle() {
         return handle;
     }
