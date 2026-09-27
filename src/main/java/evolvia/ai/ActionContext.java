@@ -1,13 +1,18 @@
 package evolvia.ai;
 
+import evolvia.components.Age;
 import evolvia.components.AiState;
+import evolvia.components.Health;
 import evolvia.components.Needs;
+import evolvia.components.Reproduction;
 import evolvia.components.ResourceNode;
+import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.components.Velocity;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.world.Births;
 import evolvia.world.ResourceKind;
 import evolvia.world.SpatialGrid;
 import evolvia.world.Terrain;
@@ -28,11 +33,18 @@ public final class ActionContext {
     public final PathQueue pathQueue;
     public final SpatialGrid foodGrid;
     public final SpatialGrid waterGrid;
+    public final SpatialGrid creatureGrid;
+    public final Births births;
     public final Random random;
 
     public EcsWorld ecs;
     public ComponentStore<ResourceNode> resources;
     public ComponentStore<Transform> transforms;
+    private ComponentStore<SpeciesRef> creatures;
+    private ComponentStore<Needs> needsStore;
+    private ComponentStore<Health> healths;
+    private ComponentStore<Age> ages;
+    private ComponentStore<Reproduction> reproductions;
     public int tick;
 
     public int entity;
@@ -47,14 +59,18 @@ public final class ActionContext {
     private int nearestWater;
     private int foodInReach;
     private int waterInReach;
+    private int nearestMate;
 
     public ActionContext(Terrain terrain, Pathfinder pathfinder, PathQueue pathQueue,
-                         SpatialGrid foodGrid, SpatialGrid waterGrid, Random random) {
+                         SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
+                         Random random) {
         this.terrain = terrain;
         this.pathfinder = pathfinder;
         this.pathQueue = pathQueue;
         this.foodGrid = foodGrid;
         this.waterGrid = waterGrid;
+        this.creatureGrid = creatureGrid;
+        this.births = births;
         this.random = random;
     }
 
@@ -64,6 +80,11 @@ public final class ActionContext {
         this.tick = tick;
         this.resources = ecs.store(ResourceNode.class);
         this.transforms = ecs.store(Transform.class);
+        this.creatures = ecs.store(SpeciesRef.class);
+        this.needsStore = ecs.store(Needs.class);
+        this.healths = ecs.store(Health.class);
+        this.ages = ecs.store(Age.class);
+        this.reproductions = ecs.store(Reproduction.class);
     }
 
     /** Points the context at one creature. */
@@ -78,6 +99,7 @@ public final class ActionContext {
         nearestWater = -2;
         foodInReach = -2;
         waterInReach = -2;
+        nearestMate = -2;
     }
 
     // ---------------------------------------------------------------- resource queries
@@ -141,6 +163,69 @@ public final class ActionContext {
         float dx = t.position.x - transform.position.x;
         float dz = t.position.z - transform.position.z;
         return (float) Math.sqrt(dx * dx + dz * dz);
+    }
+
+    // ---------------------------------------------------------------- mates
+
+    /**
+     * True if the creature may reproduce now: adult, cooldown over, fed and watered, healthy,
+     * awake, and the population is below the species' safety cap.
+     */
+    public boolean canReproduce(int creature) {
+        SpeciesRef ref = creatures.get(creature);
+        Age age = ages.get(creature);
+        Reproduction reproduction = reproductions.get(creature);
+        Needs n = needsStore.get(creature);
+        Health health = healths.get(creature);
+        if (ref == null || age == null || reproduction == null || n == null || health == null) {
+            return false;
+        }
+        SpeciesDefinition.Reproduction rules = ref.species.reproduction();
+        return age.ageTicks >= SpeciesDefinition.secondsToTicks(rules.adultAgeSeconds())
+                && reproduction.readyAtTick <= tick
+                && n.hunger < rules.maxNeed() && n.thirst < rules.maxNeed()
+                && !n.sleeping
+                && health.hp >= rules.minHealth() * health.maxHp
+                && creatures.size() < ref.species.population().max();
+    }
+
+    /** Nearest creature of the same species that can reproduce and is reachable over land, or -1. */
+    public int nearestMate() {
+        if (nearestMate == -2) {
+            float x = transform.position.x;
+            float z = transform.position.z;
+            int myRegion = pathfinder.regionAt(x, z);
+            nearestMate = creatureGrid.nearest(x, z, species.senseRadius(), other -> {
+                if (other == entity || !canReproduce(other) || creatures.get(other).species != species) {
+                    return false;
+                }
+                Transform t = transforms.get(other);
+                return pathfinder.regionAt(t.position.x, t.position.z) == myRegion;
+            });
+        }
+        return nearestMate;
+    }
+
+    /**
+     * Mates the current creature with {@code partner}: records the birth (offspring are spawned by the
+     * reproduction system later this tick) and makes both parents pay the food cost and wait the cooldown.
+     */
+    public void mateWith(int partner) {
+        Transform other = transforms.get(partner);
+        births.add(entity, partner,
+                (transform.position.x + other.position.x) * 0.5f,
+                (transform.position.z + other.position.z) * 0.5f);
+        payForOffspring(entity);
+        payForOffspring(partner);
+    }
+
+    private void payForOffspring(int parent) {
+        SpeciesDefinition.Reproduction rules = creatures.get(parent).species.reproduction();
+        Needs n = needsStore.get(parent);
+        n.hunger = Math.min(1f, n.hunger + rules.hungerCost());
+        Reproduction reproduction = reproductions.get(parent);
+        reproduction.readyAtTick = tick + SpeciesDefinition.secondsToTicks(rules.cooldownSeconds());
+        reproduction.offspring += rules.litterSize();
     }
 
     // ---------------------------------------------------------------- movement

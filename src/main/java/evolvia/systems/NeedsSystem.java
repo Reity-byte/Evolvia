@@ -1,5 +1,6 @@
 package evolvia.systems;
 
+import evolvia.components.Genome;
 import evolvia.components.Health;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
@@ -21,6 +22,7 @@ public final class NeedsSystem implements GameSystem {
         ComponentStore<Needs> needsStore = world.store(Needs.class);
         ComponentStore<SpeciesRef> species = world.store(SpeciesRef.class);
         ComponentStore<Health> healths = world.store(Health.class);
+        ComponentStore<Genome> genomes = world.store(Genome.class);
 
         for (int i = 0; i < needsStore.size(); i++) {
             int entity = needsStore.entityAt(i);
@@ -32,7 +34,9 @@ public final class NeedsSystem implements GameSystem {
             NeedRates rates = ref.species.needs();
 
             float factor = needs.sleeping ? rates.sleepingNeedFactor() : 1f;
-            needs.hunger = Math.min(1f, needs.hunger + SpeciesDefinition.perTick(rates.hungerPerSecond()) * factor);
+            Genome genome = genomes.get(entity);
+            float metabolism = genome != null ? genome.size : 1f; // bigger bodies need more food
+            needs.hunger = Math.min(1f, needs.hunger + SpeciesDefinition.perTick(rates.hungerPerSecond()) * factor * metabolism);
             needs.thirst = Math.min(1f, needs.thirst + SpeciesDefinition.perTick(rates.thirstPerSecond()) * factor);
             if (needs.sleeping) {
                 needs.energy = Math.min(1f, needs.energy + SpeciesDefinition.perTick(rates.energyRecoverPerSecond()));

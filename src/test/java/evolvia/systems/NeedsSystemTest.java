@@ -9,6 +9,7 @@ import evolvia.data.DataLoader;
 import evolvia.ecs.EcsWorld;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.DeathStats;
+import evolvia.world.SpatialGrid;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -106,7 +107,7 @@ class NeedsSystemTest {
         world.get(thirsty, Needs.class).thirst = 1f;
         DeathStats deaths = new DeathStats();
         int ticksToDie = (int) Math.ceil(species.maxHealth() / rates.damagePerSecond() * Time.TICKS_PER_SECOND) + 2;
-        run(world, new NeedsSystem(), new AgingSystem(deaths), ticksToDie);
+        run(world, new NeedsSystem(), new AgingSystem(deaths, new SpatialGrid(64, 64, 16)), ticksToDie);
         assertFalse(world.isAlive(hungry));
         assertFalse(world.isAlive(thirsty));
         assertEquals(1, deaths.count(DeathStats.Cause.STARVATION));
@@ -119,9 +120,9 @@ class NeedsSystemTest {
         int e = creature(world);
         world.get(e, Age.class).maxAgeTicks = 50;
         DeathStats deaths = new DeathStats();
-        run(world, new NeedsSystem(), new AgingSystem(deaths), 49);
+        run(world, new NeedsSystem(), new AgingSystem(deaths, new SpatialGrid(64, 64, 16)), 49);
         assertTrue(world.isAlive(e));
-        run(world, new NeedsSystem(), new AgingSystem(deaths), 1);
+        run(world, new NeedsSystem(), new AgingSystem(deaths, new SpatialGrid(64, 64, 16)), 1);
         assertFalse(world.isAlive(e));
         assertEquals(1, deaths.count(DeathStats.Cause.OLD_AGE));
         assertEquals(1, deaths.total());

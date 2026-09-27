@@ -19,8 +19,10 @@ import evolvia.core.Time;
  * @param needs              how fast needs grow and what they do to health
  * @param eating             how eating and drinking satisfy needs
  * @param ai                 utility AI tuning
- * @param wander             wandering behaviour
- * @param startingPopulation number of creatures at world start
+  * @param wander             wandering behaviour
+ * @param reproduction       when and how creatures reproduce
+ * @param genome             individual variation and mutation
+ * @param population         starting population and safety cap
  */
 public record SpeciesDefinition(
         String id,
@@ -36,7 +38,44 @@ public record SpeciesDefinition(
         Eating eating,
         AiTuning ai,
         Wander wander,
-        int startingPopulation) {
+        Reproduction reproduction,
+        GenomeTuning genome,
+        Population population) {
+
+    /**
+     * @param adultAgeSeconds  age at which a creature is grown up and can reproduce
+     * @param cooldownSeconds  minimum time between two reproductions of one creature
+     * @param maxNeed          hunger and thirst must both be below this to reproduce
+     * @param minHealth        health (fraction of max) needed to reproduce
+     * @param hungerCost       hunger added to each parent (reproduction costs food)
+     * @param litterSize       offspring per mating
+     * @param mateScore        utility of looking for a mate when ready (below urgent needs)
+     */
+    public record Reproduction(float adultAgeSeconds, float cooldownSeconds, float maxNeed, float minHealth,
+                               float hungerCost, int litterSize, float mateScore) {
+    }
+
+    /**
+     * @param variation maximum deviation of a gene from the species value (0.1 = up to 10 % either way)
+     * @param mutation  standard deviation of the random change of a gene at birth
+     */
+    public record GenomeTuning(float variation, float mutation) {
+    }
+
+    /**
+     * @param starting    creatures at world start
+     * @param spawnRadius starting creatures are placed within this radius (tiles) of one random land
+     *                    point; 0 = anywhere on land
+     * @param max         safety cap: no reproduction above this population (performance guard)
+     */
+    public record Population(int starting, float spawnRadius, int max) {
+    }
+
+    /** Copy with a different starting population (e.g. for tests). */
+    public SpeciesDefinition withPopulation(Population newPopulation) {
+        return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
+                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation);
+    }
 
     /**
      * @param hungerPerSecond        hunger increase (0 = full, 1 = starving)

@@ -7,7 +7,8 @@ public enum ActionType {
     EAT("Eat"),
     SEEK_WATER("SeekWater"),
     DRINK("Drink"),
-    SLEEP("Sleep");
+    SLEEP("Sleep"),
+    SEEK_MATE("SeekMate");
 
     private final String label;
 

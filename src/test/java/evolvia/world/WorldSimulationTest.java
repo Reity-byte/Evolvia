@@ -30,7 +30,9 @@ class WorldSimulationTest {
     static void loadData() {
         config = DataLoader.loadWorldConfig();
         biomes = DataLoader.loadBiomes();
-        species = DataLoader.loadSpecies();
+        // These tests look at individual behaviour: many creatures spread over the whole map, capped at
+        // the starting count so reproduction does not grow the population (and the test time).
+        species = DataLoader.loadSpecies().withPopulation(new SpeciesDefinition.Population(1000, 0f, 1000));
         resources = DataLoader.loadResources();
     }
 
@@ -76,7 +78,7 @@ class WorldSimulationTest {
     @Test
     void spawnsPopulationAndResourcesOnLand() {
         World world = create(42);
-        assertEquals(species.startingPopulation(), world.creatureCount());
+        assertEquals(species.population().starting(), world.creatureCount());
         assertAllCreaturesOnLandAtTerrainHeight(world);
 
         ComponentStore<ResourceNode> nodes = world.ecs().store(ResourceNode.class);
@@ -108,7 +110,7 @@ class WorldSimulationTest {
     }
 
     @Test
-    void creaturesUseEveryPhase3Action() {
+    void creaturesUseEveryNeedAction() {
         World world = create(3);
         Set<ActionType> seen = EnumSet.noneOf(ActionType.class);
         ComponentStore<AiState> ai = world.ecs().store(AiState.class);
@@ -121,7 +123,8 @@ class WorldSimulationTest {
                 }
             }
         }
-        assertEquals(EnumSet.allOf(ActionType.class), seen);
+        // SeekMate is covered by ReproductionTest (population is capped here, so nobody may reproduce).
+        assertEquals(EnumSet.complementOf(EnumSet.of(ActionType.SEEK_MATE)), seen);
     }
 
     @Test
@@ -189,7 +192,7 @@ class WorldSimulationTest {
         World world = create(11);
         run(world, 0, 100);
         ComponentStore<PrevTransform> previous = world.ecs().store(PrevTransform.class);
-        float maxStep = species.speedPerTick() + 1e-4f;
+        float maxStep = species.speedPerTick() * (1f + species.genome().variation()) + 1e-4f; // genome speed
         for (int i = 0; i < previous.size(); i++) {
             PrevTransform prev = previous.componentAt(i);
             Transform current = world.ecs().get(previous.entityAt(i), Transform.class);

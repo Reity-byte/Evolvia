@@ -135,6 +135,8 @@ Jednoduchý vlastní ECS, žádná knihovna.
 | `AiState` | aktuální akce, cíl, cesta |
 | `Carrying` | co nese (od fáze se zdroji) |
 | `Selectable` | může být vybrán hráčem |
+| `Genome` | geny velikost, rychlost, odstín (násobitele kolem 1) a generace |
+| `Reproduction` | cooldown rozmnožování, počet potomků |
 
 ### Pořadí systémů (orientační)
 
@@ -215,6 +217,10 @@ Při načítání validovat: neexistující ID v `requires`, cykly, duplicitní 
 ### 7.3 Individuální genom (drobná variace)
 
 Každý jedinec má `Genome` = malé odchylky (±10 %) od statistik druhu. Při rozmnožení: průměr rodičů + malá náhodná mutace. Slouží pro rozmanitost a vizuální variaci (odstín barvy, velikost), **není** to hlavní evoluční mechanika — tou je strom.
+
+- Geny: velikost (vykreslení + spotřeba jídla), rychlost chůze, odstín barvy. Mutace = Gaussovský šum `genome.mutation`, geny zůstávají v rozsahu `genome.variation`.
+- **Rozmnožování** (akce `SeekMate`): dva dospělí jedinci (věk ≥ `reproduction.adultAgeSeconds`) po cooldownu, nasycení a napojení (< `maxNeed`), zdraví a bdělí. Oba rodiče zaplatí `hungerCost` hladu, takže růst populace omezuje jídlo a populace se ustálí kolem úživnosti prostředí. Mládě je menší a do dospělosti roste. Pohlaví zatím nejsou.
+- Start: `population.starting` jedinců ve skupině v okruhu `spawnRadius` kolem místa s jídlem a vodou; `population.max` je pojistka výkonu (nad ní se nerodí).
 
 ### 7.4 Procedurální vzhled
 

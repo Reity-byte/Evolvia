@@ -3,6 +3,7 @@ package evolvia.systems;
 import evolvia.ai.Path;
 import evolvia.ai.PathQueue;
 import evolvia.components.AiState;
+import evolvia.components.Genome;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.components.Velocity;
@@ -31,6 +32,7 @@ public final class PathFollowingSystem implements GameSystem {
         ComponentStore<Velocity> velocities = world.store(Velocity.class);
         ComponentStore<Transform> transforms = world.store(Transform.class);
         ComponentStore<SpeciesRef> species = world.store(SpeciesRef.class);
+        ComponentStore<Genome> genomes = world.store(Genome.class);
 
         for (int i = 0; i < aiStore.size(); i++) {
             AiState ai = aiStore.componentAt(i);
@@ -59,7 +61,8 @@ public final class PathFollowingSystem implements GameSystem {
             }
 
             Path path = ai.path;
-            float step = ref.species.speedPerTick();
+            Genome genome = genomes.get(entity);
+            float step = ref.species.speedPerTick() * (genome != null ? genome.speed : 1f);
             float x = transform.position.x;
             float z = transform.position.z;
             // Skip intermediate waypoints that are already (almost) reached.

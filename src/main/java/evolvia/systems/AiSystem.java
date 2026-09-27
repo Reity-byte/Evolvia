@@ -4,6 +4,7 @@ import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.ai.actions.ConsumeAction;
+import evolvia.ai.actions.SeekMateAction;
 import evolvia.ai.actions.SeekResourceAction;
 import evolvia.ai.actions.SleepAction;
 import evolvia.ai.actions.WanderAction;
@@ -40,6 +41,7 @@ public final class AiSystem implements GameSystem {
         register(new SeekResourceAction(ResourceKind.WATER));
         register(new ConsumeAction(ResourceKind.WATER));
         register(new SleepAction());
+        register(new SeekMateAction());
         for (ActionType type : ActionType.values()) {
             if (actions[type.ordinal()] == null) {
                 throw new IllegalStateException("No action registered for " + type);

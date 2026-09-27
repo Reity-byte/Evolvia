@@ -24,7 +24,11 @@ class DataLoaderTest {
              "eating": {"hungerPerUnit": 0.25, "secondsPerUnit": 1, "thirstReliefPerSecond": 0.15},
              "ai": {"evaluateEverySeconds": 0.5, "switchMargin": 0.15, "needThreshold": 0.3,
                     "sleepThreshold": 0.5, "wanderScore": 0.1, "exploreRadiusFactor": 3},
-             "wander": {"radius": 8, "pauseSeconds": [1, 2]}, "startingPopulation": 10}
+             "wander": {"radius": 8, "pauseSeconds": [1, 2]},
+             "reproduction": {"adultAgeSeconds": 60, "cooldownSeconds": 30, "maxNeed": 0.4, "minHealth": 0.7,
+                              "hungerCost": 0.3, "litterSize": 1, "mateScore": 0.35},
+             "genome": {"variation": 0.1, "mutation": 0.02},
+             "population": {"starting": 10, "spawnRadius": 5, "max": 100}}
             """;
 
     private static BiomeTable parse(String... biomes) {
@@ -41,7 +45,8 @@ class DataLoaderTest {
         var species = DataLoader.parseSpecies(SPECIES, "species.json");
         assertEquals(0x102030, species.rgb());
         assertEquals(0.1f, species.speedPerTick(), 1e-6f);
-        assertEquals(10, species.startingPopulation());
+        assertEquals(10, species.population().starting());
+        assertEquals(60f, species.reproduction().adultAgeSeconds());
         assertEquals("x", species.name(), "name defaults to id");
         assertEquals(0.004f, species.needs().hungerPerSecond());
         assertEquals(2f, species.wander().pauseMaxSeconds());
@@ -61,6 +66,12 @@ class DataLoaderTest {
         e = assertThrows(IllegalStateException.class, () -> DataLoader.parseSpecies(
                 SPECIES.replace("\"lifespanSeconds\": [100, 200]", "\"lifespanSeconds\": [200, 100]"), "species.json"));
         assertTrue(e.getMessage().contains("lifespanSeconds"), e.getMessage());
+        e = assertThrows(IllegalStateException.class, () -> DataLoader.parseSpecies(
+                SPECIES.replace("\"adultAgeSeconds\": 60", "\"adultAgeSeconds\": 150"), "species.json"));
+        assertTrue(e.getMessage().contains("adultAgeSeconds"), e.getMessage());
+        e = assertThrows(IllegalStateException.class, () -> DataLoader.parseSpecies(
+                SPECIES.replace("\"max\": 100", "\"max\": 5"), "species.json"));
+        assertTrue(e.getMessage().contains("population"), e.getMessage());
     }
 
     @Test

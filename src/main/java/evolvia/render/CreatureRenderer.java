@@ -1,24 +1,28 @@
 package evolvia.render;
 
+import evolvia.components.Age;
+import evolvia.components.Genome;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
+import evolvia.evolution.SpeciesDefinition;
 import org.joml.Matrix4f;
 
 /**
  * Draws all creatures in one instanced draw call. Position and heading are interpolated between
- * the last two ticks. Sleeping creatures are darker, the selected creature is highlighted.
+ * the last two ticks. Size and shade come from the genome, young creatures are smaller and grow;
+ * sleeping creatures are darker, the selected creature is highlighted.
  * <p>
  * Placeholder shape: a box body with a smaller box head in front (+Z), so the heading is visible.
  * Procedural bodies come in phase 6. Only reads simulation data.
  */
 public final class CreatureRenderer implements AutoCloseable {
 
-    /** Brightness variation between individuals (visual only). */
-    private static final float COLOR_JITTER = 0.12f;
+    /** Newborns are drawn at this fraction of the adult size and grow linearly until adulthood. */
+    private static final float NEWBORN_SCALE = 0.45f;
     private static final float SLEEP_DARKEN = 0.5f;
     private static final float PI = (float) Math.PI;
 
@@ -43,6 +47,8 @@ public final class CreatureRenderer implements AutoCloseable {
         ComponentStore<Transform> transforms = ecs.store(Transform.class);
         ComponentStore<PrevTransform> previous = ecs.store(PrevTransform.class);
         ComponentStore<Needs> needsStore = ecs.store(Needs.class);
+        ComponentStore<Genome> genomes = ecs.store(Genome.class);
+        ComponentStore<Age> ages = ecs.store(Age.class);
 
         batch.begin();
         for (int i = 0; i < creatures.size(); i++) {
@@ -62,11 +68,13 @@ public final class CreatureRenderer implements AutoCloseable {
                 z = prev.position.z + (z - prev.position.z) * alpha;
                 yaw = lerpAngle(prev.yaw, yaw, alpha);
             }
-            int rgb = creatures.componentAt(i).species.rgb();
-            float size = creatures.componentAt(i).species.bodySize();
+            SpeciesDefinition species = creatures.componentAt(i).species;
+            Genome genome = genomes.get(entity);
+            float size = species.bodySize() * (genome != null ? genome.size : 1f) * growth(ages.get(entity), species);
             model.translation(x, y, z).rotateY(yaw).scale(size);
 
-            float brightness = 1f + COLOR_JITTER * hashToSigned(entity);
+            int rgb = species.rgb();
+            float brightness = genome != null ? genome.tint : 1f;
             Needs needs = needsStore.get(entity);
             if (needs != null && needs.sleeping) {
                 brightness *= SLEEP_DARKEN;
@@ -101,13 +109,14 @@ public final class CreatureRenderer implements AutoCloseable {
         return from + delta * t;
     }
 
-    /** Deterministic pseudo-random value in [-1, 1] per entity (visual variation only). */
-    private static float hashToSigned(int entity) {
-        int h = entity * 0x9E3779B1;
-        h ^= h >>> 15;
-        h *= 0x85EBCA6B;
-        h ^= h >>> 13;
-        return (h & 0xFFFF) / 32767.5f - 1f;
+    /** Size factor from NEWBORN_SCALE at birth to 1 at adulthood. */
+    private static float growth(Age age, SpeciesDefinition species) {
+        if (age == null) {
+            return 1f;
+        }
+        int adultTicks = SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
+        float t = Math.min(1f, age.ageTicks / (float) Math.max(1, adultTicks));
+        return NEWBORN_SCALE + (1f - NEWBORN_SCALE) * t;
     }
 
     @Override

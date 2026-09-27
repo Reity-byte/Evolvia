@@ -14,6 +14,7 @@ import evolvia.render.CameraController;
 import evolvia.render.SceneRenderer;
 import evolvia.ui.CreatureSelection;
 import evolvia.ui.DebugOverlay;
+import evolvia.ui.PopulationGraph;
 import evolvia.world.Biome;
 import evolvia.world.BiomeTable;
 import evolvia.world.DeathStats;
@@ -59,6 +60,7 @@ public final class Evolvia implements GameLoop.Handler {
     private Input input;
     private SceneRenderer sceneRenderer;
     private DebugOverlay debugOverlay;
+    private PopulationGraph populationGraph;
     private CameraController cameraController;
     private String contextInfo;
     private int frameCap;
@@ -83,11 +85,15 @@ public final class Evolvia implements GameLoop.Handler {
 
             sceneRenderer = new SceneRenderer(world, worldConfig.water());
             debugOverlay = new DebugOverlay();
+            populationGraph = new PopulationGraph();
             cameraController = new CameraController(camera, world.terrain());
 
             frameCap = options.fpsCap().orElseGet(window::refreshRate);
             new GameLoop(window, input, time, stats, this, frameCap).run();
         } finally {
+            if (populationGraph != null) {
+                populationGraph.close();
+            }
             if (debugOverlay != null) {
                 debugOverlay.close();
             }
@@ -166,6 +172,7 @@ public final class Evolvia implements GameLoop.Handler {
 
         if (debugOverlay.isVisible()) {
             debugOverlay.render(debugText(), width, height);
+            populationGraph.render(world.history(), debugOverlay, width, height);
         }
     }
 
@@ -184,8 +191,10 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(String.format(Locale.ROOT, "Tick: %.3f ms | ticks total %d | dropped %d%n",
                 stats.avgTickMillis(), time.tickCount(), time.droppedTicks()));
         DeathStats deaths = world.deaths();
-        sb.append(String.format(Locale.ROOT, "Seed: %d | map %dx%d | creatures %d | resource nodes %d%n",
-                world.seed(), terrain.width(), terrain.depth(), world.creatureCount(), world.resourceNodeCount()));
+        sb.append(String.format(Locale.ROOT, "Seed: %d | map %dx%d | resource nodes %d%n",
+                world.seed(), terrain.width(), terrain.depth(), world.resourceNodeCount()));
+        sb.append(String.format(Locale.ROOT, "Population: %d | births %d | max generation %d%n",
+                world.creatureCount(), world.births().total(), world.maxGeneration()));
         sb.append(String.format(Locale.ROOT, "Food: %.0f units | deaths: hunger %d, thirst %d, old age %d%n",
                 world.totalFood(), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
                 deaths.count(DeathStats.Cause.OLD_AGE)));

@@ -33,5 +33,22 @@
     "radius": 10.0,
     "pauseSeconds": [0.5, 3.0]
   },
-  "startingPopulation": 1000
+  "reproduction": {
+    "adultAgeSeconds": 180,
+    "cooldownSeconds": 120,
+    "maxNeed": 0.4,
+    "minHealth": 0.7,
+    "hungerCost": 0.3,
+    "litterSize": 1,
+    "mateScore": 0.35
+  },
+  "genome": {
+    "variation": 0.1,
+    "mutation": 0.02
+  },
+  "population": {
+    "starting": 200,
+    "spawnRadius": 25.0,
+    "max": 3000
+  }
 }

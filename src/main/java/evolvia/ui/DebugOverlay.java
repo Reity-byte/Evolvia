@@ -108,6 +108,16 @@ public final class DebugOverlay implements AutoCloseable {
         draw(text, x, y, framebufferWidth, framebufferHeight);
     }
 
+    /**
+     * Draws text with its top-left corner at a screen position, independent of the F3 toggle.
+     *
+     * @param screenX framebuffer pixels from the left
+     * @param screenY framebuffer pixels from the top
+     */
+    public void renderText(String text, float screenX, float screenY, int framebufferWidth, int framebufferHeight) {
+        draw(text, screenX / SCALE, screenY / SCALE, framebufferWidth, framebufferHeight);
+    }
+
     /** Draws text at overlay coordinates (framebuffer pixels / SCALE) with a drop shadow. */
     private void draw(String text, float x, float y, int framebufferWidth, int framebufferHeight) {
         if (framebufferWidth <= 0 || framebufferHeight <= 0) {

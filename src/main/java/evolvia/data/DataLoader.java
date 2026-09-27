@@ -94,8 +94,24 @@ public final class DataLoader {
         float[] pause = s.wander().pauseSeconds();
         require(pause != null && pause.length == 2 && pause[0] >= 0 && pause[0] <= pause[1], source,
                 "wander.pauseSeconds must be [min, max] with 0 <= min <= max");
-        require(s.startingPopulation() != null && s.startingPopulation() >= 0 && s.startingPopulation() <= 100_000, source,
-                "startingPopulation must be between 0 and 100000");
+        SpeciesDefinition.Reproduction reproduction = s.reproduction();
+        require(reproduction != null, source, "missing \"reproduction\"");
+        require(reproduction.adultAgeSeconds() > 0 && reproduction.adultAgeSeconds() < lifespan[0], source,
+                "reproduction.adultAgeSeconds must be positive and below the shortest lifespan");
+        require(reproduction.cooldownSeconds() > 0 && reproduction.litterSize() >= 1 && reproduction.hungerCost() >= 0,
+                source, "reproduction: cooldownSeconds must be positive, litterSize at least 1, hungerCost not negative");
+        require(inUnitRange(reproduction.maxNeed()) && inUnitRange(reproduction.minHealth())
+                        && inUnitRange(reproduction.mateScore()), source,
+                "reproduction: maxNeed, minHealth and mateScore must be in [0, 1)");
+
+        SpeciesDefinition.GenomeTuning genome = s.genome();
+        require(genome != null && genome.variation() >= 0 && genome.variation() < 0.5f && genome.mutation() >= 0,
+                source, "genome: variation must be in [0, 0.5), mutation must not be negative");
+
+        SpeciesDefinition.Population population = s.population();
+        require(population != null && population.starting() >= 0 && population.max() >= population.starting()
+                        && population.max() <= 100_000 && population.spawnRadius() >= 0, source,
+                "population: 0 <= starting <= max <= 100000, spawnRadius must not be negative");
 
         return new SpeciesDefinition(
                 s.id(),
@@ -111,7 +127,9 @@ public final class DataLoader {
                 eating,
                 ai,
                 new SpeciesDefinition.Wander(s.wander().radius(), pause[0], pause[1]),
-                s.startingPopulation());
+                reproduction,
+                genome,
+                population);
     }
 
     /** Loads and validates {@code data/resources.json}. */
@@ -242,7 +260,8 @@ public final class DataLoader {
     private record SpeciesJson(String id, String name, String color, Float bodySize, Float speed, Float maxHealth,
                                float[] lifespanSeconds, Float senseRadius, SpeciesDefinition.NeedRates needs,
                                SpeciesDefinition.Eating eating, SpeciesDefinition.AiTuning ai,
-                               WanderJson wander, Integer startingPopulation) {
+                               WanderJson wander, SpeciesDefinition.Reproduction reproduction,
+                               SpeciesDefinition.GenomeTuning genome, SpeciesDefinition.Population population) {
     }
 
     /** JSON shape of {@code resources.json}. */

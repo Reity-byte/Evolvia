@@ -3,10 +3,12 @@ package evolvia.systems;
 import evolvia.components.Age;
 import evolvia.components.Health;
 import evolvia.components.Needs;
+import evolvia.components.Transform;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.world.DeathStats;
+import evolvia.world.SpatialGrid;
 
 /**
  * Aging and death: creatures age every tick and die of old age at their maximum age, or when
@@ -15,9 +17,11 @@ import evolvia.world.DeathStats;
 public final class AgingSystem implements GameSystem {
 
     private final DeathStats deaths;
+    private final SpatialGrid creatureGrid;
 
-    public AgingSystem(DeathStats deaths) {
+    public AgingSystem(DeathStats deaths, SpatialGrid creatureGrid) {
         this.deaths = deaths;
+        this.creatureGrid = creatureGrid;
     }
 
     @Override
@@ -27,8 +31,7 @@ public final class AgingSystem implements GameSystem {
             Age age = ages.componentAt(i);
             age.ageTicks++;
             if (age.ageTicks == age.maxAgeTicks) {
-                world.destroyEntity(ages.entityAt(i));
-                deaths.record(DeathStats.Cause.OLD_AGE);
+                die(world, ages.entityAt(i), DeathStats.Cause.OLD_AGE);
             }
         }
 
@@ -44,8 +47,16 @@ public final class AgingSystem implements GameSystem {
             }
             Needs needs = world.get(entity, Needs.class);
             boolean starving = needs == null || needs.hunger >= needs.thirst;
-            world.destroyEntity(entity);
-            deaths.record(starving ? DeathStats.Cause.STARVATION : DeathStats.Cause.THIRST);
+            die(world, entity, starving ? DeathStats.Cause.STARVATION : DeathStats.Cause.THIRST);
         }
+    }
+
+    private void die(EcsWorld world, int entity, DeathStats.Cause cause) {
+        Transform t = world.get(entity, Transform.class);
+        if (t != null) {
+            creatureGrid.remove(entity, t.position.x, t.position.z);
+        }
+        world.destroyEntity(entity);
+        deaths.record(cause);
     }
 }

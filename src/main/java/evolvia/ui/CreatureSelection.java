@@ -1,15 +1,18 @@
 package evolvia.ui;
 
 import evolvia.components.Age;
+import evolvia.components.Genome;
 import evolvia.components.AiState;
 import evolvia.components.Health;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
+import evolvia.components.Reproduction;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.core.Input;
 import evolvia.core.Time;
 import evolvia.core.Window;
+import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
 import evolvia.world.Terrain;
 import evolvia.world.World;
@@ -85,13 +88,18 @@ public final class CreatureSelection {
         Needs needs = world.ecs().get(entity, Needs.class);
         Health health = world.ecs().get(entity, Health.class);
         Age age = world.ecs().get(entity, Age.class);
+        Genome genome = world.ecs().get(entity, Genome.class);
+        Reproduction reproduction = world.ecs().get(entity, Reproduction.class);
+        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).species;
+        boolean adult = age.ageTicks >= SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
         String action = ai != null && ai.action != null ? ai.action.label() : "-";
         String path = ai != null && ai.pathStatus != AiState.PathStatus.NONE ? " (" + ai.pathStatus.name().toLowerCase(Locale.ROOT) + ")" : "";
         float minutesPerTick = 1f / Time.TICKS_PER_SECOND / 60f;
-        return String.format(Locale.ROOT, "#%d %s%s%nhunger %.2f  thirst %.2f  energy %.2f%nhp %.2f  age %.1f / %.1f min",
+        return String.format(Locale.ROOT, "#%d %s%s%nhunger %.2f  thirst %.2f  energy %.2f%nhp %.2f  age %.1f / %.1f min (%s)%ngen %d  offspring %d  size %.2f  speed %.2f",
                 entity, action, path,
                 needs.hunger, needs.thirst, needs.energy,
-                health.hp, age.ageTicks * minutesPerTick, age.maxAgeTicks * minutesPerTick);
+                health.hp, age.ageTicks * minutesPerTick, age.maxAgeTicks * minutesPerTick, adult ? "adult" : "young",
+                genome.generation, reproduction.offspring, genome.size, genome.speed);
     }
 
     /** First point where the ray hits the terrain or the water surface, or null. */
