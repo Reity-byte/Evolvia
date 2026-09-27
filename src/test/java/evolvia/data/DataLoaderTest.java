@@ -32,7 +32,10 @@ class DataLoaderTest {
              "diet": {"plantNutrition": 1, "meatNutrition": 0},
              "climate": {"comfortMin": 0.25, "comfortMax": 0.7, "needFactorPerUnit": 4, "damageBeyond": 0.15,
                          "damagePerSecond": 0.01},
-             "evolution": {"populationPointsPerMinute": 1, "pointsPerGeneration": 2, "harshPointsPerCreatureMinute": 0.02}}
+             "evolution": {"populationPointsPerMinute": 1, "pointsPerGeneration": 2, "harshPointsPerCreatureMinute": 0.02},
+             "groups": {"updateSeconds": 5, "joinRadius": 15, "minFounders": 5, "minSize": 3, "maxSize": 24,
+                        "followDistance": 7, "leaveDistance": 40, "leaveSeconds": 60, "followScore": 0.15,
+                        "forageRadius": 14, "urgentNeed": 0.7}}
             """;
 
     private static BiomeTable parse(String... biomes) {

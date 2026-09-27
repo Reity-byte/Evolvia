@@ -147,6 +147,14 @@ public final class DataLoader {
         require(evolution != null && evolution.populationPointsPerMinute() >= 0 && evolution.pointsPerGeneration() >= 0
                         && evolution.harshPointsPerCreatureMinute() >= 0, source, "evolution: rates must not be negative");
 
+        SpeciesDefinition.Groups groups = s.groups();
+        require(groups != null && groups.updateSeconds() > 0 && groups.joinRadius() > 0 && groups.minSize() >= 2
+                        && groups.minFounders() >= groups.minSize() && groups.maxSize() >= 2 * groups.minSize()
+                        && groups.followDistance() > 0 && groups.leaveDistance() > groups.followDistance()
+                        && groups.leaveSeconds() >= 0 && groups.followScore() >= 0 && groups.forageRadius() > 0
+                        && groups.urgentNeed() > 0 && groups.urgentNeed() <= 1, source,
+                "groups: positive values, 2 <= minSize <= minFounders, maxSize >= 2 * minSize, leaveDistance > followDistance, urgentNeed in 0..1");
+
         return new SpeciesDefinition(
                 s.id(),
                 s.name() != null ? s.name() : s.id(),
@@ -166,7 +174,8 @@ public final class DataLoader {
                 population,
                 diet,
                 climate,
-                evolution);
+                evolution,
+                groups);
     }
 
     /** Loads and validates {@code data/resources.json}. */
@@ -405,7 +414,7 @@ public final class DataLoader {
                                WanderJson wander, SpeciesDefinition.Reproduction reproduction,
                                SpeciesDefinition.GenomeTuning genome, SpeciesDefinition.Population population,
                                SpeciesDefinition.Diet diet, SpeciesDefinition.Climate climate,
-                               SpeciesDefinition.EvolutionRates evolution) {
+                               SpeciesDefinition.EvolutionRates evolution, SpeciesDefinition.Groups groups) {
     }
 
     /** JSON shape of {@code data/evolution/branches.json}. */

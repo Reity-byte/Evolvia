@@ -58,7 +58,7 @@ class SaveLoadTest {
         SaveData timeless = new SaveData(save.saveVersion(),
                 new SaveData.Meta(meta.name(), "", meta.speciesName(), meta.population(), meta.generation(), meta.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(),
-                save.god(), save.stats(), save.ecs(), save.pathQueue());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups());
         return SaveManager.toJson(timeless);
     }
 
@@ -66,13 +66,18 @@ class SaveLoadTest {
     private static void play(World world, int tick, float x, float z) {
         switch (tick) {
             case 100 -> {
-                world.species().addPoints(200f);
+                world.species().addPoints(400f);
                 world.unlock("body_strong_legs");
                 world.unlock("mind_instincts");
+                world.unlock("mind_memory");
+                world.unlock("mind_social_groups"); // herds are part of the saved state
             }
             case 150 -> world.godPowers().request(DivinePower.RAIN, x, z);
             case 300 -> world.godPowers().request(DivinePower.ABUNDANCE, x + 6f, z);
-            case 700 -> world.godPowers().request(DivinePower.LIGHTNING, x, z + 3f);
+            case 700 -> { // at a creature's current position (herds move away from the start)
+                Transform t = world.ecs().get(world.ecs().store(SpeciesRef.class).entityAt(0), Transform.class);
+                world.godPowers().request(DivinePower.LIGHTNING, t.position.x, t.position.z);
+            }
             case 1300 -> {
                 world.godPowers().faith().add(50f);
                 world.godPowers().request(DivinePower.LOWER, x + 10f, z + 10f);
@@ -113,7 +118,8 @@ class SaveLoadTest {
         run(copy, tick, 1500, x, z);
         assertEquals(state(original, end), state(copy, end), "loaded world continued differently");
         assertNotEquals(saved, state(original, end), "the simulation should have moved on");
-        assertTrue(original.deaths().total() > 0 && original.births().total() > 0, "a lively world was tested");
+        assertTrue(original.deaths().total() > 0, "a lively world was tested");
+        assertTrue(original.groups().count() > 3, "herds were saved and restored");
     }
 
     @Test
@@ -156,9 +162,25 @@ class SaveLoadTest {
         World world = World.create(config, biomes, species, tree, resources, god, 5);
         SaveData save = WorldCodec.snapshot(world, "x", 0, Time.Speed.NORMAL, VIEW);
         SaveData newer = new SaveData(WorldCodec.SAVE_VERSION + 1, save.meta(), save.seed(), save.tick(), save.speed(),
-                save.view(), save.random(), save.terrain(), save.species(), save.god(), save.stats(), save.ecs(), save.pathQueue());
+                save.view(), save.random(), save.terrain(), save.species(), save.god(), save.stats(), save.ecs(), save.pathQueue(),
+                save.groups());
         SaveException e = assertThrows(SaveException.class, () -> WorldCodec.restore(newer, data));
         assertTrue(e.getMessage().contains("novější"), e.getMessage());
+    }
+
+    @Test
+    void version1SavesWithoutHerdsStillLoad() {
+        World world = World.create(config, biomes, species, tree, resources, god, 5);
+        SaveData save = WorldCodec.snapshot(world, "x", 0, Time.Speed.NORMAL, VIEW);
+        SaveData.EcsData e = save.ecs();
+        SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
+                e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
+                e.memories(), e.resources(), e.believers(), e.fears(), null);
+        SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
+                save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null);
+        World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();
+        assertEquals(world.population(), loaded.population());
+        assertEquals(0, loaded.groups().count());
     }
 
     @Test
@@ -171,7 +193,7 @@ class SaveLoadTest {
         SaveData changed = new SaveData(save.saveVersion(), save.meta(), save.seed(), save.tick(), save.speed(),
                 save.view(), save.random(), save.terrain(),
                 new SaveData.SpeciesData(s.id(), s.points(), s.pointsEarned(), List.of("body_strong_legs", "removed_node")),
-                save.god(), save.stats(), save.ecs(), save.pathQueue());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups());
         WorldCodec.Loaded loaded = WorldCodec.restore(changed, data);
         assertEquals(List.of("removed_node"), loaded.skippedNodes());
         assertTrue(loaded.world().species().isUnlocked("body_strong_legs"));

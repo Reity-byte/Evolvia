@@ -378,8 +378,9 @@ Rozhodnutí k fázi 9 (celé):
   - mládě se narodí do skupiny rodiče.
 - **Akce `FollowLeader`:** člen dál než `followDistance` od vůdce jde k němu; skóre roste se vzdáleností, ale zůstává pod potřebami (hlad, žízeň, spánek mají přednost) a nad bloumáním. Vůdce se chová normálně (bloudí, hledá jídlo), skupina ho následuje.
 - **Sdílená paměť:** kde se člen napil / najedl, zapíše se i do paměti skupiny; `SeekFood` / `SeekWater` bez vlastní vzpomínky použije paměť skupiny (jen s Pamětí).
-- **Data:** blok `groups` v `species.json` (joinRadius, maxSize, minSize, minFounders, followDistance, leaveDistance, updateSeconds, followScore).
-- **UI:** klávesa G / tlačítko zapne zobrazení skupin (barevný kroužek pod členy, značka nad vůdcem); panel bytosti ukazuje skupinu a roli; panel druhu počet a průměrnou velikost skupin.
+- **Soudržnost (upřesněno při implementaci):** člen hledá jídlo a vodu jen v okruhu `forageRadius` kolem vůdce a z paměti používá jen paměť stáda, dokud potřeba nedosáhne `urgentNeed` (pak hledá sám a daleko). Bloumá kolem vůdce. Partnera hledá jen ve svém stádu. Vůdce se chová jako dřív, takže stádo vede k jídlu a vodě on.
+- **Data:** blok `groups` v `species.json` (updateSeconds, joinRadius, minFounders, minSize, maxSize, followDistance, leaveDistance, leaveSeconds, followScore, forageRadius, urgentNeed).
+- **UI:** klávesa G / tlačítko *Stáda* zapne zobrazení skupin (barevný kroužek pod členy, značka nad vůdcem); panel bytosti ukazuje skupinu a roli; panel druhu počet a průměrnou velikost skupin.
 - **Save:** `saveVersion` 2 (skupiny a členství); save verze 1 se načte bez skupin (vytvoří se znovu).
 - **Testy:** skupiny vzniknou jen po odemčení, velikosti v mezích, členové jsou u vůdce výrazně blíž než bez skupin, výměna vůdce po smrti, dělení velké skupiny, mládě ve skupině rodiče, save → load → identický běh i se skupinami.
 

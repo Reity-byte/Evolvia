@@ -7,6 +7,7 @@ import evolvia.ai.Pathfinder;
 import evolvia.components.AiState;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
+import evolvia.components.GroupMember;
 import evolvia.components.PrevTransform;
 import evolvia.components.Velocity;
 import evolvia.data.DataLoader;
@@ -14,6 +15,7 @@ import evolvia.god.GodConfig;
 import evolvia.god.GodPowers;
 import evolvia.systems.FaithSystem;
 import evolvia.systems.GodPowerSystem;
+import evolvia.systems.GroupSystem;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -79,6 +81,7 @@ public final class World implements EvolutionConditions {
     private final AgingSystem agingSystem;
     private final GodPowerSystem godPowerSystem;
     private final GodPowers godPowers;
+    private final Groups groups = new Groups();
     private final SimRandom random;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
@@ -100,10 +103,10 @@ public final class World implements EvolutionConditions {
         this.pathfindingSystem = new PathfindingSystem(navigation, pathQueue);
         this.reproductionSystem = new ReproductionSystem(births, creatureFactory, terrain);
         this.evolutionSystem = new EvolutionSystem(species, reproductionSystem::maxGeneration);
-        this.agingSystem = new AgingSystem(deaths, creatureGrid, this::leaveCarcass);
+        this.agingSystem = new AgingSystem(deaths, creatureGrid, this::creatureDied);
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
-                creatureGrid, births, random);
+                creatureGrid, births, random, groups);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
@@ -117,6 +120,7 @@ public final class World implements EvolutionConditions {
                 new ResourceRegrowthSystem(foodGrid),
                 reproductionSystem,
                 agingSystem,
+                new GroupSystem(groups, creatureGrid),
                 evolutionSystem,
                 new FaithSystem(godPowers.faith(), godConfig.faith()));
         this.systemNanos = new long[systems.size()];
@@ -286,6 +290,15 @@ public final class World implements EvolutionConditions {
         ecs.add(entity, new ResourceNode(type, amount, regrowPerTick));
         resourceGrid(type.kind()).insert(entity, x, z);
         return entity;
+    }
+
+    /** A creature died: its herd may need a new leader, and it leaves a carcass. */
+    private void creatureDied(int entity, float x, float z) {
+        GroupMember member = ecs.get(entity, GroupMember.class);
+        if (member != null) {
+            groups.died(entity, member.group);
+        }
+        leaveCarcass(entity, x, z);
     }
 
     /** A dead creature leaves a carcass (if resources.json defines one), which then decays. */
@@ -556,6 +569,11 @@ public final class World implements EvolutionConditions {
     public void applyGodPowersNow(int nextTick) {
         godPowerSystem.applyQueued(nextTick);
         ecs.flushDestroyed();
+    }
+
+    /** The herds (phase 9a). */
+    public Groups groups() {
+        return groups;
     }
 
     public GodPowers godPowers() {

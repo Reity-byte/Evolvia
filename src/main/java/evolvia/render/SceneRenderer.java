@@ -19,6 +19,8 @@ public final class SceneRenderer implements AutoCloseable {
     private final CreatureRenderer creatureRenderer;
     private final WaterRenderer waterRenderer;
     private final GodEffectsRenderer effectsRenderer;
+    private final GroupOverlayRenderer groupRenderer;
+    private boolean showGroups;
 
     public SceneRenderer(World world, WorldConfig.WaterSettings water) {
         this.world = world;
@@ -27,12 +29,18 @@ public final class SceneRenderer implements AutoCloseable {
         creatureRenderer = new CreatureRenderer();
         waterRenderer = new WaterRenderer(world.terrain(), water);
         effectsRenderer = new GodEffectsRenderer();
+        groupRenderer = new GroupOverlayRenderer();
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         Vector3fc sky = lighting.skyColor();
         glClearColor(sky.x(), sky.y(), sky.z(), 1f);
+    }
+
+    /** Shows or hides the herd view (colored rings, leader flags). */
+    public void setShowGroups(boolean show) {
+        showGroups = show;
     }
 
     /** Human-readable description of the active OpenGL context. */
@@ -54,6 +62,9 @@ public final class SceneRenderer implements AutoCloseable {
         resourceRenderer.render(camera, lighting, world.ecs());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
+        if (showGroups) {
+            groupRenderer.render(camera, lighting, world.terrain(), world.ecs(), world.groups(), alpha);
+        }
         waterRenderer.render(camera, lighting);
         effectsRenderer.renderTranslucent(camera, lighting);
     }
@@ -65,5 +76,6 @@ public final class SceneRenderer implements AutoCloseable {
         creatureRenderer.close();
         waterRenderer.close();
         effectsRenderer.close();
+        groupRenderer.close();
     }
 }

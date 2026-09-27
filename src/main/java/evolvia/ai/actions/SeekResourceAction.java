@@ -5,6 +5,7 @@ import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.components.Memory;
 import evolvia.components.Transform;
+import evolvia.world.Groups;
 import evolvia.world.ResourceKind;
 
 /**
@@ -97,27 +98,55 @@ public final class SeekResourceAction implements Action {
         };
     }
 
-    /** Remembered place for this resource kind (x, z), or null (also when the species has no memory). */
+    /**
+     * Remembered place for this resource kind (x, z): the creature's own memory, otherwise its herd's
+     * shared memory; null without the memory ability. Herd members that are not in urgent need only use
+     * the herd's memory, so they do not leave the herd for places only they know.
+     */
     private float[] rememberedPlace(ActionContext c) {
         Memory memory = c.memory();
         if (memory == null) {
             return null;
         }
-        if (kind == ResourceKind.FOOD) {
-            return memory.knowsFood ? new float[]{memory.foodX, memory.foodZ} : null;
+        float need = kind == ResourceKind.FOOD ? c.needs.hunger : c.needs.thirst;
+        boolean herdOnly = c.leader() != null && need < c.species.groups().urgentNeed();
+        if (!herdOnly) {
+            if (kind == ResourceKind.FOOD && memory.knowsFood) {
+                return new float[]{memory.foodX, memory.foodZ};
+            }
+            if (kind == ResourceKind.WATER && memory.knowsWater) {
+                return new float[]{memory.waterX, memory.waterZ};
+            }
         }
-        return memory.knowsWater ? new float[]{memory.waterX, memory.waterZ} : null;
+        Groups.Group group = c.group();
+        if (group == null) {
+            return null;
+        }
+        if (kind == ResourceKind.FOOD) {
+            return group.knowsFood ? new float[]{group.foodX, group.foodZ} : null;
+        }
+        return group.knowsWater ? new float[]{group.waterX, group.waterZ} : null;
     }
 
+    /** Nothing at the remembered place: forget it (the herd too, if that is where it came from). */
     private void forget(ActionContext c) {
         Memory memory = c.memory();
         if (memory == null) {
             return;
         }
+        Groups.Group group = c.group();
+        float need = kind == ResourceKind.FOOD ? c.needs.hunger : c.needs.thirst;
+        boolean herdOnly = c.leader() != null && need < c.species.groups().urgentNeed();
         if (kind == ResourceKind.FOOD) {
-            memory.knowsFood = false;
-        } else {
+            if (memory.knowsFood && !herdOnly) {
+                memory.knowsFood = false;
+            } else if (group != null) {
+                group.knowsFood = false;
+            }
+        } else if (memory.knowsWater && !herdOnly) {
             memory.knowsWater = false;
+        } else if (group != null) {
+            group.knowsWater = false;
         }
     }
 }

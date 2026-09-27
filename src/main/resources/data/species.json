@@ -55,6 +55,19 @@
     "plantNutrition": 1.0,
     "meatNutrition": 0.0
   },
+  "groups": {
+    "updateSeconds": 5,
+    "joinRadius": 15,
+    "minFounders": 5,
+    "minSize": 3,
+    "maxSize": 24,
+    "followDistance": 7,
+    "leaveDistance": 40,
+    "leaveSeconds": 60,
+    "followScore": 0.15,
+    "forageRadius": 14,
+    "urgentNeed": 0.7
+  },
   "climate": {
     "comfortMin": 0.25,
     "comfortMax": 0.7,

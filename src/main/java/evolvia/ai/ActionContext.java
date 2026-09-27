@@ -3,6 +3,7 @@ package evolvia.ai;
 import evolvia.components.Age;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
+import evolvia.components.GroupMember;
 import evolvia.components.AiState;
 import evolvia.components.Health;
 import evolvia.components.Memory;
@@ -17,6 +18,7 @@ import evolvia.ecs.EcsWorld;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Births;
+import evolvia.world.Groups;
 import evolvia.world.ResourceKind;
 import evolvia.world.SpatialGrid;
 import evolvia.world.Terrain;
@@ -43,6 +45,7 @@ public final class ActionContext {
     public final SpatialGrid creatureGrid;
     public final Births births;
     public final Random random;
+    public final Groups groups;
 
     public EcsWorld ecs;
     public ComponentStore<ResourceNode> resources;
@@ -53,6 +56,7 @@ public final class ActionContext {
     private ComponentStore<Age> ages;
     private ComponentStore<Reproduction> reproductions;
     private ComponentStore<Memory> memories;
+    private ComponentStore<GroupMember> groupMembers;
     public int tick;
 
     public int entity;
@@ -74,7 +78,7 @@ public final class ActionContext {
 
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
-                         Random random) {
+                         Random random, Groups groups) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -83,6 +87,7 @@ public final class ActionContext {
         this.creatureGrid = creatureGrid;
         this.births = births;
         this.random = random;
+        this.groups = groups;
     }
 
     /** Prepares the context for one tick. */
@@ -97,6 +102,7 @@ public final class ActionContext {
         this.ages = ecs.store(Age.class);
         this.reproductions = ecs.store(Reproduction.class);
         this.memories = ecs.store(Memory.class);
+        this.groupMembers = ecs.store(GroupMember.class);
     }
 
     /** Points the context at one creature. */
@@ -127,6 +133,21 @@ public final class ActionContext {
         return ecs.get(entity, Fear.class);
     }
 
+    /** The current creature's herd, or null. */
+    public Groups.Group group() {
+        GroupMember member = groupMembers.get(entity);
+        return member != null ? groups.get(member.group) : null;
+    }
+
+    /** Position of the current creature's herd leader, or null (no herd, no leader yet, or it leads itself). */
+    public Transform leader() {
+        Groups.Group group = group();
+        if (group == null || group.leader < 0 || group.leader == entity) {
+            return null;
+        }
+        return transforms.get(group.leader);
+    }
+
     /** Pathfinder for the current creature's way of moving (walking, or also swimming). */
     public Pathfinder pathfinder() {
         return navigation.forSpecies(kind);
@@ -139,30 +160,43 @@ public final class ActionContext {
 
     // ---------------------------------------------------------------- resource queries
 
-    /** Nearest usable node of a kind within the sense radius and reachable over land, or -1. */
+    /**
+     * Nearest usable node of a kind within the sense radius and reachable over land, or -1. Herd members
+     * forage near their leader (within {@code groups.forageRadius} of it) unless the need is urgent, so
+     * the herd stays together and the leader leads it to food and water.
+     */
     public int nearest(ResourceKind kind) {
         if (kind == ResourceKind.FOOD) {
             if (nearestFood == -2) {
-                nearestFood = findNode(kind, species.senseRadius(), true);
+                nearestFood = findNode(kind, true, needs.hunger);
             }
             return nearestFood;
         }
         if (nearestWater == -2) {
-            nearestWater = findNode(kind, species.senseRadius(), true);
+            nearestWater = findNode(kind, true, needs.thirst);
         }
         return nearestWater;
+    }
+
+    private int findNode(ResourceKind kind, boolean sameRegion, float need) {
+        Transform leader = leader();
+        SpeciesDefinition.Groups rules = species.groups();
+        if (leader != null && need < rules.urgentNeed()) {
+            return findNode(kind, leader.position.x, leader.position.z, rules.forageRadius(), sameRegion);
+        }
+        return findNode(kind, transform.position.x, transform.position.z, species.senseRadius(), sameRegion);
     }
 
     /** Usable node of a kind within {@link #REACH}, or -1. */
     public int inReach(ResourceKind kind) {
         if (kind == ResourceKind.FOOD) {
             if (foodInReach == -2) {
-                foodInReach = findNode(kind, REACH, false);
+                foodInReach = findNode(kind, transform.position.x, transform.position.z, REACH, false);
             }
             return foodInReach;
         }
         if (waterInReach == -2) {
-            waterInReach = findNode(kind, REACH, false);
+            waterInReach = findNode(kind, transform.position.x, transform.position.z, REACH, false);
         }
         return waterInReach;
     }
@@ -184,10 +218,9 @@ public final class ActionContext {
         return food.type.nutrition() * species.diet().nutrition(food.type.foodType());
     }
 
-    private int findNode(ResourceKind kind, float radius, boolean sameRegion) {
-        float x = transform.position.x;
-        float z = transform.position.z;
-        int myRegion = sameRegion ? pathfinder().regionAt(x, z) : -1;
+    /** Nearest usable node within {@code radius} of (x, z), optionally only ones reachable from here. */
+    private int findNode(ResourceKind kind, float x, float z, float radius, boolean sameRegion) {
+        int myRegion = sameRegion ? pathfinder().regionAt(transform.position.x, transform.position.z) : -1;
         SpatialGrid grid = kind == ResourceKind.FOOD ? foodGrid : waterGrid;
         return grid.nearest(x, z, radius, node -> {
             if (!isUsable(node)) {
@@ -235,7 +268,10 @@ public final class ActionContext {
                 && creatures.size() < ref.species.stats().population().max();
     }
 
-    /** Nearest creature of the same species that can reproduce and is reachable over land, or -1. */
+    /**
+     * Nearest creature of the same species that can reproduce and is reachable over land, or -1.
+     * Herd members only mate within their herd.
+     */
     public int nearestMate() {
         if (nearestMate == -2) {
             float x = transform.position.x;
@@ -244,6 +280,13 @@ public final class ActionContext {
             nearestMate = creatureGrid.nearest(x, z, species.senseRadius(), other -> {
                 if (other == entity || !canReproduce(other) || creatures.get(other).species != kind) {
                     return false;
+                }
+                GroupMember mine = groupMembers.get(entity);
+                if (mine != null) {
+                    GroupMember theirs = groupMembers.get(other);
+                    if (theirs == null || theirs.group != mine.group) {
+                        return false;
+                    }
                 }
                 Transform t = transforms.get(other);
                 return pathfinder().regionAt(t.position.x, t.position.z) == myRegion;

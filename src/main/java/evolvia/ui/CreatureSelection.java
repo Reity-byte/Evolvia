@@ -3,6 +3,7 @@ package evolvia.ui;
 import evolvia.ai.ActionType;
 import evolvia.components.Age;
 import evolvia.components.Genome;
+import evolvia.components.GroupMember;
 import evolvia.components.AiState;
 import evolvia.components.Health;
 import evolvia.components.Needs;
@@ -15,6 +16,7 @@ import evolvia.core.Time;
 import evolvia.core.Window;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
+import evolvia.world.Groups;
 import evolvia.world.World;
 import org.joml.Vector3f;
 
@@ -89,7 +91,7 @@ public final class CreatureSelection {
 
         float padding = 12f;
         float line = ui.regular.lineHeight() + 2f;
-        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 4 * line + padding;
+        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 5 * line + padding;
         float x = ui.width() - PANEL_WIDTH - 10f;
         float y = top + 10f;
         ui.panel(x, y, PANEL_WIDTH, h);
@@ -121,6 +123,12 @@ public final class CreatureSelection {
         ty += line;
         ui.text(ui.regular, String.format(Locale.ROOT, "Generace %d, potomků %d", genome.generation, reproduction.offspring),
                 x + padding, ty, Ui.TEXT);
+        ty += line;
+        GroupMember member = world.ecs().get(entity, GroupMember.class);
+        Groups.Group group = member != null ? world.groups().get(member.group) : null;
+        String herd = group == null ? "Bez stáda"
+                : String.format(Locale.ROOT, "Stádo #%d (%d bytostí), %s", group.id, group.size, group.leader == entity ? "vůdce" : "člen");
+        ui.text(ui.regular, herd, x + padding, ty, group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
         ty += line;
         ui.text(ui.regular, String.format(Locale.ROOT, "Geny: velikost %s, rychlost %s",
                 Texts.percent(genome.size - 1f), Texts.percent(genome.speed - 1f)), x + padding, ty, Ui.TEXT_DIM);

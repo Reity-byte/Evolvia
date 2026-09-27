@@ -26,6 +26,7 @@ import evolvia.core.Time;
  * @param diet               how much each food type nourishes (0 = not eaten)
  * @param climate            temperature comfort range and what happens outside it
  * @param evolution          how fast the species earns evolution points
+ * @param groups             how herds form and hold together (with the {@code groups} ability)
  */
 public record SpeciesDefinition(
         String id,
@@ -46,7 +47,8 @@ public record SpeciesDefinition(
         Population population,
         Diet diet,
         Climate climate,
-        EvolutionRates evolution) {
+        EvolutionRates evolution,
+        Groups groups) {
 
     /**
      * Diet as nutrition per food type: 1 = normal, 0 = the species does not eat it. Herbivore, omnivore
@@ -96,6 +98,26 @@ public record SpeciesDefinition(
     }
 
     /**
+     * Herds (phase 9a, DESIGN.md §11).
+     *
+     * @param updateSeconds   how often herds are updated (joining, founding, splitting, leaving)
+     * @param joinRadius      a free creature joins a herd whose leader is this close; founders gather within it
+     * @param minFounders     free creatures needed nearby to found a new herd
+     * @param minSize         smaller herds fall apart
+     * @param maxSize         larger herds split in two
+     * @param followDistance  members further than this from the leader walk to it
+     * @param leaveDistance   members further than this for {@code leaveSeconds} leave the herd
+     * @param leaveSeconds    see {@code leaveDistance}
+     * @param followScore     utility of following at {@code followDistance} (rises by half towards {@code leaveDistance})
+     * @param forageRadius    members look for food and water only this far around their leader...
+     * @param urgentNeed      ...unless hunger / thirst is at least this high
+     */
+    public record Groups(float updateSeconds, float joinRadius, int minFounders, int minSize, int maxSize,
+                         float followDistance, float leaveDistance, float leaveSeconds, float followScore,
+                         float forageRadius, float urgentNeed) {
+    }
+
+    /**
      * @param adultAgeSeconds  age at which a creature is grown up and can reproduce
      * @param cooldownSeconds  minimum time between two reproductions of one creature
      * @param maxNeed          hunger and thirst must both be below this to reproduce
@@ -125,9 +147,15 @@ public record SpeciesDefinition(
     }
 
     /** Copy with a different starting population (e.g. for tests). */
+    /** Same species with other herd rules (tests). */
+    public SpeciesDefinition withGroups(Groups newGroups) {
+        return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
+                senseRadius, needs, eating, ai, wander, reproduction, genome, population, diet, climate, evolution, newGroups);
+    }
+
     public SpeciesDefinition withPopulation(Population newPopulation) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution, groups);
     }
 
     /**

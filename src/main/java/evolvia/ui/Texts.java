@@ -36,6 +36,7 @@ public final class Texts {
             case SLEEP -> "Spí";
             case SEEK_MATE -> "Hledá partnera";
             case FLEE -> "Utíká v hrůze";
+            case FOLLOW_LEADER -> "Jde za vůdcem";
         };
     }
 
@@ -52,6 +53,7 @@ public final class Texts {
         return switch (ability) {
             case "swim" -> "plavání";
             case "memory" -> "paměť";
+            case "groups" -> "stáda";
             default -> ability;
         };
     }

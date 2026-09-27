@@ -7,6 +7,7 @@ import evolvia.components.Memory;
 import evolvia.components.ResourceNode;
 import evolvia.components.Transform;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.world.Groups;
 import evolvia.world.ResourceKind;
 
 /**
@@ -74,8 +75,20 @@ public final class ConsumeAction implements Action {
         return need(c) <= SATISFIED ? Status.DONE : Status.RUNNING;
     }
 
-    /** Species with memory remember where they ate / drank. */
+    /** Species with memory remember where they ate / drank; a herd remembers it too (shared memory). */
     private void remember(ActionContext c, Transform source) {
+        Groups.Group group = c.group();
+        if (group != null) {
+            if (kind == ResourceKind.FOOD) {
+                group.knowsFood = true;
+                group.foodX = source.position.x;
+                group.foodZ = source.position.z;
+            } else {
+                group.knowsWater = true;
+                group.waterX = source.position.x;
+                group.waterZ = source.position.z;
+            }
+        }
         Memory memory = c.memory();
         if (memory == null) {
             return;

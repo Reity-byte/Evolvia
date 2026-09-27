@@ -23,7 +23,8 @@ public record SaveData(
         GodData god,
         StatsData stats,
         EcsData ecs,
-        int[] pathQueue) {
+        int[] pathQueue,
+        GroupsData groups) {
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {
@@ -63,7 +64,8 @@ public record SaveData(
                           List<VelocityData> velocities, int[] creatures, List<GenomeData> genomes,
                           List<NeedsData> needs, List<HealthData> healths, List<AgeData> ages,
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
-                          List<ResourceData> resources, int[] believers, List<FearData> fears) {
+                          List<ResourceData> resources, int[] believers, List<FearData> fears,
+                          List<GroupMemberData> groupMembers) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {
@@ -103,5 +105,16 @@ public record SaveData(
     }
 
     public record FearData(int e, float fromX, float fromZ, float distance, int untilTick) {
+    }
+
+    public record GroupMemberData(int e, int group, int farTicks) {
+    }
+
+    /** Herds (save version 2+; null in older saves). */
+    public record GroupsData(int nextId, List<GroupData> groups) {
+    }
+
+    public record GroupData(int id, int leader, int size, boolean knowsWater, float waterX, float waterZ,
+                            boolean knowsFood, float foodX, float foodZ) {
     }
 }

@@ -7,6 +7,7 @@ import evolvia.components.AiState;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
 import evolvia.components.Genome;
+import evolvia.components.GroupMember;
 import evolvia.components.Health;
 import evolvia.components.Memory;
 import evolvia.components.Needs;
@@ -28,6 +29,7 @@ import evolvia.god.GodPowers;
 import evolvia.save.SaveData.*;
 import evolvia.world.BiomeTable;
 import evolvia.world.DeathStats;
+import evolvia.world.Groups;
 import evolvia.world.PopulationHistory;
 import evolvia.world.ResourceDefinition;
 import evolvia.world.ResourceTable;
@@ -53,12 +55,13 @@ import java.util.Set;
  */
 public final class WorldCodec {
 
-    public static final int SAVE_VERSION = 1;
+    /** 2: herds (phase 9a). Version 1 saves load without herds (they form again). */
+    public static final int SAVE_VERSION = 2;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
             SpeciesRef.class, Genome.class, Needs.class, Health.class, Age.class, Reproduction.class, AiState.class,
-            Memory.class, ResourceNode.class, Believer.class, Fear.class);
+            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class);
 
     /** Game data a save is loaded against (the current definitions). */
     public record GameData(float shallowDepth, BiomeTable biomes, SpeciesDefinition species, EvolutionTree tree,
@@ -115,7 +118,7 @@ public final class WorldCodec {
         return new SaveData(SAVE_VERSION, meta, world.seed(), tick, speed.name(), view, world.randomState(),
                 terrain(world.terrain().snapshot()),
                 new SpeciesData(species.base().id(), species.points(), species.pointsEarned(), List.copyOf(species.unlockedNodes())),
-                god, stats, ecs(ecs), world.pathQueue().toArray());
+                god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()));
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -155,7 +158,16 @@ public final class WorldCodec {
                 list(ecs.store(Memory.class), (e, m) -> new MemoryData(e, m.knowsWater, m.waterX, m.waterZ, m.knowsFood, m.foodX, m.foodZ)),
                 list(ecs.store(ResourceNode.class), (e, r) -> new ResourceData(e, r.type.id(), r.amount, r.regrowPerTick, r.divine)),
                 entities(ecs.store(Believer.class)),
-                list(ecs.store(Fear.class), (e, f) -> new FearData(e, f.fromX, f.fromZ, f.distance, f.untilTick)));
+                list(ecs.store(Fear.class), (e, f) -> new FearData(e, f.fromX, f.fromZ, f.distance, f.untilTick)),
+                list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)));
+    }
+
+    private static GroupsData groups(Groups groups) {
+        List<GroupData> list = new ArrayList<>();
+        for (Groups.Group g : groups.all()) {
+            list.add(new GroupData(g.id, g.leader, g.size, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
+        }
+        return new GroupsData(groups.nextId(), list);
     }
 
     private static AiData ai(int e, AiState ai) {
@@ -227,6 +239,7 @@ public final class WorldCodec {
             }
             restoreStats(world, save.stats());
             restoreGod(world.godPowers(), save.god());
+            restoreGroups(world.groups(), save.groups());
             Time.Speed speed = save.speed() != null ? Time.Speed.valueOf(save.speed()) : Time.Speed.NORMAL;
             return new Loaded(world, save.tick(), speed, save.view(), skipped);
         } catch (IllegalArgumentException | NullPointerException e) {
@@ -319,6 +332,12 @@ public final class WorldCodec {
         for (int e : data.believers()) {
             ecs.add(e, new Believer());
         }
+        if (data.groupMembers() != null) {
+            for (GroupMemberData d : data.groupMembers()) {
+                GroupMember m = ecs.add(d.e(), new GroupMember(d.group()));
+                m.farTicks = d.farTicks();
+            }
+        }
         for (FearData d : data.fears()) {
             Fear f = ecs.add(d.e(), new Fear());
             f.fromX = d.fromX();
@@ -361,6 +380,24 @@ public final class WorldCodec {
         world.history().clear();
         for (int i = 0; i < stats.historyPopulation().length; i++) {
             world.history().record(stats.historyPopulation()[i], stats.historyFood()[i]);
+        }
+    }
+
+    private static void restoreGroups(Groups groups, GroupsData data) {
+        if (data == null) {
+            return; // save version 1: herds form again
+        }
+        for (GroupData d : data.groups()) {
+            Groups.Group g = new Groups.Group(d.id());
+            g.leader = d.leader();
+            g.size = d.size();
+            g.knowsWater = d.knowsWater();
+            g.waterX = d.waterX();
+            g.waterZ = d.waterZ();
+            g.knowsFood = d.knowsFood();
+            g.foodX = d.foodX();
+            g.foodZ = d.foodZ();
+            groups.restore(g, data.nextId());
         }
     }
 

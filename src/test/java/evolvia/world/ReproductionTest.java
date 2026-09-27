@@ -45,7 +45,7 @@ class ReproductionTest {
                 species.speed(), species.maxHealth(), species.lifespanMinSeconds(), species.lifespanMaxSeconds(),
                 species.senseRadius(), species.needs(), species.eating(), species.ai(), species.wander(),
                 species.reproduction(), new SpeciesDefinition.GenomeTuning(0.1f, 0f), species.population(),
-                species.diet(), species.climate(), species.evolution());
+                species.diet(), species.climate(), species.evolution(), species.groups());
 
         Genome a = new Genome();
         a.size = 0.9f;

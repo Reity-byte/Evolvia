@@ -2,6 +2,7 @@ package evolvia.systems;
 
 import evolvia.components.Believer;
 import evolvia.components.Genome;
+import evolvia.components.GroupMember;
 import evolvia.components.SpeciesRef;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
@@ -44,6 +45,10 @@ public final class ReproductionSystem implements GameSystem {
             Species kind = ref.species;
             SpeciesDefinition species = kind.stats();
             int readyAt = tick + SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
+            GroupMember herd = world.get(births.parentA(i), GroupMember.class);
+            if (herd == null) {
+                herd = world.get(births.parentB(i), GroupMember.class);
+            }
             boolean believer = world.get(births.parentA(i), Believer.class) != null
                     || world.get(births.parentB(i), Believer.class) != null; // raised in the faith
             for (int n = 0; n < species.reproduction().litterSize(); n++) {
@@ -58,6 +63,9 @@ public final class ReproductionSystem implements GameSystem {
                 int child = factory.spawn(kind, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
                 if (believer) {
                     world.add(child, new Believer());
+                }
+                if (herd != null) {
+                    world.add(child, new GroupMember(herd.group)); // born into the parent's herd
                 }
                 born++;
             }

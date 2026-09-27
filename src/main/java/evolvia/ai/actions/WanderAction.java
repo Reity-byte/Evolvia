@@ -3,6 +3,7 @@ package evolvia.ai.actions;
 import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
+import evolvia.components.Transform;
 import evolvia.evolution.SpeciesDefinition;
 
 /** Nothing better to do: walk to a random reachable spot nearby, then pause a while. */
@@ -31,14 +32,18 @@ public final class WanderAction implements Action {
         // Looking for water: of several candidates prefer the lowest one - water collects in low ground.
         boolean seekLowGround = c.needs.thirst >= threshold;
         int myRegion = c.pathfinder().regionAt(c.transform.position.x, c.transform.position.z);
+        // Herd members wander around their leader, so the herd stays together.
+        Transform leader = c.leader();
+        float centerX = leader != null ? leader.position.x : c.transform.position.x;
+        float centerZ = leader != null ? leader.position.z : c.transform.position.z;
         float bestX = 0f;
         float bestZ = 0f;
         float bestHeight = Float.POSITIVE_INFINITY;
         for (int attempt = 0; attempt < TARGET_ATTEMPTS; attempt++) {
             float angle = c.random.nextFloat() * TWO_PI;
             float distance = radius * (0.3f + 0.7f * c.random.nextFloat());
-            float x = c.transform.position.x + (float) Math.sin(angle) * distance;
-            float z = c.transform.position.z + (float) Math.cos(angle) * distance;
+            float x = centerX + (float) Math.sin(angle) * distance;
+            float z = centerZ + (float) Math.cos(angle) * distance;
             if (myRegion < 0 || c.pathfinder().regionAt(x, z) != myRegion) {
                 continue;
             }

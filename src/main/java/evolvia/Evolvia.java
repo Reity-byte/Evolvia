@@ -63,6 +63,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_F6;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F9;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_G;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
 /**
@@ -224,6 +225,9 @@ public final class Evolvia implements GameLoop.Handler {
         }
         if (input.isKeyPressed(GLFW_KEY_F7)) {
             world.species().addPoints(100f); // debug
+        }
+        if (input.isKeyPressed(GLFW_KEY_G)) {
+            hud.toggleGroups();
         }
         if (input.isKeyPressed(GLFW_KEY_F8)) {
             world.godPowers().faith().add(100f); // debug
@@ -438,6 +442,7 @@ public final class Evolvia implements GameLoop.Handler {
         int height = window.framebufferHeight();
         camera.setViewport(width, height);
         double simSeconds = (time.tickCount() + alpha) / Time.TICKS_PER_SECOND;
+        sceneRenderer.setShowGroups(hud.showGroups(world));
         sceneRenderer.render(camera, width, height, alpha, simSeconds, selection.selected(world), brush);
 
         if (debugOverlay.isVisible() && !treeView.isVisible()) {
@@ -495,6 +500,8 @@ public final class Evolvia implements GameLoop.Handler {
                 world.totalFood(), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
                 deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE),
                 deaths.count(DeathStats.Cause.LIGHTNING)));
+        sb.append(String.format(Locale.ROOT, "Herds: %d | members %d%n", world.groups().count(),
+                world.ecs().store(evolvia.components.GroupMember.class).size()));
         sb.append(String.format(Locale.ROOT, "Faith: %.0f (+%.1f/min) | believers %d | alignment %+.2f | rains %d%n",
                 world.godPowers().faith().points(), world.godPowers().faith().perMinute(), world.believers(),
                 world.godPowers().faith().alignment(), world.godPowers().rains().size()));

@@ -5,6 +5,7 @@ import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.ai.actions.ConsumeAction;
 import evolvia.ai.actions.FleeAction;
+import evolvia.ai.actions.FollowLeaderAction;
 import evolvia.ai.actions.SeekMateAction;
 import evolvia.ai.actions.SeekResourceAction;
 import evolvia.ai.actions.SleepAction;
@@ -45,6 +46,7 @@ public final class AiSystem implements GameSystem {
         register(new SleepAction());
         register(new SeekMateAction());
         register(new FleeAction());
+        register(new FollowLeaderAction());
         for (ActionType type : ActionType.values()) {
             if (actions[type.ordinal()] == null) {
                 throw new IllegalStateException("No action registered for " + type);

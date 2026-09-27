@@ -6,7 +6,9 @@ import evolvia.evolution.EvolutionNode;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.god.Faith;
+import evolvia.components.GroupMember;
 import evolvia.world.DeathStats;
+import evolvia.world.Groups;
 import evolvia.world.World;
 
 import java.util.ArrayList;
@@ -23,9 +25,19 @@ public final class Hud {
     private static final float PANEL_WIDTH = 330f;
 
     private boolean speciesPanel;
+    private boolean showGroups;
 
     public boolean isSpeciesPanelVisible() {
         return speciesPanel;
+    }
+
+    /** Whether the herd view is on (only while the species lives in herds). */
+    public boolean showGroups(World world) {
+        return showGroups && world.species().hasAbility(Groups.ABILITY);
+    }
+
+    public void toggleGroups() {
+        showGroups = !showGroups;
     }
 
     public void toggleSpeciesPanel() {
@@ -74,7 +86,16 @@ public final class Hud {
         if (available > 0 && !tree.isVisible()) {
             ui.draw().outline(x, buttonY, bw, buttonH, 2f, 0xFFE0B040);
         }
-        x += bw + 22f;
+        x += bw + 6f;
+        if (species.hasAbility(Groups.ABILITY)) {
+            String herdLabel = "Stáda (G)";
+            float hw = ui.buttonWidth(herdLabel);
+            if (ui.button(herdLabel, x, buttonY, hw, buttonH, showGroups)) {
+                showGroups = !showGroups;
+            }
+            x += hw + 6f;
+        }
+        x += 16f;
         faith(ui, world, x, y);
 
         // Game speed, right-aligned
@@ -172,6 +193,12 @@ public final class Hud {
             abilities.add(Texts.ability(ability));
         }
         rows.add(row("Schopnosti", abilities.isEmpty() ? "–" : String.join(", ", abilities), 1f));
+        if (species.hasAbility(Groups.ABILITY)) {
+            int herds = world.groups().count();
+            int members = world.ecs().store(GroupMember.class).size();
+            rows.add(row("Stáda", herds == 0 ? "tvoří se…" : String.format(Locale.ROOT, "%d, průměrně %.0f bytostí",
+                    herds, members / (float) herds), 1f));
+        }
 
         DeathStats deaths = world.deaths();
         String deathText = String.format(Locale.ROOT, "hlad %d, žízeň %d, klima %d, stáří %d, blesk %d",
