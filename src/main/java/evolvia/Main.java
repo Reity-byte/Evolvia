@@ -3,7 +3,8 @@ package evolvia;
 import evolvia.core.LaunchOptions;
 
 /**
- * Entry point.
+ * Development entry point (IDE, {@code java -jar target/evolvia.jar}): data stays in {@code ./run}.
+ * Packaged builds start through {@link Launch}, which switches to the user data folder first.
  * <p>
  * On macOS the JVM must be started with {@code -XstartOnFirstThread} (GLFW requirement).
  */

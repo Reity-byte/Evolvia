@@ -1,0 +1,139 @@
+# Builds game + launcher packages for Windows, macOS and Linux and publishes them to a GitHub Release.
+#
+#   git tag v0.2 && git push origin v0.2
+#
+# jpackage cannot cross-compile, so every OS is packaged on its own runner (matrix). Each package is a
+# jpackage app image with a trimmed Java runtime inside, so players do not need Java installed.
+# Release assets (the launcher picks "Evolvia-<os>.*", players download "EvolviaLauncher-<os>.*"):
+#   Evolvia-windows.zip   EvolviaLauncher-windows.zip
+#   Evolvia-macos.zip     EvolviaLauncher-macos.zip
+#   Evolvia-linux.tar.gz  EvolviaLauncher-linux.tar.gz
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # JDK modules bundled by jpackage. Keep in sync with packaging/package.ps1.
+  # Game: `jdeps --print-module-deps --ignore-missing-deps --multi-release 21` on the game classes
+  #   (java.sql is an optional dependency of Gson, jdk.unsupported is needed by LWJGL).
+  # Launcher: + java.desktop (Swing), java.net.http (HttpClient) and jdk.crypto.ec - without it the
+  #   TLS handshake with GitHub fails; jdeps cannot see it because it is a security provider.
+  GAME_MODULES: java.base,java.sql,jdk.unsupported
+  LAUNCHER_MODULES: java.base,java.sql,jdk.unsupported,java.desktop,java.net.http,jdk.crypto.ec
+
+jobs:
+  package:
+    name: Package (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./mvnw.cmd -B package
+
+      - name: Build and test
+        if: runner.os != 'Windows'
+        run: ./mvnw -B package
+
+      - name: App version
+        run: |
+          # jpackage --app-version accepts only numbers, and macOS rejects a leading 0 (e.g. 0.2).
+          # It is only bundle metadata; the launcher compares release tags, not this.
+          V=$(echo "${GITHUB_REF_NAME}" | grep -oE '[0-9]+(\.[0-9]+){0,2}' | head -n1 || true)
+          if [ -z "$V" ]; then V="1.0.0"; fi
+          if [ "$RUNNER_OS" = "macOS" ] && [ "${V%%.*}" = "0" ]; then V="1.0.0"; fi
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: jpackage
+        run: |
+          mkdir -p dist/input dist/app dist/release
+          cp target/evolvia.jar dist/input/
+          # LWJGL loads native libraries; without this JDK 22+ runtimes print a warning (the jar manifest
+          # attribute Enable-Native-Access only applies to java -jar, not to jpackage launchers).
+          GAME_OPTS=(--java-options --enable-native-access=ALL-UNNAMED)
+          LAUNCHER_OPTS=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # GLFW (LWJGL) must run on the first thread on macOS. Not for the launcher: Swing would hang.
+            GAME_OPTS+=(--java-options -XstartOnFirstThread --mac-package-identifier evolvia.game)
+            LAUNCHER_OPTS=(--mac-package-identifier evolvia.launcher)
+          fi
+          jpackage --type app-image --name Evolvia --input dist/input --main-jar evolvia.jar \
+            --main-class evolvia.Launch --add-modules "$GAME_MODULES" \
+            --app-version "$APP_VERSION" --dest dist/app "${GAME_OPTS[@]}"
+          jpackage --type app-image --name EvolviaLauncher --input dist/input --main-jar evolvia.jar \
+            --main-class evolvia.LauncherMain --add-modules "$LAUNCHER_MODULES" \
+            --app-version "$APP_VERSION" --dest dist/app "${LAUNCHER_OPTS[@]}"
+
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/app/Evolvia -DestinationPath dist/release/Evolvia-windows.zip
+          Compress-Archive -Path dist/app/EvolviaLauncher -DestinationPath dist/release/EvolviaLauncher-windows.zip
+
+      - name: Sign and archive (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Ad-hoc signature: without it Apple Silicon reports the app as "damaged". This is not an
+          # Apple Developer signature, so the first start still needs right click -> Open.
+          codesign --force --deep --sign - dist/app/Evolvia.app
+          codesign --force --deep --sign - dist/app/EvolviaLauncher.app
+          # ditto keeps executable bits and symlinks (a plain zip would lose them).
+          ditto -c -k --norsrc --keepParent dist/app/Evolvia.app dist/release/Evolvia-macos.zip
+          ditto -c -k --norsrc --keepParent dist/app/EvolviaLauncher.app dist/release/EvolviaLauncher-macos.zip
+
+      - name: Archive (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # tar keeps executable bits and symlinks.
+          tar -czf dist/release/Evolvia-linux.tar.gz -C dist/app Evolvia
+          tar -czf dist/release/EvolviaLauncher-linux.tar.gz -C dist/app EvolviaLauncher
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.platform }}
+          path: dist/release/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*

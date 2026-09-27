@@ -12,3 +12,7 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local packaging output and development data folder
+dist/
+run/
