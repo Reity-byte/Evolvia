@@ -1,0 +1,24 @@
+{
+  "branch": "mind",
+  "nodes": [
+    {
+      "id": "mind_instincts",
+      "name": "Instinkty",
+      "description": "Pozornější k okolí: o něco dál vidí.",
+      "cost": 20,
+      "effects": [
+        { "type": "stat_mul", "stat": "sight", "value": 1.15 }
+      ]
+    },
+    {
+      "id": "mind_memory",
+      "name": "Paměť",
+      "description": "Pamatuje si, kde naposledy pila a jedla, a vrátí se tam, když nic nevidí.",
+      "cost": 50,
+      "requires": ["mind_instincts"],
+      "effects": [
+        { "type": "unlock_ability", "ability": "memory" }
+      ]
+    }
+  ]
+}

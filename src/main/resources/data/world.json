@@ -9,5 +9,5 @@
   "temperature": { "scale": 220.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
   "altitudeCooling": 0.25,
   "moisture": { "scale": 160.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
-  "water": { "color": "#2f6fa8", "alpha": 0.72 }
+  "water": { "color": "#2f6fa8", "alpha": 0.72, "shallowDepth": 2.5 }
 }

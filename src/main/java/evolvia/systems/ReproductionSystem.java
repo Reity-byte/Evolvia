@@ -4,6 +4,7 @@ import evolvia.components.Genome;
 import evolvia.components.SpeciesRef;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Births;
 import evolvia.world.CreatureFactory;
@@ -39,7 +40,8 @@ public final class ReproductionSystem implements GameSystem {
             if (ref == null || a == null || b == null) {
                 continue; // a parent vanished; should not happen within one tick
             }
-            SpeciesDefinition species = ref.species;
+            Species kind = ref.species;
+            SpeciesDefinition species = kind.stats();
             int readyAt = tick + SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
             for (int n = 0; n < species.reproduction().litterSize(); n++) {
                 float x = births.x(i) + (factory.random().nextFloat() - 0.5f) * 0.6f;
@@ -50,7 +52,7 @@ public final class ReproductionSystem implements GameSystem {
                 }
                 Genome genome = factory.inherit(species, a, b);
                 maxGeneration = Math.max(maxGeneration, genome.generation);
-                factory.spawn(species, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
+                factory.spawn(kind, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
                 born++;
             }
         }

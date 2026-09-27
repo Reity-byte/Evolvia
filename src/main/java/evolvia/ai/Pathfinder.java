@@ -21,7 +21,13 @@ public final class Pathfinder {
     private static final int[] DX = {1, -1, 0, 0, 1, 1, -1, -1};
     private static final int[] DZ = {0, 0, 1, -1, 1, -1, 1, -1};
 
+    /** Which tiles can be walked (or swum) on. */
+    public interface TilePredicate {
+        boolean test(int tx, int tz);
+    }
+
     private final Terrain terrain;
+    private final TilePredicate walkable;
     private final int width;
     private final int depth;
     private final int[] region;
@@ -38,8 +44,15 @@ public final class Pathfinder {
 
     private int lastExpansions;
 
+    /** Pathfinder over the terrain's passable (land) tiles. */
     public Pathfinder(Terrain terrain) {
+        this(terrain, terrain::isPassable);
+    }
+
+    /** Pathfinder over the tiles accepted by {@code walkable} (must be false outside the map). */
+    public Pathfinder(Terrain terrain, TilePredicate walkable) {
         this.terrain = terrain;
+        this.walkable = walkable;
         this.width = terrain.width();
         this.depth = terrain.depth();
         int tiles = width * depth;
@@ -49,6 +62,11 @@ public final class Pathfinder {
         seenStamp = new int[tiles];
         closedStamp = new int[tiles];
         labelRegions();
+    }
+
+    /** True if the tile can be walked on by this pathfinder's creatures. */
+    public boolean isWalkable(int tx, int tz) {
+        return walkable.test(tx, tz);
     }
 
     // ---------------------------------------------------------------- regions
@@ -68,7 +86,7 @@ public final class Pathfinder {
         int[] stack = new int[width * depth];
         int next = 0;
         for (int start = 0; start < region.length; start++) {
-            if (region[start] != -1 || !terrain.isPassable(start % width, start / width)) {
+            if (region[start] != -1 || !walkable.test(start % width, start / width)) {
                 continue;
             }
             int size = 0;
@@ -81,7 +99,7 @@ public final class Pathfinder {
                 for (int d = 0; d < 4; d++) { // 4-neighbourhood: diagonals need both sides free anyway
                     int nx = tx + DX[d];
                     int nz = tz + DZ[d];
-                    if (terrain.isPassable(nx, nz)) {
+                    if (walkable.test(nx, nz)) {
                         int n = nz * width + nx;
                         if (region[n] == -1) {
                             region[n] = next;
@@ -144,11 +162,11 @@ public final class Pathfinder {
             for (int d = 0; d < 8; d++) {
                 int nx = cx + DX[d];
                 int nz = cz + DZ[d];
-                if (!terrain.isPassable(nx, nz)) {
+                if (!walkable.test(nx, nz)) {
                     continue;
                 }
                 boolean diagonal = d >= 4;
-                if (diagonal && (!terrain.isPassable(cx + DX[d], cz) || !terrain.isPassable(cx, cz + DZ[d]))) {
+                if (diagonal && (!walkable.test(cx + DX[d], cz) || !walkable.test(cx, cz + DZ[d]))) {
                     continue; // no cutting corners
                 }
                 int n = nz * width + nx;
@@ -241,7 +259,7 @@ public final class Pathfinder {
 
         int guard = Math.abs(endX - tx) + Math.abs(endZ - tz) + 2;
         while (guard-- > 0) {
-            if (!terrain.isPassable(tx, tz)) {
+            if (!walkable.test(tx, tz)) {
                 return false;
             }
             if (tx == endX && tz == endZ) {
@@ -254,7 +272,7 @@ public final class Pathfinder {
                 tMaxZ += tDeltaZ;
                 tz += stepZ;
             } else {
-                if (!terrain.isPassable(tx + stepX, tz) || !terrain.isPassable(tx, tz + stepZ)) {
+                if (!walkable.test(tx + stepX, tz) || !walkable.test(tx, tz + stepZ)) {
                     return false;
                 }
                 tMaxX += tDeltaX;
@@ -263,7 +281,7 @@ public final class Pathfinder {
                 tz += stepZ;
             }
         }
-        return terrain.isPassable(endX, endZ);
+        return walkable.test(endX, endZ);
     }
 
     // ---------------------------------------------------------------- binary min-heap on f = g + h

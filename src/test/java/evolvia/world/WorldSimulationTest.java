@@ -1,6 +1,7 @@
 package evolvia.world;
 
 import evolvia.ai.ActionType;
+import evolvia.ai.Navigation;
 import evolvia.components.AiState;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
@@ -56,7 +57,7 @@ class WorldSimulationTest {
             int tx = (int) Math.floor(t.position.x);
             int tz = (int) Math.floor(t.position.z);
             assertTrue(terrain.isPassable(tx, tz), "creature on impassable tile " + tx + "," + tz);
-            assertEquals(terrain.heightAt(t.position.x, t.position.z), t.position.y, 1e-4f, "creature not on the ground");
+            assertEquals(Navigation.groundHeight(terrain, t.position.x, t.position.z), t.position.y, 1e-4f, "creature not on the ground");
         }
     }
 

@@ -30,7 +30,7 @@ public final class WanderAction implements Action {
         float radius = wander.radius() * (exploring ? c.species.ai().exploreRadiusFactor() : 1f);
         // Looking for water: of several candidates prefer the lowest one - water collects in low ground.
         boolean seekLowGround = c.needs.thirst >= threshold;
-        int myRegion = c.pathfinder.regionAt(c.transform.position.x, c.transform.position.z);
+        int myRegion = c.pathfinder().regionAt(c.transform.position.x, c.transform.position.z);
         float bestX = 0f;
         float bestZ = 0f;
         float bestHeight = Float.POSITIVE_INFINITY;
@@ -39,7 +39,7 @@ public final class WanderAction implements Action {
             float distance = radius * (0.3f + 0.7f * c.random.nextFloat());
             float x = c.transform.position.x + (float) Math.sin(angle) * distance;
             float z = c.transform.position.z + (float) Math.cos(angle) * distance;
-            if (myRegion < 0 || c.pathfinder.regionAt(x, z) != myRegion) {
+            if (myRegion < 0 || c.pathfinder().regionAt(x, z) != myRegion) {
                 continue;
             }
             if (!seekLowGround) {

@@ -8,12 +8,14 @@ import evolvia.core.Time;
 import evolvia.core.Time.Speed;
 import evolvia.core.Window;
 import evolvia.data.DataLoader;
+import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
 import evolvia.render.CameraController;
 import evolvia.render.SceneRenderer;
 import evolvia.ui.CreatureSelection;
 import evolvia.ui.DebugOverlay;
+import evolvia.ui.EvolutionPanel;
 import evolvia.ui.PopulationGraph;
 import evolvia.world.Biome;
 import evolvia.world.BiomeTable;
@@ -32,8 +34,10 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F4;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F6;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
 /**
@@ -49,11 +53,13 @@ public final class Evolvia implements GameLoop.Handler {
     private final LoopStats stats = new LoopStats();
     private final Camera camera = new Camera();
     private final CreatureSelection selection = new CreatureSelection();
+    private final EvolutionPanel evolutionPanel = new EvolutionPanel();
 
     private WorldConfig worldConfig;
     private BiomeTable biomes;
     private SpeciesDefinition species;
     private ResourceTable resources;
+    private EvolutionTree evolutionTree;
     private World world;
 
     private Window window;
@@ -75,6 +81,7 @@ public final class Evolvia implements GameLoop.Handler {
         biomes = DataLoader.loadBiomes();
         species = DataLoader.loadSpecies();
         resources = DataLoader.loadResources();
+        evolutionTree = DataLoader.loadEvolutionTree(biomes);
         world = createWorld(options.seed().orElseGet(Evolvia::randomSeed));
 
         window = new Window("Evolvia", WINDOW_WIDTH, WINDOW_HEIGHT, true);
@@ -106,7 +113,7 @@ public final class Evolvia implements GameLoop.Handler {
 
     private World createWorld(long seed) {
         long start = System.nanoTime();
-        World created = World.create(worldConfig, biomes, species, resources, seed);
+        World created = World.create(worldConfig, biomes, species, evolutionTree, resources, seed);
         System.out.printf(Locale.ROOT, "World seed %d: %dx%d tiles, %d creatures, %d resource nodes, generated in %d ms%n",
                 seed, created.terrain().width(), created.terrain().depth(), created.creatureCount(),
                 created.resourceNodeCount(),
@@ -132,6 +139,13 @@ public final class Evolvia implements GameLoop.Handler {
         if (input.isKeyPressed(GLFW_KEY_F6)) {
             world.emptyAllFood();
         }
+        if (input.isKeyPressed(GLFW_KEY_F4)) {
+            evolutionPanel.toggle();
+        }
+        if (input.isKeyPressed(GLFW_KEY_F7)) {
+            world.species().addPoints(100f); // debug
+        }
+        evolutionPanel.handleInput(input, world);
         if (input.isKeyPressed(GLFW_KEY_SPACE)) {
             time.togglePause();
         }
@@ -170,10 +184,11 @@ public final class Evolvia implements GameLoop.Handler {
         sceneRenderer.render(camera, width, height, alpha, selection.selected(world));
         selection.renderLabel(debugOverlay, camera, world, alpha, width, height);
 
-        if (debugOverlay.isVisible()) {
+        if (debugOverlay.isVisible() && !evolutionPanel.isVisible()) { // one debug panel at a time
             debugOverlay.render(debugText(), width, height);
             populationGraph.render(world.history(), debugOverlay, width, height);
         }
+        evolutionPanel.render(debugOverlay, world, width, height);
     }
 
     private String debugText() {
@@ -195,9 +210,12 @@ public final class Evolvia implements GameLoop.Handler {
                 world.seed(), terrain.width(), terrain.depth(), world.resourceNodeCount()));
         sb.append(String.format(Locale.ROOT, "Population: %d | births %d | max generation %d%n",
                 world.creatureCount(), world.births().total(), world.maxGeneration()));
-        sb.append(String.format(Locale.ROOT, "Food: %.0f units | deaths: hunger %d, thirst %d, old age %d%n",
+        sb.append(String.format(Locale.ROOT, "Food: %.0f units | deaths: hunger %d, thirst %d, climate %d, old age %d%n",
                 world.totalFood(), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
-                deaths.count(DeathStats.Cause.OLD_AGE)));
+                deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE)));
+        sb.append(String.format(Locale.ROOT, "Evolution: %.0f EP (+%.1f/min) | unlocked %d / %d (F4)%n",
+                world.species().points(), world.evolutionSystem().pointsPerMinute(),
+                world.species().unlockedNodes().size(), world.species().tree().size()));
         sb.append(String.format(Locale.ROOT, "Pathfinding: %d waiting | %d searches, %d tiles last tick%n",
                 world.pathQueue().size(), world.pathfindingSystem().searchesLastTick(),
                 world.pathfindingSystem().expansionsLastTick()));
@@ -207,7 +225,7 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(contextInfo).append("\n\n");
         sb.append("WASD / screen edge: pan | wheel: zoom | MMB drag, Q/E: rotate\n");
         sb.append("LMB: select creature | Space: pause | 1/2/3: speed 1x/3x/10x\n");
-        sb.append("F5: new world | F6: empty all food (debug) | F3: overlay | ESC: quit");
+        sb.append("F4: evolution | F5: new world | F6: empty all food | F7: +100 EP (debug) | F3: overlay | ESC: quit");
         return sb.toString();
     }
 }

@@ -68,7 +68,7 @@ public final class CreatureRenderer implements AutoCloseable {
                 z = prev.position.z + (z - prev.position.z) * alpha;
                 yaw = lerpAngle(prev.yaw, yaw, alpha);
             }
-            SpeciesDefinition species = creatures.componentAt(i).species;
+            SpeciesDefinition species = creatures.componentAt(i).species.stats();
             Genome genome = genomes.get(entity);
             float size = species.bodySize() * (genome != null ? genome.size : 1f) * growth(ages.get(entity), species);
             model.translation(x, y, z).rotateY(yaw).scale(size);

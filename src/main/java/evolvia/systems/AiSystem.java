@@ -74,7 +74,7 @@ public final class AiSystem implements GameSystem {
             }
             context.bind(entity, transform, velocity, needs, ai, species.species);
 
-            int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.species.ai().evaluateEverySeconds()));
+            int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.species.stats().ai().evaluateEverySeconds()));
             boolean evaluate = ai.action == null || (tick + entity) % interval == 0;
 
             if (ai.action != null) {
@@ -92,7 +92,7 @@ public final class AiSystem implements GameSystem {
                 }
             }
             if (evaluate) {
-                choose(ai, tick, species.species.ai().switchMargin());
+                choose(ai, tick, species.species.stats().ai().switchMargin());
             }
         }
     }

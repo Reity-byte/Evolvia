@@ -22,7 +22,10 @@ import evolvia.core.Time;
   * @param wander             wandering behaviour
  * @param reproduction       when and how creatures reproduce
  * @param genome             individual variation and mutation
- * @param population         starting population and safety cap
+  * @param population         starting population and safety cap
+ * @param diet               how much each food type nourishes (0 = not eaten)
+ * @param climate            temperature comfort range and what happens outside it
+ * @param evolution          how fast the species earns evolution points
  */
 public record SpeciesDefinition(
         String id,
@@ -40,7 +43,57 @@ public record SpeciesDefinition(
         Wander wander,
         Reproduction reproduction,
         GenomeTuning genome,
-        Population population) {
+        Population population,
+        Diet diet,
+        Climate climate,
+        EvolutionRates evolution) {
+
+    /**
+     * Diet as nutrition per food type: 1 = normal, 0 = the species does not eat it. Herbivore, omnivore
+     * and carnivore are just different values (changed by evolution nodes).
+     */
+    public record Diet(float plantNutrition, float meatNutrition) {
+
+        /** Nutrition multiplier for a food type ({@code plant}, {@code meat}); 0 for unknown types. */
+        public float nutrition(String foodType) {
+            return switch (foodType) {
+                case "plant" -> plantNutrition;
+                case "meat" -> meatNutrition;
+                default -> 0f;
+            };
+        }
+    }
+
+    /**
+     * @param comfortMin        lowest comfortable tile temperature (0..1)
+     * @param comfortMax        highest comfortable tile temperature (0..1)
+     * @param needFactorPerUnit extra hunger (cold) or thirst (heat) per unit of temperature outside the range
+     * @param damageBeyond      beyond this distance from the range the creature also loses health
+     * @param damagePerSecond   health loss per second in that case
+     */
+    public record Climate(float comfortMin, float comfortMax, float needFactorPerUnit, float damageBeyond,
+                          float damagePerSecond) {
+
+        /** How far a temperature is outside the comfort range: negative = too cold, positive = too hot, 0 = fine. */
+        public float exposure(float temperature) {
+            if (temperature < comfortMin) {
+                return temperature - comfortMin;
+            }
+            if (temperature > comfortMax) {
+                return temperature - comfortMax;
+            }
+            return 0f;
+        }
+    }
+
+    /**
+     * @param populationPointsPerMinute   EP per minute times ln(1 + population)
+     * @param pointsPerGeneration         EP for every new generation born
+     * @param harshPointsPerCreatureMinute EP per minute for each creature living outside its comfort range
+     */
+    public record EvolutionRates(float populationPointsPerMinute, float pointsPerGeneration,
+                                 float harshPointsPerCreatureMinute) {
+    }
 
     /**
      * @param adultAgeSeconds  age at which a creature is grown up and can reproduce
@@ -74,7 +127,7 @@ public record SpeciesDefinition(
     /** Copy with a different starting population (e.g. for tests). */
     public SpeciesDefinition withPopulation(Population newPopulation) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution);
     }
 
     /**

@@ -1,13 +1,13 @@
 package evolvia.components;
 
-import evolvia.evolution.SpeciesDefinition;
+import evolvia.evolution.Species;
 
 /** Marks an entity as a creature of a species (the species state is shared, not copied). */
 public final class SpeciesRef {
 
-    public final SpeciesDefinition species;
+    public final Species species;
 
-    public SpeciesRef(SpeciesDefinition species) {
+    public SpeciesRef(Species species) {
         this.species = species;
     }
 }

@@ -1,9 +1,11 @@
 package evolvia.systems;
 
+import evolvia.ai.Navigation;
 import evolvia.ai.Path;
 import evolvia.ai.PathQueue;
 import evolvia.ai.Pathfinder;
 import evolvia.components.AiState;
+import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
@@ -19,13 +21,13 @@ public final class PathfindingSystem implements GameSystem {
     /** Stop serving requests in a tick once this many tiles were expanded (long searches are expensive). */
     public static final int MAX_EXPANSIONS_PER_TICK = 20_000;
 
-    private final Pathfinder pathfinder;
+    private final Navigation navigation;
     private final PathQueue queue;
     private int searchesLastTick;
     private int expansionsLastTick;
 
-    public PathfindingSystem(Pathfinder pathfinder, PathQueue queue) {
-        this.pathfinder = pathfinder;
+    public PathfindingSystem(Navigation navigation, PathQueue queue) {
+        this.navigation = navigation;
         this.queue = queue;
     }
 
@@ -43,6 +45,8 @@ public final class PathfindingSystem implements GameSystem {
             if (ai == null || transform == null || ai.pathStatus != AiState.PathStatus.PENDING) {
                 continue; // cancelled meanwhile
             }
+            SpeciesRef ref = world.get(entity, SpeciesRef.class);
+            Pathfinder pathfinder = ref != null ? navigation.forSpecies(ref.species) : navigation.land();
             Path path = pathfinder.find(transform.position.x, transform.position.z, ai.targetX, ai.targetZ);
             expansions += pathfinder.lastExpansions();
             searches++;

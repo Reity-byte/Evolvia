@@ -75,8 +75,8 @@ src/main/java/evolvia/
   components/  Transform, Velocity, Needs, Genome, Species, Diet, AiState, ...
   systems/     MovementSystem, NeedsSystem, AiSystem, ReproductionSystem, ...
   world/       World (terén + entity + systémy, jeden Random), Terrain, TerrainGenerator, Biome, SpatialGrid, ResourceNode
-  evolution/   SpeciesDefinition (základní statistiky druhu), EvolutionTree, EvolutionNode, Effect, EvolutionState
-  ai/          Pathfinder (A*), UtilityAi, akce (EatAction, WanderAction, ...)
+  evolution/   SpeciesDefinition (základ ze species.json), Species (stav druhu: EP, odemčené uzly, přepočtené statistiky, schopnosti), SpeciesStats, EvolutionTree, EvolutionNode, Effect, Condition, Stat
+  ai/          Pathfinder (A*), Navigation (souš / plavání), akce utility AI (WanderAction, SeekResourceAction, ConsumeAction, SleepAction, SeekMateAction)
   god/         Faith, DivinePower, konkrétní zásahy
   render/      Shader, Mesh, Camera, TerrainRenderer, CreatureRenderer, CreatureMeshBuilder
   ui/          TextRenderer, DebugOverlay, panely
@@ -84,7 +84,7 @@ src/main/java/evolvia/
   save/        SaveManager, serializace
 src/main/resources/
   shaders/
-  data/evolution/*.json
+  data/evolution/*.json   větve stromu (seznam v branches.json)
   data/biomes.json
   data/species.json       základní statistiky startovního druhu (velikost, rychlost, bloudění, počáteční populace)
   data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
@@ -104,6 +104,7 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru, změna přes `--fps-cap <n>` (0 = vypnuto). Když V-Sync funguje, omezovač prakticky nic nedělá.
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
+- Ladicí klávesy: F3 přehled + graf populace, F4 evoluční panel (šipky, Enter = odemknout), F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
@@ -213,6 +214,16 @@ Při načítání validovat: neexistující ID v `requires`, cykly, duplicitní 
 - velikosti populace (logaritmicky, ať obří populace nevede k lavině bodů)
 - počtu proběhlých generací
 - přežívání v náročných podmínkách (jedinci v biomu, na který nejsou adaptovaní)
+
+**Rozhodnutí k fázi 5:**
+- **EP utrácí hráč** (§14). Ve fázi 5 přes ladicí panel, ve fázi 6 myší.
+- Stav druhu = `species.json` (základ) + odemčené uzly. Přepočet jednou při odemčení: základ → všechny `stat_add` → všechny `stat_mul`. Genom jedince pak násobí výsledek (±10 %).
+- Soubory větví: `data/evolution/*.json`, jejich seznam je v `data/evolution/branches.json` (z jaru nejde vypsat obsah složky).
+- Statistiky pro `stat_add` / `stat_mul`: `size`, `speed`, `sight`, `maxHealth`, `hungerRate`, `thirstRate`, `energyDrain`, `lifespan`, `reproductionCooldown`, `litterSize`, `comfortMin`, `comfortMax`, `plantNutrition`, `meatNutrition`. Strava = výživnost (0 = nejí), takže býložravec / všežravec / masožravec jsou jen hodnoty. Schopnosti (`unlock_ability`): `swim`, `memory`.
+- **Strava přes mršiny:** po každé uhynulé bytosti zůstane mršina (zdroj jídla typu `meat`), která postupně zmizí. Jídlo má typ (`plant` / `meat`) a výživnost; strava druhu určuje, co AI považuje za jídlo. Býložravec / všežravec / masožravec se vylučují. Lov (`Hunt`) až s divokou zvěří.
+- **Klima jako tlak prostředí:** druh má teplotní rozsah pohodlí (`climate` v `species.json`). Mimo něj rychleji roste hlad (chlad) nebo žízeň (horko) a při velkém rozdílu ubývá zdraví. Adaptace na chlad/horko rozsah rozšiřují. Jedinci mimo rozsah dávají EP za „náročné podmínky“.
+- **Plavání:** schopnost `swim` zpřístupní mělkou vodu (vlastní navigace, pro plavce spojuje ostrovy).
+- **Mysl ve fázi 5:** jen první uzly, hlavně **Paměť** (bytost si pamatuje poslední místo s vodou a jídlem a vrátí se tam, když nic nevidí). Zbytek větve ve fázi 9+.
 
 ### 7.3 Individuální genom (drobná variace)
 
@@ -347,4 +358,5 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 - Finální název hry
 - Velikost mapy pro první hratelnou verzi (256² vs 512²)
 - Zda má být v první verzi divoká zvěř jako predátor/kořist
-- Ovládání evolučního stromu: volné utrácení EP hráčem vs. částečně automatická evoluce podle prostředí
+- ~~Ovládání evolučního stromu~~ → **rozhodnuto: EP utrácí hráč** (automatická evoluce případně později jako volitelný režim).
+- Kmeny, války a boj proti jiným kmenům (soupeřící AI druhy jsou dnes v §13 mimo scope) — rozebrat později.

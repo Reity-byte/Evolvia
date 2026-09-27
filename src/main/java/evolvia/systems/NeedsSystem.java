@@ -4,18 +4,28 @@ import evolvia.components.Genome;
 import evolvia.components.Health;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
+import evolvia.components.Transform;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.evolution.SpeciesDefinition.Climate;
 import evolvia.evolution.SpeciesDefinition.NeedRates;
+import evolvia.world.Terrain;
 
 /**
  * Grows hunger and thirst, drains energy while awake and restores it while sleeping.
- * A creature at full hunger or thirst loses health; otherwise health slowly regenerates.
- * Rates come from the creature's species.
+ * Climate: outside the species' comfort range cold makes creatures hungrier and heat thirstier,
+ * and far outside it they lose health. A creature at full hunger or thirst loses health;
+ * otherwise health slowly regenerates. Rates come from the creature's (evolved) species stats.
  */
 public final class NeedsSystem implements GameSystem {
+
+    private final Terrain terrain;
+
+    public NeedsSystem(Terrain terrain) {
+        this.terrain = terrain;
+    }
 
     @Override
     public void update(EcsWorld world, int tick) {
@@ -23,6 +33,7 @@ public final class NeedsSystem implements GameSystem {
         ComponentStore<SpeciesRef> species = world.store(SpeciesRef.class);
         ComponentStore<Health> healths = world.store(Health.class);
         ComponentStore<Genome> genomes = world.store(Genome.class);
+        ComponentStore<Transform> transforms = world.store(Transform.class);
 
         for (int i = 0; i < needsStore.size(); i++) {
             int entity = needsStore.entityAt(i);
@@ -31,13 +42,22 @@ public final class NeedsSystem implements GameSystem {
                 continue;
             }
             Needs needs = needsStore.componentAt(i);
-            NeedRates rates = ref.species.needs();
+            SpeciesDefinition stats = ref.species.stats();
+            NeedRates rates = stats.needs();
+
+            Transform transform = transforms.get(entity);
+            Climate climate = stats.climate();
+            needs.exposure = transform != null ? climate.exposure(temperatureAt(transform)) : 0f;
+            float coldFactor = 1f + climate.needFactorPerUnit() * Math.max(0f, -needs.exposure);
+            float heatFactor = 1f + climate.needFactorPerUnit() * Math.max(0f, needs.exposure);
 
             float factor = needs.sleeping ? rates.sleepingNeedFactor() : 1f;
             Genome genome = genomes.get(entity);
             float metabolism = genome != null ? genome.size : 1f; // bigger bodies need more food
-            needs.hunger = Math.min(1f, needs.hunger + SpeciesDefinition.perTick(rates.hungerPerSecond()) * factor * metabolism);
-            needs.thirst = Math.min(1f, needs.thirst + SpeciesDefinition.perTick(rates.thirstPerSecond()) * factor);
+            needs.hunger = Math.min(1f, needs.hunger
+                    + SpeciesDefinition.perTick(rates.hungerPerSecond()) * factor * metabolism * coldFactor);
+            needs.thirst = Math.min(1f, needs.thirst
+                    + SpeciesDefinition.perTick(rates.thirstPerSecond()) * factor * heatFactor);
             if (needs.sleeping) {
                 needs.energy = Math.min(1f, needs.energy + SpeciesDefinition.perTick(rates.energyRecoverPerSecond()));
             } else {
@@ -48,11 +68,25 @@ public final class NeedsSystem implements GameSystem {
             if (health == null) {
                 continue;
             }
-            if (needs.hunger >= 1f || needs.thirst >= 1f) {
+            health.maxHp = stats.maxHealth(); // evolution can change it
+            health.hp = Math.min(health.hp, health.maxHp);
+            boolean suffering = needs.hunger >= 1f || needs.thirst >= 1f;
+            if (suffering) {
                 health.hp -= SpeciesDefinition.perTick(rates.damagePerSecond());
-            } else if (health.hp < health.maxHp) {
+            }
+            if (Math.abs(needs.exposure) > climate.damageBeyond()) {
+                health.hp -= SpeciesDefinition.perTick(climate.damagePerSecond());
+                suffering = true;
+            }
+            if (!suffering && health.hp < health.maxHp) {
                 health.hp = Math.min(health.maxHp, health.hp + SpeciesDefinition.perTick(rates.healthRegenPerSecond()));
             }
         }
+    }
+
+    private float temperatureAt(Transform transform) {
+        int tx = Math.clamp((int) Math.floor(transform.position.x), 0, terrain.width() - 1);
+        int tz = Math.clamp((int) Math.floor(transform.position.z), 0, terrain.depth() - 1);
+        return terrain.temperature(tx, tz);
     }
 }

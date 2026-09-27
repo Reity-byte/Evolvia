@@ -45,10 +45,11 @@ public record WorldConfig(
     }
 
     /**
-     * @param color hex color, e.g. {@code "#2f6fa8"}
-     * @param alpha opacity 0..1
+     * @param color        hex color, e.g. {@code "#2f6fa8"}
+     * @param alpha        opacity 0..1
+     * @param shallowDepth water up to this depth below sea level (world units) counts as shallow: swimmers can cross it
      */
-    public record WaterSettings(String color, float alpha) {
+    public record WaterSettings(String color, float alpha, float shallowDepth) {
     }
 
     /** Throws {@link IllegalStateException} with a clear message if a value is missing or out of range. */
@@ -65,6 +66,7 @@ public record WorldConfig(
         require(edgeFalloff.width() >= 0, source, "edgeFalloff.width must not be negative");
         require(water != null && water.color() != null, source, "water.color is missing");
         require(water.alpha() >= 0 && water.alpha() <= 1, source, "water.alpha must be in [0, 1]");
+        require(water.shallowDepth() >= 0, source, "water.shallowDepth must not be negative");
     }
 
     private static void validateNoise(NoiseSettings noise, String name, String source) {

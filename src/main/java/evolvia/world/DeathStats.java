@@ -3,7 +3,7 @@ package evolvia.world;
 /** Counts of creature deaths by cause since the world started. */
 public final class DeathStats {
 
-    public enum Cause { STARVATION, THIRST, OLD_AGE }
+    public enum Cause { STARVATION, THIRST, EXPOSURE, OLD_AGE }
 
     private final int[] counts = new int[Cause.values().length];
 

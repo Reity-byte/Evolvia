@@ -12,16 +12,25 @@ import evolvia.world.SpatialGrid;
 
 /**
  * Aging and death: creatures age every tick and die of old age at their maximum age, or when
- * their health reaches zero (from starvation or thirst). Death is deferred to the end of the tick.
+  * their health reaches zero (starvation, thirst or a harsh climate). Death is deferred to the end of the tick;
+ * the {@link DeathListener} is told where the creature died (e.g. to leave a carcass).
  */
 public final class AgingSystem implements GameSystem {
 
+    /** Told about every death, after the creature is scheduled for removal. */
+    @FunctionalInterface
+    public interface DeathListener {
+        void died(int entity, float x, float z);
+    }
+
     private final DeathStats deaths;
     private final SpatialGrid creatureGrid;
+    private final DeathListener listener;
 
-    public AgingSystem(DeathStats deaths, SpatialGrid creatureGrid) {
+    public AgingSystem(DeathStats deaths, SpatialGrid creatureGrid, DeathListener listener) {
         this.deaths = deaths;
         this.creatureGrid = creatureGrid;
+        this.listener = listener;
     }
 
     @Override
@@ -46,8 +55,15 @@ public final class AgingSystem implements GameSystem {
                 continue; // already died of old age this tick
             }
             Needs needs = world.get(entity, Needs.class);
-            boolean starving = needs == null || needs.hunger >= needs.thirst;
-            die(world, entity, starving ? DeathStats.Cause.STARVATION : DeathStats.Cause.THIRST);
+            DeathStats.Cause cause;
+            if (needs == null || (needs.hunger >= 1f && needs.hunger >= needs.thirst)) {
+                cause = DeathStats.Cause.STARVATION;
+            } else if (needs.thirst >= 1f) {
+                cause = DeathStats.Cause.THIRST;
+            } else {
+                cause = DeathStats.Cause.EXPOSURE; // health lost to a climate the species is not adapted to
+            }
+            die(world, entity, cause);
         }
     }
 
@@ -58,5 +74,8 @@ public final class AgingSystem implements GameSystem {
         }
         world.destroyEntity(entity);
         deaths.record(cause);
+        if (t != null) {
+            listener.died(entity, t.position.x, t.position.z);
+        }
     }
 }

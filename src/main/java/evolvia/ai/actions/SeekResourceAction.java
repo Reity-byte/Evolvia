@@ -3,14 +3,20 @@ package evolvia.ai.actions;
 import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
+import evolvia.components.Memory;
 import evolvia.components.Transform;
 import evolvia.world.ResourceKind;
 
 /**
- * SeekFood / SeekWater: when hungry (thirsty), walk to the nearest reachable food (water) node.
- * Ends when the node is within reach; eating (drinking) is a separate action that then scores high.
+ * SeekFood / SeekWater: when hungry (thirsty), walk to the nearest reachable food (water) node
+ * that the species can use. Ends when the node is within reach; eating (drinking) is a separate
+ * action that then scores high. Species with memory that see nothing walk back to where they last
+ * ate (drank) and look again there.
  */
 public final class SeekResourceAction implements Action {
+
+    /** Target entity value meaning "going to a remembered place, not to a node". */
+    private static final int REMEMBERED_PLACE = -3;
 
     private final ResourceKind kind;
 
@@ -30,26 +36,51 @@ public final class SeekResourceAction implements Action {
         if (score <= 0f || c.inReach(kind) >= 0) {
             return 0f; // not needed, or already there (then eating / drinking applies)
         }
-        if (c.ai.action == type() && c.isUsable(c.ai.targetEntity)) {
-            return score; // keep going to the chosen node without searching again
+        if (c.ai.action == type() && (c.ai.targetEntity == REMEMBERED_PLACE || c.isUsable(c.ai.targetEntity))) {
+            return score; // keep going without searching again
         }
-        return c.nearest(kind) >= 0 ? score : 0f;
+        if (c.nearest(kind) >= 0 || rememberedPlace(c) != null) {
+            return score;
+        }
+        return 0f;
     }
 
     @Override
     public void start(ActionContext c) {
         int node = c.nearest(kind);
-        c.ai.targetEntity = node;
-        if (node < 0) {
-            return; // update() fails
+        if (node >= 0) {
+            c.ai.targetEntity = node;
+            Transform target = c.transforms.get(node);
+            c.requestPath(target.position.x, target.position.z);
+            return;
         }
-        Transform target = c.transforms.get(node);
-        c.requestPath(target.position.x, target.position.z);
+        float[] place = rememberedPlace(c);
+        if (place != null) {
+            c.ai.targetEntity = REMEMBERED_PLACE;
+            c.requestPath(place[0], place[1]);
+        } else {
+            c.ai.targetEntity = -1; // update() fails
+        }
     }
 
     @Override
     public Status update(ActionContext c) {
         int node = c.ai.targetEntity;
+        if (node == REMEMBERED_PLACE) {
+            return switch (c.ai.pathStatus) {
+                case PENDING, FOLLOWING -> Status.RUNNING;
+                case ARRIVED -> {
+                    if (c.nearest(kind) < 0 && c.inReach(kind) < 0) {
+                        forget(c); // nothing here any more
+                    }
+                    yield Status.DONE; // re-evaluate: seeking the node now in sight, or eating
+                }
+                case FAILED, NONE -> {
+                    forget(c);
+                    yield Status.FAILED;
+                }
+            };
+        }
         if (node < 0) {
             return Status.FAILED;
         }
@@ -64,5 +95,29 @@ public final class SeekResourceAction implements Action {
             case ARRIVED -> Status.DONE;
             case FAILED, NONE -> Status.FAILED;
         };
+    }
+
+    /** Remembered place for this resource kind (x, z), or null (also when the species has no memory). */
+    private float[] rememberedPlace(ActionContext c) {
+        Memory memory = c.memory();
+        if (memory == null) {
+            return null;
+        }
+        if (kind == ResourceKind.FOOD) {
+            return memory.knowsFood ? new float[]{memory.foodX, memory.foodZ} : null;
+        }
+        return memory.knowsWater ? new float[]{memory.waterX, memory.waterZ} : null;
+    }
+
+    private void forget(ActionContext c) {
+        Memory memory = c.memory();
+        if (memory == null) {
+            return;
+        }
+        if (kind == ResourceKind.FOOD) {
+            memory.knowsFood = false;
+        } else {
+            memory.knowsWater = false;
+        }
     }
 }

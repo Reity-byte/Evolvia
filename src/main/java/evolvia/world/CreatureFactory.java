@@ -1,9 +1,11 @@
 package evolvia.world;
 
+import evolvia.ai.Navigation;
 import evolvia.components.Age;
 import evolvia.components.AiState;
 import evolvia.components.Genome;
 import evolvia.components.Health;
+import evolvia.components.Memory;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
 import evolvia.components.Reproduction;
@@ -11,6 +13,7 @@ import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.components.Velocity;
 import evolvia.ecs.EcsWorld;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 
 import java.util.Random;
@@ -41,17 +44,18 @@ public final class CreatureFactory {
      * @param ageTicks    starting age
      * @param readyAtTick first tick at which it may reproduce
      */
-    public int spawn(SpeciesDefinition species, Genome genome, float x, float z, int ageTicks,
+    public int spawn(Species kind, Genome genome, float x, float z, int ageTicks,
                      float hunger, float thirst, float energy, int readyAtTick) {
+        SpeciesDefinition species = kind.stats();
         int entity = ecs.createEntity();
         Transform transform = ecs.add(entity, new Transform());
-        transform.position.set(x, terrain.heightAt(x, z), z);
+        transform.position.set(x, Navigation.groundHeight(terrain, x, z), z);
         transform.yaw = random.nextFloat() * TWO_PI;
         PrevTransform prev = ecs.add(entity, new PrevTransform());
         prev.position.set(transform.position);
         prev.yaw = transform.yaw;
         ecs.add(entity, new Velocity());
-        ecs.add(entity, new SpeciesRef(species));
+        ecs.add(entity, new SpeciesRef(kind));
         ecs.add(entity, genome);
 
         Needs needs = ecs.add(entity, new Needs());
@@ -69,6 +73,7 @@ public final class CreatureFactory {
         Reproduction reproduction = ecs.add(entity, new Reproduction());
         reproduction.readyAtTick = readyAtTick;
         ecs.add(entity, new AiState());
+        ecs.add(entity, new Memory());
         creatureGrid.insert(entity, x, z);
         return entity;
     }

@@ -1,0 +1,71 @@
+{
+  "branch": "body",
+  "nodes": [
+    {
+      "id": "body_strong_legs",
+      "name": "Silné nohy",
+      "description": "Rychlejší chůze, o něco vyšší spotřeba energie.",
+      "cost": 30,
+      "effects": [
+        { "type": "stat_mul", "stat": "speed", "value": 1.2 },
+        { "type": "stat_mul", "stat": "energyDrain", "value": 1.1 },
+        { "type": "visual", "part": "legs", "variant": "strong" }
+      ]
+    },
+    {
+      "id": "body_long_legs",
+      "name": "Dlouhé nohy",
+      "description": "Ještě rychlejší pohyb, vyšší spotřeba jídla.",
+      "cost": 60,
+      "requires": ["body_strong_legs"],
+      "effects": [
+        { "type": "stat_mul", "stat": "speed", "value": 1.25 },
+        { "type": "stat_mul", "stat": "hungerRate", "value": 1.1 },
+        { "type": "visual", "part": "legs", "variant": "long" }
+      ]
+    },
+    {
+      "id": "body_larger",
+      "name": "Větší tělo",
+      "description": "Víc zdraví, ale větší hlad.",
+      "cost": 40,
+      "effects": [
+        { "type": "stat_mul", "stat": "size", "value": 1.25 },
+        { "type": "stat_mul", "stat": "maxHealth", "value": 1.3 },
+        { "type": "stat_mul", "stat": "hungerRate", "value": 1.2 },
+        { "type": "visual", "part": "body", "variant": "large" }
+      ]
+    },
+    {
+      "id": "body_tough_hide",
+      "name": "Tuhá kůže",
+      "description": "Odolnější tělo, déle vydrží hlad i žízeň.",
+      "cost": 35,
+      "effects": [
+        { "type": "stat_mul", "stat": "maxHealth", "value": 1.4 },
+        { "type": "visual", "part": "skin", "variant": "thick" }
+      ]
+    },
+    {
+      "id": "body_longevity",
+      "name": "Dlouhověkost",
+      "description": "Delší život, pomalejší rozmnožování.",
+      "cost": 70,
+      "requires": ["body_larger"],
+      "effects": [
+        { "type": "stat_mul", "stat": "lifespan", "value": 1.3 },
+        { "type": "stat_mul", "stat": "reproductionCooldown", "value": 1.1 }
+      ]
+    },
+    {
+      "id": "body_keen_eyes",
+      "name": "Bystrý zrak",
+      "description": "Vidí jídlo, vodu i partnery z větší dálky.",
+      "cost": 30,
+      "effects": [
+        { "type": "stat_mul", "stat": "sight", "value": 1.5 },
+        { "type": "visual", "part": "eyes", "variant": "big" }
+      ]
+    }
+  ]
+}

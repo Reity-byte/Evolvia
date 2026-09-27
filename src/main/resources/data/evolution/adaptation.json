@@ -1,0 +1,72 @@
+{
+  "branch": "adaptation",
+  "nodes": [
+    {
+      "id": "adapt_fur",
+      "name": "Hustá srst",
+      "description": "Snese chlad, v horku je jí ale hůř.",
+      "cost": 40,
+      "effects": [
+        { "type": "stat_add", "stat": "comfortMin", "value": -0.12 },
+        { "type": "stat_add", "stat": "comfortMax", "value": -0.05 },
+        { "type": "visual", "part": "fur", "variant": "thick" }
+      ]
+    },
+    {
+      "id": "adapt_arctic",
+      "name": "Arktický tvor",
+      "description": "Tundra je domov.",
+      "cost": 70,
+      "requires": ["adapt_fur"],
+      "requiresCondition": { "type": "biome_presence", "biome": "tundra", "ratio": 0.05 },
+      "effects": [
+        { "type": "stat_add", "stat": "comfortMin", "value": -0.15 },
+        { "type": "visual", "part": "fur", "variant": "white" }
+      ]
+    },
+    {
+      "id": "adapt_sweat",
+      "name": "Pocení",
+      "description": "Snese horko, ale víc pije.",
+      "cost": 40,
+      "effects": [
+        { "type": "stat_add", "stat": "comfortMax", "value": 0.12 },
+        { "type": "stat_mul", "stat": "thirstRate", "value": 1.1 }
+      ]
+    },
+    {
+      "id": "adapt_desert",
+      "name": "Pouštní tvor",
+      "description": "Poušť je domov, vydrží dlouho bez vody.",
+      "cost": 70,
+      "requires": ["adapt_sweat"],
+      "requiresCondition": { "type": "biome_presence", "biome": "desert", "ratio": 0.05 },
+      "effects": [
+        { "type": "stat_add", "stat": "comfortMax", "value": 0.15 },
+        { "type": "stat_mul", "stat": "thirstRate", "value": 0.75 },
+        { "type": "visual", "part": "skin", "variant": "sandy" }
+      ]
+    },
+    {
+      "id": "adapt_swim",
+      "name": "Plavání",
+      "description": "Umí plavat mělkou vodou, dostane se na blízké ostrovy.",
+      "cost": 50,
+      "effects": [
+        { "type": "unlock_ability", "ability": "swim" },
+        { "type": "visual", "part": "feet", "variant": "webbed" }
+      ]
+    },
+    {
+      "id": "adapt_amphibian",
+      "name": "Obojživelník",
+      "description": "Život u vody: menší žízeň.",
+      "cost": 80,
+      "requires": ["adapt_swim"],
+      "effects": [
+        { "type": "stat_mul", "stat": "thirstRate", "value": 0.7 },
+        { "type": "visual", "part": "skin", "variant": "moist" }
+      ]
+    }
+  ]
+}

@@ -19,6 +19,11 @@ public final class TestTerrains {
     }
 
     public static Terrain fromAscii(String... rows) {
+        return fromAscii(0.5f, rows);
+    }
+
+    /** Same, with the given temperature (0..1) on every tile. */
+    public static Terrain fromAscii(float temperature, String... rows) {
         int depth = rows.length;
         int width = rows[0].length();
         Biome[] biomes = new Biome[width * depth];
@@ -49,6 +54,8 @@ public final class TestTerrains {
         }
         float[] half = new float[width * depth];
         java.util.Arrays.fill(half, 0.5f);
-        return new Terrain(1L, BIOMES, width, depth, 0.5f, 1f, corners, biomes, half, half.clone());
+        float[] temperatures = new float[width * depth];
+        java.util.Arrays.fill(temperatures, temperature);
+        return new Terrain(1L, BIOMES, width, depth, 0.5f, 1f, corners, biomes, temperatures, half);
     }
 }

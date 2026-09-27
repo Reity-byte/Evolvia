@@ -76,7 +76,7 @@ public final class CreatureSelection {
             y = p.position.y + (y - p.position.y) * alpha;
             z = p.position.z + (z - p.position.z) * alpha;
         }
-        float headHeight = world.ecs().get(entity, SpeciesRef.class).species.bodySize() + 0.3f;
+        float headHeight = world.ecs().get(entity, SpeciesRef.class).species.stats().bodySize() + 0.3f;
         if (camera.project(x, y + headHeight, z, framebufferWidth, framebufferHeight, screen)) {
             overlay.renderLabel(describe(world, entity), screen.x, screen.y, framebufferWidth, framebufferHeight);
         }
@@ -90,7 +90,7 @@ public final class CreatureSelection {
         Age age = world.ecs().get(entity, Age.class);
         Genome genome = world.ecs().get(entity, Genome.class);
         Reproduction reproduction = world.ecs().get(entity, Reproduction.class);
-        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).species;
+        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).species.stats();
         boolean adult = age.ageTicks >= SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
         String action = ai != null && ai.action != null ? ai.action.label() : "-";
         String path = ai != null && ai.pathStatus != AiState.PathStatus.NONE ? " (" + ai.pathStatus.name().toLowerCase(Locale.ROOT) + ")" : "";

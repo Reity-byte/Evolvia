@@ -28,7 +28,11 @@ class DataLoaderTest {
              "reproduction": {"adultAgeSeconds": 60, "cooldownSeconds": 30, "maxNeed": 0.4, "minHealth": 0.7,
                               "hungerCost": 0.3, "litterSize": 1, "mateScore": 0.35},
              "genome": {"variation": 0.1, "mutation": 0.02},
-             "population": {"starting": 10, "spawnRadius": 5, "max": 100}}
+             "population": {"starting": 10, "spawnRadius": 5, "max": 100},
+             "diet": {"plantNutrition": 1, "meatNutrition": 0},
+             "climate": {"comfortMin": 0.25, "comfortMax": 0.7, "needFactorPerUnit": 4, "damageBeyond": 0.15,
+                         "damagePerSecond": 0.01},
+             "evolution": {"populationPointsPerMinute": 1, "pointsPerGeneration": 2, "harshPointsPerCreatureMinute": 0.02}}
             """;
 
     private static BiomeTable parse(String... biomes) {
@@ -78,8 +82,8 @@ class DataLoaderTest {
     void parsesResources() {
         var table = DataLoader.parseResources("""
                 {"resources": [
-                  {"id": "bush", "kind": "food", "capacity": 5, "regrowPerSecond": 0.1, "spawnDensity": 0.02,
-                   "size": 1, "color": "#ff0000", "emptyColor": "#00ff00"},
+                  {"id": "bush", "kind": "food", "foodType": "plant", "nutrition": 1, "capacity": 5, "regrowPerSecond": 0.1,
+                   "spawnDensity": 0.02, "size": 1, "color": "#ff0000", "emptyColor": "#00ff00"},
                   {"id": "water", "kind": "water"}
                 ]}
                 """, "resources.json");
@@ -91,7 +95,7 @@ class DataLoaderTest {
     @Test
     void rejectsInvalidResources() {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> DataLoader.parseResources(
-                "{\"resources\": [{\"id\": \"bush\", \"kind\": \"food\", \"capacity\": 5, \"regrowPerSecond\": 0, \"spawnDensity\": 0.1, \"size\": 1}]}",
+                "{\"resources\": [{\"id\": \"bush\", \"kind\": \"food\", \"foodType\": \"plant\", \"nutrition\": 1, \"capacity\": 5, \"regrowPerSecond\": 0, \"spawnDensity\": 0.1, \"size\": 1}]}",
                 "resources.json"));
         assertTrue(e.getMessage().contains("water"), e.getMessage());
         e = assertThrows(IllegalStateException.class, () -> DataLoader.parseResources(

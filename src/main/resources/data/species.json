@@ -50,5 +50,21 @@
     "starting": 200,
     "spawnRadius": 25.0,
     "max": 3000
+  },
+  "diet": {
+    "plantNutrition": 1.0,
+    "meatNutrition": 0.0
+  },
+  "climate": {
+    "comfortMin": 0.25,
+    "comfortMax": 0.7,
+    "needFactorPerUnit": 4.0,
+    "damageBeyond": 0.15,
+    "damagePerSecond": 0.01
+  },
+  "evolution": {
+    "populationPointsPerMinute": 1.0,
+    "pointsPerGeneration": 2.0,
+    "harshPointsPerCreatureMinute": 0.02
   }
 }

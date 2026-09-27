@@ -2,7 +2,12 @@ package evolvia.data;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
+import evolvia.evolution.Condition;
+import evolvia.evolution.Effect;
+import evolvia.evolution.EvolutionNode;
+import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.evolution.Stat;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
 import evolvia.world.BiomeTable;
@@ -19,8 +24,10 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -33,6 +40,8 @@ public final class DataLoader {
     public static final String BIOMES = "data/biomes.json";
     public static final String SPECIES = "data/species.json";
     public static final String RESOURCES = "data/resources.json";
+    public static final String EVOLUTION_DIR = "data/evolution/";
+    public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
     private static final Gson GSON = new Gson();
 
@@ -113,6 +122,18 @@ public final class DataLoader {
                         && population.max() <= 100_000 && population.spawnRadius() >= 0, source,
                 "population: 0 <= starting <= max <= 100000, spawnRadius must not be negative");
 
+        SpeciesDefinition.Diet diet = s.diet();
+        require(diet != null && diet.plantNutrition() >= 0 && diet.meatNutrition() >= 0
+                        && diet.plantNutrition() + diet.meatNutrition() > 0, source,
+                "diet: plantNutrition and meatNutrition must not be negative, and the species must eat something");
+        SpeciesDefinition.Climate climate = s.climate();
+        require(climate != null && climate.comfortMin() <= climate.comfortMax() && climate.needFactorPerUnit() >= 0
+                        && climate.damageBeyond() >= 0 && climate.damagePerSecond() >= 0, source,
+                "climate: comfortMin <= comfortMax, other values must not be negative");
+        SpeciesDefinition.EvolutionRates evolution = s.evolution();
+        require(evolution != null && evolution.populationPointsPerMinute() >= 0 && evolution.pointsPerGeneration() >= 0
+                        && evolution.harshPointsPerCreatureMinute() >= 0, source, "evolution: rates must not be negative");
+
         return new SpeciesDefinition(
                 s.id(),
                 s.name() != null ? s.name() : s.id(),
@@ -129,7 +150,10 @@ public final class DataLoader {
                 new SpeciesDefinition.Wander(s.wander().radius(), pause[0], pause[1]),
                 reproduction,
                 genome,
-                population);
+                population,
+                diet,
+                climate,
+                evolution);
     }
 
     /** Loads and validates {@code data/resources.json}. */
@@ -154,7 +178,10 @@ public final class DataLoader {
             }
             if (kind == ResourceKind.FOOD) {
                 require(positive(r.capacity()) && positive(r.size()), where, "food needs a positive capacity and size");
+                require(r.foodType() != null && !r.foodType().isBlank(), where, "food needs a \"foodType\" (e.g. plant, meat)");
+                require(positive(r.nutrition()), where, "food needs a positive nutrition");
                 require(r.regrowPerSecond() != null && r.regrowPerSecond() >= 0, where, "regrowPerSecond must not be negative");
+                require(r.decayPerSecond() == null || r.decayPerSecond() >= 0, where, "decayPerSecond must not be negative");
                 require(r.spawnDensity() != null && r.spawnDensity() >= 0 && r.spawnDensity() <= 1, where,
                         "spawnDensity must be in [0, 1]");
             }
@@ -163,14 +190,116 @@ public final class DataLoader {
                     r.id(),
                     r.name() != null ? r.name() : r.id(),
                     kind,
+                    r.foodType(),
+                    r.nutrition() != null ? r.nutrition() : 1f,
                     r.capacity() != null ? r.capacity() : 0f,
                     r.regrowPerSecond() != null ? r.regrowPerSecond() : 0f,
+                    r.decayPerSecond() != null ? r.decayPerSecond() : 0f,
+                    Boolean.TRUE.equals(r.spawnOnDeath()),
                     r.spawnDensity() != null ? r.spawnDensity() : 0f,
                     r.size() != null ? r.size() : 0f,
                     r.color() != null ? Colors.parseHex(r.color(), where + ": color") : 0,
                     r.emptyColor() != null ? Colors.parseHex(r.emptyColor(), where + ": emptyColor") : 0));
         }
         return new ResourceTable(resources, source);
+    }
+
+    /** Loads all evolution branch files listed in {@code data/evolution/branches.json} and validates the tree. */
+    public static EvolutionTree loadEvolutionTree(BiomeTable biomes) {
+        BranchIndex index = fromJson(readResource(EVOLUTION_INDEX), BranchIndex.class, EVOLUTION_INDEX);
+        require(index.files() != null && !index.files().isEmpty(), EVOLUTION_INDEX, "missing \"files\" list");
+        Map<String, String> files = new LinkedHashMap<>();
+        for (String file : index.files()) {
+            String path = EVOLUTION_DIR + file;
+            files.put(path, readResource(path));
+        }
+        return parseEvolutionTree(files, biomes);
+    }
+
+    /**
+     * Parses branch files (path -> JSON) into a validated tree.
+     *
+     * @param biomes used to check biome ids in conditions; may be null to skip that check
+     */
+    public static EvolutionTree parseEvolutionTree(Map<String, String> files, BiomeTable biomes) {
+        List<EvolutionNode> nodes = new ArrayList<>();
+        for (Map.Entry<String, String> file : files.entrySet()) {
+            String source = file.getKey();
+            BranchFile branch = fromJson(file.getValue(), BranchFile.class, source);
+            require(branch.branch() != null && !branch.branch().isBlank(), source, "missing \"branch\"");
+            require(branch.nodes() != null, source, "missing \"nodes\" array");
+            for (NodeJson n : branch.nodes()) {
+                String where = source + ": node " + (n.id() != null ? "'" + n.id() + "'" : "#" + nodes.size());
+                require(n.id() != null && !n.id().isBlank(), where, "missing \"id\"");
+                require(n.name() != null, where, "missing \"name\"");
+                require(n.cost() != null && n.cost() >= 0, where, "cost must be a non-negative number");
+                List<Effect> effects = new ArrayList<>();
+                if (n.effects() != null) {
+                    for (EffectJson e : n.effects()) {
+                        effects.add(parseEffect(e, where));
+                    }
+                }
+                nodes.add(new EvolutionNode(
+                        n.id(),
+                        n.name(),
+                        n.description() != null ? n.description() : "",
+                        branch.branch(),
+                        n.cost(),
+                        n.requires() != null ? List.copyOf(n.requires()) : List.of(),
+                        n.exclusiveGroup(),
+                        parseCondition(n.requiresCondition(), where, biomes),
+                        List.copyOf(effects)));
+            }
+        }
+        return new EvolutionTree(nodes, "data/evolution");
+    }
+
+    private static Effect parseEffect(EffectJson e, String where) {
+        require(e.type() != null, where, "effect without \"type\"");
+        return switch (e.type()) {
+            case "stat_add", "stat_mul" -> {
+                Stat stat = Stat.byKey(e.stat());
+                require(stat != null, where, "unknown stat '" + e.stat() + "' (known: "
+                        + String.join(", ", java.util.Arrays.stream(Stat.values()).map(Stat::key).toList()) + ")");
+                require(e.value() != null, where, e.type() + " needs a \"value\"");
+                yield e.type().equals("stat_add") ? new Effect.StatAdd(stat, e.value()) : new Effect.StatMul(stat, e.value());
+            }
+            case "unlock_ability" -> {
+                require(e.ability() != null && !e.ability().isBlank(), where, "unlock_ability needs an \"ability\"");
+                yield new Effect.UnlockAbility(e.ability());
+            }
+            case "visual" -> {
+                require(e.part() != null && e.variant() != null, where, "visual needs \"part\" and \"variant\"");
+                yield new Effect.Visual(e.part(), e.variant());
+            }
+            case "unlock_action" -> {
+                require(e.action() != null && !e.action().isBlank(), where, "unlock_action needs an \"action\"");
+                yield new Effect.UnlockAction(e.action());
+            }
+            default -> throw new IllegalStateException(where + ": unknown effect type '" + e.type()
+                    + "' (known: stat_add, stat_mul, unlock_ability, visual, unlock_action)");
+        };
+    }
+
+    private static Condition parseCondition(ConditionJson c, String where, BiomeTable biomes) {
+        if (c == null) {
+            return null;
+        }
+        require(c.type() != null, where, "requiresCondition without \"type\"");
+        return switch (c.type()) {
+            case "population_min" -> {
+                require(c.value() != null && c.value() > 0, where, "population_min needs a positive \"value\"");
+                yield new Condition.PopulationMin(Math.round(c.value()));
+            }
+            case "biome_presence" -> {
+                require(c.biome() != null && (biomes == null || biomes.byId(c.biome()) != null), where,
+                        "biome_presence needs an existing \"biome\", got: " + c.biome());
+                require(c.ratio() != null && c.ratio() > 0 && c.ratio() <= 1, where, "biome_presence needs \"ratio\" in (0, 1]");
+                yield new Condition.BiomePresence(c.biome(), c.ratio());
+            }
+            default -> throw new IllegalStateException(where + ": unknown condition type '" + c.type()
+                    + "' (known: population_min, biome_presence)");
+        };
     }
 
     private static boolean positive(Float value) {
@@ -261,15 +390,37 @@ public final class DataLoader {
                                float[] lifespanSeconds, Float senseRadius, SpeciesDefinition.NeedRates needs,
                                SpeciesDefinition.Eating eating, SpeciesDefinition.AiTuning ai,
                                WanderJson wander, SpeciesDefinition.Reproduction reproduction,
-                               SpeciesDefinition.GenomeTuning genome, SpeciesDefinition.Population population) {
+                               SpeciesDefinition.GenomeTuning genome, SpeciesDefinition.Population population,
+                               SpeciesDefinition.Diet diet, SpeciesDefinition.Climate climate,
+                               SpeciesDefinition.EvolutionRates evolution) {
+    }
+
+    /** JSON shape of {@code data/evolution/branches.json}. */
+    private record BranchIndex(List<String> files) {
+    }
+
+    /** JSON shape of one evolution branch file. */
+    private record BranchFile(String branch, List<NodeJson> nodes) {
+    }
+
+    private record NodeJson(String id, String name, String description, Integer cost, List<String> requires,
+                            String exclusiveGroup, ConditionJson requiresCondition, List<EffectJson> effects) {
+    }
+
+    private record EffectJson(String type, String stat, Float value, String ability, String part, String variant,
+                              String action) {
+    }
+
+    private record ConditionJson(String type, Float value, String biome, Float ratio) {
     }
 
     /** JSON shape of {@code resources.json}. */
     private record ResourceFile(List<ResourceJson> resources) {
     }
 
-    private record ResourceJson(String id, String name, String kind, Float capacity, Float regrowPerSecond,
-                                Float spawnDensity, Float size, String color, String emptyColor) {
+    private record ResourceJson(String id, String name, String kind, String foodType, Float nutrition, Float capacity,
+                                Float regrowPerSecond, Float decayPerSecond, Boolean spawnOnDeath, Float spawnDensity, Float size,
+                                String color, String emptyColor) {
     }
 
     private record WanderJson(Float radius, float[] pauseSeconds) {

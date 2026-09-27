@@ -3,6 +3,7 @@ package evolvia.ai.actions;
 import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
+import evolvia.components.Memory;
 import evolvia.components.ResourceNode;
 import evolvia.components.Transform;
 import evolvia.evolution.SpeciesDefinition;
@@ -58,12 +59,30 @@ public final class ConsumeAction implements Action {
             if (c.ai.actionTicks > 0 && c.ai.actionTicks % ticksPerUnit == 0) {
                 ResourceNode food = c.resources.get(node);
                 food.amount -= 1f;
-                c.needs.hunger = Math.max(0f, c.needs.hunger - eating.hungerPerUnit());
+                c.needs.hunger = Math.max(0f, c.needs.hunger - eating.hungerPerUnit() * c.nutrition(food));
             }
         } else {
             c.needs.thirst = Math.max(0f, c.needs.thirst - SpeciesDefinition.perTick(eating.thirstReliefPerSecond()));
         }
+        remember(c, target);
         return need(c) <= SATISFIED ? Status.DONE : Status.RUNNING;
+    }
+
+    /** Species with memory remember where they ate / drank. */
+    private void remember(ActionContext c, Transform source) {
+        Memory memory = c.memory();
+        if (memory == null) {
+            return;
+        }
+        if (kind == ResourceKind.FOOD) {
+            memory.knowsFood = true;
+            memory.foodX = source.position.x;
+            memory.foodZ = source.position.z;
+        } else {
+            memory.knowsWater = true;
+            memory.waterX = source.position.x;
+            memory.waterZ = source.position.z;
+        }
     }
 
     private float need(ActionContext c) {

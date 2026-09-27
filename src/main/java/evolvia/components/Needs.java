@@ -9,6 +9,8 @@ public final class Needs {
     public float thirst;
     /** 1 = rested, 0 = exhausted. */
     public float energy = 1f;
+    /** How far the local temperature is outside the species comfort range (negative = cold, positive = hot, 0 = fine). */
+    public float exposure;
     /** Set while the creature sleeps: energy recovers, hunger and thirst grow slower. */
     public boolean sleeping;
 }

@@ -1,23 +1,21 @@
 package evolvia.world;
 
 import evolvia.ai.ActionContext;
+import evolvia.ai.Navigation;
 import evolvia.ai.PathQueue;
-import evolvia.ai.Pathfinder;
-import evolvia.components.Age;
-import evolvia.components.AiState;
-import evolvia.components.Health;
-import evolvia.components.Needs;
-import evolvia.components.PrevTransform;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
-import evolvia.components.Velocity;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
+import evolvia.evolution.EvolutionConditions;
+import evolvia.evolution.EvolutionTree;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.systems.AgingSystem;
 import evolvia.systems.AiSystem;
+import evolvia.systems.EvolutionSystem;
 import evolvia.systems.MovementSystem;
 import evolvia.systems.NeedsSystem;
 import evolvia.systems.PathFollowingSystem;
@@ -31,13 +29,14 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * The simulated world: terrain, resources, creatures and the systems that advance them.
+ * The simulated world: terrain, resources, the player's species and its creatures, and the systems
+ * that advance them.
  * <p>
  * Everything random comes from one {@link Random} seeded with the world seed (terrain generation,
  * then resources, then creatures, then the systems), so the same seed replays the same world.
  * The system order is defined here and nowhere else.
  */
-public final class World {
+public final class World implements EvolutionConditions {
 
     /** Cell size of the spatial grids (DESIGN.md §6). */
     public static final int GRID_CELL_SIZE = 16;
@@ -49,25 +48,27 @@ public final class World {
 
     private final long seed;
     private final Terrain terrain;
-    private final SpeciesDefinition species;
+    private final Species species;
     private final ResourceTable resourceTable;
     private final EcsWorld ecs = new EcsWorld();
     private final SpatialGrid foodGrid;
     private final SpatialGrid waterGrid;
-    private final Pathfinder pathfinder;
+    private final SpatialGrid creatureGrid;
+    private final Navigation navigation;
     private final PathQueue pathQueue = new PathQueue();
     private final DeathStats deaths = new DeathStats();
-    private final SpatialGrid creatureGrid;
     private final Births births = new Births();
     private final CreatureFactory creatureFactory;
     private final PopulationHistory history = new PopulationHistory();
     private final PathfindingSystem pathfindingSystem;
     private final ReproductionSystem reproductionSystem;
+    private final EvolutionSystem evolutionSystem;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
     private final long[] systemNanos;
 
-    private World(long seed, Terrain terrain, SpeciesDefinition species, ResourceTable resourceTable, Random random) {
+    private World(long seed, Terrain terrain, Species species, ResourceTable resourceTable,
+                  float shallowDepth, Random random) {
         this.seed = seed;
         this.terrain = terrain;
         this.species = species;
@@ -76,36 +77,44 @@ public final class World {
         this.waterGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.creatureGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.creatureFactory = new CreatureFactory(ecs, terrain, creatureGrid, random);
-        this.pathfinder = new Pathfinder(terrain);
-        this.pathfindingSystem = new PathfindingSystem(pathfinder, pathQueue);
+        this.navigation = new Navigation(terrain, shallowDepth);
+        this.pathfindingSystem = new PathfindingSystem(navigation, pathQueue);
         this.reproductionSystem = new ReproductionSystem(births, creatureFactory, terrain);
-        ActionContext actionContext = new ActionContext(terrain, pathfinder, pathQueue, foodGrid, waterGrid,
+        this.evolutionSystem = new EvolutionSystem(species, reproductionSystem::maxGeneration);
+        ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
                 creatureGrid, births, random);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
-                new NeedsSystem(),
+                new NeedsSystem(terrain),
                 new AiSystem(actionContext),
                 pathfindingSystem,
                 new PathFollowingSystem(pathQueue),
-                new MovementSystem(terrain),
+                new MovementSystem(navigation),
                 new SpatialIndexSystem(creatureGrid),
-                new ResourceRegrowthSystem(),
+                new ResourceRegrowthSystem(foodGrid),
                 reproductionSystem,
-                new AgingSystem(deaths, creatureGrid));
+                new AgingSystem(deaths, creatureGrid, this::leaveCarcass),
+                evolutionSystem);
         this.systemNanos = new long[systems.size()];
     }
 
     /** Generates the terrain, places resources and spawns the starting population. */
     public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
-                               ResourceTable resources, long seed) {
+                               EvolutionTree tree, ResourceTable resources, long seed) {
         Random random = new Random(seed);
         Terrain terrain = TerrainGenerator.generate(config, biomes, seed, random);
-        World world = new World(seed, terrain, species, resources, random);
+        World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(), random);
         world.spawnResources(random);
         world.spawnPopulation(random);
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
+    }
+
+    /** Same as {@link #create(WorldConfig, BiomeTable, SpeciesDefinition, EvolutionTree, ResourceTable, long)} with an empty evolution tree. */
+    public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
+                               ResourceTable resources, long seed) {
+        return create(config, biomes, species, new EvolutionTree(List.of(), "none"), resources, seed);
     }
 
     /** Advances the simulation by one tick. */
@@ -131,6 +140,41 @@ public final class World {
         return systemNanos[index];
     }
 
+    // ---------------------------------------------------------------- evolution
+
+    /**
+     * Unlocks an evolution node for the species (player action).
+     *
+     * @throws IllegalStateException if the node cannot be unlocked now
+     */
+    public void unlock(String nodeId) {
+        species.unlock(nodeId, this);
+    }
+
+    @Override
+    public int population() {
+        return creatureCount();
+    }
+
+    @Override
+    public float biomeRatio(String biomeId) {
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        if (creatures.size() == 0) {
+            return 0f;
+        }
+        ComponentStore<Transform> transforms = ecs.store(Transform.class);
+        int inBiome = 0;
+        for (int i = 0; i < creatures.size(); i++) {
+            Transform t = transforms.get(creatures.entityAt(i));
+            int tx = Math.clamp((int) Math.floor(t.position.x), 0, terrain.width() - 1);
+            int tz = Math.clamp((int) Math.floor(t.position.z), 0, terrain.depth() - 1);
+            if (terrain.biome(tx, tz).id().equals(biomeId)) {
+                inBiome++;
+            }
+        }
+        return inBiome / (float) creatures.size();
+    }
+
     // ---------------------------------------------------------------- spawning
 
     private void spawnResources(Random random) {
@@ -143,13 +187,14 @@ public final class World {
             }
         }
         // Food: chance per land tile scaled by fertility; regrowth scaled by fertility too.
+        List<ResourceDefinition> spawning = resourceTable.food().stream().filter(f -> f.spawnDensity() > 0).toList();
         for (int tz = 0; tz < terrain.depth(); tz++) {
             for (int tx = 0; tx < terrain.width(); tx++) {
                 if (!terrain.isPassable(tx, tz)) {
                     continue;
                 }
                 float fertility = terrain.fertility(tx, tz);
-                for (ResourceDefinition food : resourceTable.food()) {
+                for (ResourceDefinition food : spawning) {
                     if (random.nextFloat() < food.spawnDensity() * fertility) {
                         float x = tx + 0.2f + 0.6f * random.nextFloat();
                         float z = tz + 0.2f + 0.6f * random.nextFloat();
@@ -172,12 +217,21 @@ public final class World {
         return false;
     }
 
-    private void addResource(ResourceDefinition type, float x, float z, float amount, float regrowPerTick) {
+    private int addResource(ResourceDefinition type, float x, float z, float amount, float regrowPerTick) {
         int entity = ecs.createEntity();
         Transform transform = ecs.add(entity, new Transform());
-        transform.position.set(x, terrain.heightAt(x, z), z);
+        transform.position.set(x, Navigation.groundHeight(terrain, x, z), z);
         ecs.add(entity, new ResourceNode(type, amount, regrowPerTick));
         resourceGrid(type.kind()).insert(entity, x, z);
+        return entity;
+    }
+
+    /** A dead creature leaves a carcass (if resources.json defines one), which then decays. */
+    private void leaveCarcass(int entity, float x, float z) {
+        ResourceDefinition carcass = resourceTable.onDeath();
+        if (carcass != null) {
+            addResource(carcass, x, z, carcass.capacity(), 0f);
+        }
     }
 
     /**
@@ -186,7 +240,8 @@ public final class World {
      * Ages, needs and reproduction cooldowns are varied so the population does not act in lockstep.
      */
     private void spawnPopulation(Random random) {
-        SpeciesDefinition.Population population = species.population();
+        SpeciesDefinition stats = species.stats();
+        SpeciesDefinition.Population population = stats.population();
         float radius = population.spawnRadius();
         float centerX = 0f;
         float centerZ = 0f;
@@ -195,12 +250,12 @@ public final class World {
             for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
                 float x = random.nextInt(terrain.width()) + 0.5f;
                 float z = random.nextInt(terrain.depth()) + 0.5f;
-                if (pathfinder.regionAt(x, z) < 0) {
+                if (navigation.land().regionAt(x, z) < 0) {
                     continue;
                 }
                 centerX = x;
                 centerZ = z;
-                region = pathfinder.regionAt(x, z);
+                region = navigation.land().regionAt(x, z);
                 if (foodGrid.nearest(x, z, radius, e -> true) >= 0 && waterGrid.nearest(x, z, radius, e -> true) >= 0) {
                     break; // good spot: food and water within the group's area
                 }
@@ -210,8 +265,8 @@ public final class World {
             }
         }
 
-        int youngestLifespan = SpeciesDefinition.secondsToTicks(species.lifespanMinSeconds());
-        int cooldown = SpeciesDefinition.secondsToTicks(species.reproduction().cooldownSeconds());
+        int youngestLifespan = SpeciesDefinition.secondsToTicks(stats.lifespanMinSeconds());
+        int cooldown = SpeciesDefinition.secondsToTicks(stats.reproduction().cooldownSeconds());
         for (int n = 0; n < population.starting(); n++) {
             float x = -1f;
             float z = -1f;
@@ -227,7 +282,7 @@ public final class World {
                     cx = random.nextInt(terrain.width()) + random.nextFloat();
                     cz = random.nextInt(terrain.depth()) + random.nextFloat();
                 }
-                int tileRegion = pathfinder.regionAt(cx, cz);
+                int tileRegion = navigation.land().regionAt(cx, cz);
                 if (tileRegion >= 0 && (region < 0 || tileRegion == region)) {
                     x = cx;
                     z = cz;
@@ -238,7 +293,7 @@ public final class World {
                 x = centerX;
                 z = centerZ;
             }
-            creatureFactory.spawn(species, creatureFactory.randomGenome(species), x, z,
+            creatureFactory.spawn(species, creatureFactory.randomGenome(stats), x, z,
                     random.nextInt(youngestLifespan / 2 + 1),
                     0.3f * random.nextFloat(), 0.3f * random.nextFloat(), 0.7f + 0.3f * random.nextFloat(),
                     random.nextInt(cooldown + 1));
@@ -252,12 +307,30 @@ public final class World {
         return creatureGrid.nearest(x, z, maxDistance, e -> true);
     }
 
-    /** Debug: empties every food node (it regrows normally afterwards). */
+    /**
+     * Places a full resource node of the given type at (x, z), e.g. for the "Abundance" god power
+     * (phase 7) or tests.
+     *
+     * @return the new node's entity
+     * @throws IllegalArgumentException for an unknown resource id
+     */
+    public int placeResource(String resourceId, float x, float z) {
+        ResourceDefinition type = resourceTable.byId(resourceId);
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown resource '" + resourceId + "'");
+        }
+        int tx = Math.clamp((int) Math.floor(x), 0, terrain.width() - 1);
+        int tz = Math.clamp((int) Math.floor(z), 0, terrain.depth() - 1);
+        float regrow = type.decays() ? 0f : SpeciesDefinition.perTick(type.regrowPerSecond()) * terrain.fertility(tx, tz);
+        return addResource(type, x, z, type.capacity(), regrow);
+    }
+
+    /** Debug: empties every food node (plants regrow normally afterwards). */
     public void emptyAllFood() {
         ComponentStore<ResourceNode> nodes = ecs.store(ResourceNode.class);
         for (int i = 0; i < nodes.size(); i++) {
             ResourceNode node = nodes.componentAt(i);
-            if (node.type.kind() == ResourceKind.FOOD) {
+            if (node.type.kind() == ResourceKind.FOOD && !node.type.decays()) {
                 node.amount = 0f;
             }
         }
@@ -288,7 +361,8 @@ public final class World {
         return terrain;
     }
 
-    public SpeciesDefinition species() {
+    /** The player's species (shared evolution state and current stats). */
+    public Species species() {
         return species;
     }
 
@@ -309,8 +383,8 @@ public final class World {
         return foodGrid.size() + waterGrid.size();
     }
 
-    public Pathfinder pathfinder() {
-        return pathfinder;
+    public Navigation navigation() {
+        return navigation;
     }
 
     public PathQueue pathQueue() {
@@ -319,6 +393,10 @@ public final class World {
 
     public PathfindingSystem pathfindingSystem() {
         return pathfindingSystem;
+    }
+
+    public EvolutionSystem evolutionSystem() {
+        return evolutionSystem;
     }
 
     public DeathStats deaths() {

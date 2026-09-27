@@ -1,0 +1,52 @@
+{
+  "branch": "diet",
+  "nodes": [
+    {
+      "id": "diet_herbivore",
+      "name": "Býložravec",
+      "description": "Specializace na rostliny: bobule víc zasytí.",
+      "cost": 30,
+      "exclusiveGroup": "diet",
+      "effects": [
+        { "type": "stat_mul", "stat": "plantNutrition", "value": 1.4 },
+        { "type": "visual", "part": "teeth", "variant": "flat" }
+      ]
+    },
+    {
+      "id": "diet_omnivore",
+      "name": "Všežravec",
+      "description": "Jí rostliny i mršiny.",
+      "cost": 40,
+      "exclusiveGroup": "diet",
+      "effects": [
+        { "type": "stat_add", "stat": "meatNutrition", "value": 1.0 },
+        { "type": "visual", "part": "teeth", "variant": "mixed" }
+      ]
+    },
+    {
+      "id": "diet_carnivore",
+      "name": "Masožravec",
+      "description": "Jí jen maso (mršiny), které hodně zasytí. Rostliny nejí.",
+      "cost": 60,
+      "exclusiveGroup": "diet",
+      "requiresCondition": { "type": "population_min", "value": 150 },
+      "effects": [
+        { "type": "stat_mul", "stat": "plantNutrition", "value": 0.0 },
+        { "type": "stat_add", "stat": "meatNutrition", "value": 1.6 },
+        { "type": "stat_mul", "stat": "speed", "value": 1.1 },
+        { "type": "visual", "part": "teeth", "variant": "sharp" }
+      ]
+    },
+    {
+      "id": "diet_efficient_gut",
+      "name": "Výkonné trávení",
+      "description": "Všežravec lépe využije rostliny i maso.",
+      "cost": 50,
+      "requires": ["diet_omnivore"],
+      "effects": [
+        { "type": "stat_mul", "stat": "plantNutrition", "value": 1.15 },
+        { "type": "stat_mul", "stat": "meatNutrition", "value": 1.3 }
+      ]
+    }
+  ]
+}

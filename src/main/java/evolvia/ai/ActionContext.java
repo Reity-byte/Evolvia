@@ -3,6 +3,7 @@ package evolvia.ai;
 import evolvia.components.Age;
 import evolvia.components.AiState;
 import evolvia.components.Health;
+import evolvia.components.Memory;
 import evolvia.components.Needs;
 import evolvia.components.Reproduction;
 import evolvia.components.ResourceNode;
@@ -11,6 +12,7 @@ import evolvia.components.Transform;
 import evolvia.components.Velocity;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Births;
 import evolvia.world.ResourceKind;
@@ -29,7 +31,10 @@ public final class ActionContext {
     public static final float REACH = 1.0f;
 
     public final Terrain terrain;
-    public final Pathfinder pathfinder;
+    /** Ability that lets a creature remember where it last drank and ate. */
+    public static final String MEMORY = "memory";
+
+    public final Navigation navigation;
     public final PathQueue pathQueue;
     public final SpatialGrid foodGrid;
     public final SpatialGrid waterGrid;
@@ -45,6 +50,7 @@ public final class ActionContext {
     private ComponentStore<Health> healths;
     private ComponentStore<Age> ages;
     private ComponentStore<Reproduction> reproductions;
+    private ComponentStore<Memory> memories;
     public int tick;
 
     public int entity;
@@ -52,7 +58,10 @@ public final class ActionContext {
     public Velocity velocity;
     public Needs needs;
     public AiState ai;
+    /** Current (evolved) stats of the creature's species. */
     public SpeciesDefinition species;
+    /** The creature's species (abilities, evolution state). */
+    public Species kind;
 
     // Per-creature query caches (reset by bind); -2 = not computed yet.
     private int nearestFood;
@@ -61,11 +70,11 @@ public final class ActionContext {
     private int waterInReach;
     private int nearestMate;
 
-    public ActionContext(Terrain terrain, Pathfinder pathfinder, PathQueue pathQueue,
+    public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
                          Random random) {
         this.terrain = terrain;
-        this.pathfinder = pathfinder;
+        this.navigation = navigation;
         this.pathQueue = pathQueue;
         this.foodGrid = foodGrid;
         this.waterGrid = waterGrid;
@@ -85,21 +94,33 @@ public final class ActionContext {
         this.healths = ecs.store(Health.class);
         this.ages = ecs.store(Age.class);
         this.reproductions = ecs.store(Reproduction.class);
+        this.memories = ecs.store(Memory.class);
     }
 
     /** Points the context at one creature. */
-    public void bind(int entity, Transform transform, Velocity velocity, Needs needs, AiState ai, SpeciesDefinition species) {
+    public void bind(int entity, Transform transform, Velocity velocity, Needs needs, AiState ai, Species kind) {
         this.entity = entity;
         this.transform = transform;
         this.velocity = velocity;
         this.needs = needs;
         this.ai = ai;
-        this.species = species;
+        this.kind = kind;
+        this.species = kind.stats();
         nearestFood = -2;
         nearestWater = -2;
         foodInReach = -2;
         waterInReach = -2;
         nearestMate = -2;
+    }
+
+    /** Pathfinder for the current creature's way of moving (walking, or also swimming). */
+    public Pathfinder pathfinder() {
+        return navigation.forSpecies(kind);
+    }
+
+    /** The current creature's memory, or null if its species has no memory ability. */
+    public Memory memory() {
+        return kind.hasAbility(MEMORY) ? memories.get(entity) : null;
     }
 
     // ---------------------------------------------------------------- resource queries
@@ -135,13 +156,24 @@ public final class ActionContext {
     /** True if the node exists and still has something to take. */
     public boolean isUsable(int node) {
         ResourceNode resource = resources.get(node);
-        return resource != null && (resource.type.kind() == ResourceKind.WATER || resource.amount >= 1f);
+        if (resource == null) {
+            return false;
+        }
+        if (resource.type.kind() == ResourceKind.WATER) {
+            return true;
+        }
+        return resource.amount >= 1f && nutrition(resource) > 0f;
+    }
+
+    /** How much one unit of this food nourishes the current creature (0 = its diet does not include it). */
+    public float nutrition(ResourceNode food) {
+        return food.type.nutrition() * species.diet().nutrition(food.type.foodType());
     }
 
     private int findNode(ResourceKind kind, float radius, boolean sameRegion) {
         float x = transform.position.x;
         float z = transform.position.z;
-        int myRegion = sameRegion ? pathfinder.regionAt(x, z) : -1;
+        int myRegion = sameRegion ? pathfinder().regionAt(x, z) : -1;
         SpatialGrid grid = kind == ResourceKind.FOOD ? foodGrid : waterGrid;
         return grid.nearest(x, z, radius, node -> {
             if (!isUsable(node)) {
@@ -151,7 +183,7 @@ public final class ActionContext {
                 return true;
             }
             Transform t = transforms.get(node);
-            return pathfinder.regionAt(t.position.x, t.position.z) == myRegion;
+            return pathfinder().regionAt(t.position.x, t.position.z) == myRegion;
         });
     }
 
@@ -180,13 +212,13 @@ public final class ActionContext {
         if (ref == null || age == null || reproduction == null || n == null || health == null) {
             return false;
         }
-        SpeciesDefinition.Reproduction rules = ref.species.reproduction();
+        SpeciesDefinition.Reproduction rules = ref.species.stats().reproduction();
         return age.ageTicks >= SpeciesDefinition.secondsToTicks(rules.adultAgeSeconds())
                 && reproduction.readyAtTick <= tick
                 && n.hunger < rules.maxNeed() && n.thirst < rules.maxNeed()
                 && !n.sleeping
                 && health.hp >= rules.minHealth() * health.maxHp
-                && creatures.size() < ref.species.population().max();
+                && creatures.size() < ref.species.stats().population().max();
     }
 
     /** Nearest creature of the same species that can reproduce and is reachable over land, or -1. */
@@ -194,13 +226,13 @@ public final class ActionContext {
         if (nearestMate == -2) {
             float x = transform.position.x;
             float z = transform.position.z;
-            int myRegion = pathfinder.regionAt(x, z);
+            int myRegion = pathfinder().regionAt(x, z);
             nearestMate = creatureGrid.nearest(x, z, species.senseRadius(), other -> {
-                if (other == entity || !canReproduce(other) || creatures.get(other).species != species) {
+                if (other == entity || !canReproduce(other) || creatures.get(other).species != kind) {
                     return false;
                 }
                 Transform t = transforms.get(other);
-                return pathfinder.regionAt(t.position.x, t.position.z) == myRegion;
+                return pathfinder().regionAt(t.position.x, t.position.z) == myRegion;
             });
         }
         return nearestMate;
@@ -220,7 +252,7 @@ public final class ActionContext {
     }
 
     private void payForOffspring(int parent) {
-        SpeciesDefinition.Reproduction rules = creatures.get(parent).species.reproduction();
+        SpeciesDefinition.Reproduction rules = creatures.get(parent).species.stats().reproduction();
         Needs n = needsStore.get(parent);
         n.hunger = Math.min(1f, n.hunger + rules.hungerCost());
         Reproduction reproduction = reproductions.get(parent);

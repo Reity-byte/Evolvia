@@ -44,7 +44,8 @@ class ReproductionTest {
         SpeciesDefinition noMutation = new SpeciesDefinition(species.id(), species.name(), species.rgb(), species.bodySize(),
                 species.speed(), species.maxHealth(), species.lifespanMinSeconds(), species.lifespanMaxSeconds(),
                 species.senseRadius(), species.needs(), species.eating(), species.ai(), species.wander(),
-                species.reproduction(), new SpeciesDefinition.GenomeTuning(0.1f, 0f), species.population());
+                species.reproduction(), new SpeciesDefinition.GenomeTuning(0.1f, 0f), species.population(),
+                species.diet(), species.climate(), species.evolution());
 
         Genome a = new Genome();
         a.size = 0.9f;
