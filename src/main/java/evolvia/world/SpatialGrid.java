@@ -7,14 +7,21 @@ import java.util.function.IntPredicate;
 /**
  * Uniform grid over the map for "what is near X" queries without scanning every entity
  * (DESIGN.md §6). Stores entity IDs with their positions; moving entities must be updated
- * with {@link #move}.
+ * with {@link #move}. Each entity's cell and slot are remembered, so move and remove are O(1)
+ * even in crowded cells.
  */
 public final class SpatialGrid {
+
+    private static final int NONE = -1;
 
     private final int cellSize;
     private final int columns;
     private final int rows;
     private final Cell[] cells;
+    /** Per entity ID: index of its cell, or NONE. */
+    private int[] cellOf = new int[256];
+    /** Per entity ID: slot within its cell. */
+    private int[] slotOf = new int[256];
     private int size;
 
     /**
@@ -30,30 +37,43 @@ public final class SpatialGrid {
         for (int i = 0; i < cells.length; i++) {
             cells[i] = new Cell();
         }
+        Arrays.fill(cellOf, NONE);
     }
 
+    /** Adds an entity at (x, z). An entity can be stored only once. */
     public void insert(int entity, float x, float z) {
-        cells[cellIndex(x, z)].add(entity, x, z);
+        ensureCapacity(entity);
+        if (cellOf[entity] != NONE) {
+            throw new IllegalStateException("Entity " + entity + " is already in the grid");
+        }
+        addToCell(entity, cellIndex(x, z), x, z);
         size++;
     }
 
-    /** Removes an entity stored at (x, z); returns false if it was not there. */
+    /** Removes an entity; returns false if it was not stored. The position argument is not needed any more. */
     public boolean remove(int entity, float x, float z) {
-        boolean removed = cells[cellIndex(x, z)].remove(entity);
-        if (removed) {
-            size--;
+        if (entity < 0 || entity >= cellOf.length || cellOf[entity] == NONE) {
+            return false;
         }
-        return removed;
+        removeFromCell(entity);
+        size--;
+        return true;
     }
 
     /** Updates an entity's position. */
     public void move(int entity, float oldX, float oldZ, float newX, float newZ) {
-        int from = cellIndex(oldX, oldZ);
+        if (entity < 0 || entity >= cellOf.length || cellOf[entity] == NONE) {
+            return;
+        }
         int to = cellIndex(newX, newZ);
-        if (from == to) {
-            cells[from].update(entity, newX, newZ);
-        } else if (cells[from].remove(entity)) {
-            cells[to].add(entity, newX, newZ);
+        if (cellOf[entity] == to) {
+            Cell cell = cells[to];
+            int slot = slotOf[entity];
+            cell.xs[slot] = newX;
+            cell.zs[slot] = newZ;
+        } else {
+            removeFromCell(entity);
+            addToCell(entity, to, newX, newZ);
         }
     }
 
@@ -63,12 +83,17 @@ public final class SpatialGrid {
 
     /**
      * Nearest entity within {@code maxRadius} of (x, z) that passes {@code filter}, or -1.
-     * Searches cell rings outwards and stops once no closer entity is possible.
+     * Searches cell rings outwards (only cells the radius can reach) and stops once no closer
+     * entity is possible.
      */
     public int nearest(float x, float z, float maxRadius, IntPredicate filter) {
         int cx = clampColumn(x);
         int cz = clampRow(z);
-        int maxRing = (int) Math.ceil(maxRadius / cellSize) + 1;
+        int minColumn = clampColumn(x - maxRadius);
+        int maxColumn = clampColumn(x + maxRadius);
+        int minRow = clampRow(z - maxRadius);
+        int maxRow = clampRow(z + maxRadius);
+        int maxRing = Math.max(Math.max(cx - minColumn, maxColumn - cx), Math.max(cz - minRow, maxRow - cz));
         float maxDistanceSq = maxRadius * maxRadius;
         float bestSq = Float.POSITIVE_INFINITY;
         int best = -1;
@@ -77,22 +102,21 @@ public final class SpatialGrid {
             if (ringMin > 0 && ringMin * ringMin > Math.min(bestSq, maxDistanceSq)) {
                 break;
             }
-            for (int gz = cz - ring; gz <= cz + ring; gz++) {
-                if (gz < 0 || gz >= rows) {
-                    continue;
-                }
+            for (int gz = Math.max(cz - ring, minRow); gz <= Math.min(cz + ring, maxRow); gz++) {
                 boolean edgeRow = gz == cz - ring || gz == cz + ring;
-                for (int gx = cx - ring; gx <= cx + ring; gx += edgeRow ? 1 : 2 * ring) {
-                    if (gx >= 0 && gx < columns) {
-                        Cell cell = cells[gz * columns + gx];
-                        for (int i = 0; i < cell.count; i++) {
-                            float dx = cell.xs[i] - x;
-                            float dz = cell.zs[i] - z;
-                            float dSq = dx * dx + dz * dz;
-                            if (dSq < bestSq && dSq <= maxDistanceSq && filter.test(cell.ids[i])) {
-                                bestSq = dSq;
-                                best = cell.ids[i];
-                            }
+                int step = edgeRow ? 1 : 2 * ring;
+                for (int gx = cx - ring; gx <= cx + ring; gx += step) {
+                    if (gx < minColumn || gx > maxColumn) {
+                        continue;
+                    }
+                    Cell cell = cells[gz * columns + gx];
+                    for (int i = 0; i < cell.count; i++) {
+                        float dx = cell.xs[i] - x;
+                        float dz = cell.zs[i] - z;
+                        float dSq = dx * dx + dz * dz;
+                        if (dSq < bestSq && dSq <= maxDistanceSq && filter.test(cell.ids[i])) {
+                            bestSq = dSq;
+                            best = cell.ids[i];
                         }
                     }
                 }
@@ -119,6 +143,41 @@ public final class SpatialGrid {
                     }
                 }
             }
+        }
+    }
+
+    private void addToCell(int entity, int cellIndex, float x, float z) {
+        Cell cell = cells[cellIndex];
+        cell.add(entity, x, z);
+        cellOf[entity] = cellIndex;
+        slotOf[entity] = cell.count - 1;
+    }
+
+    private void removeFromCell(int entity) {
+        Cell cell = cells[cellOf[entity]];
+        int slot = slotOf[entity];
+        int last = cell.count - 1;
+        if (slot != last) {
+            int moved = cell.ids[last];
+            cell.ids[slot] = moved;
+            cell.xs[slot] = cell.xs[last];
+            cell.zs[slot] = cell.zs[last];
+            slotOf[moved] = slot;
+        }
+        cell.count--;
+        cellOf[entity] = NONE;
+    }
+
+    private void ensureCapacity(int entity) {
+        if (entity < 0) {
+            throw new IllegalArgumentException("Invalid entity id " + entity);
+        }
+        if (entity >= cellOf.length) {
+            int oldLength = cellOf.length;
+            int newLength = Math.max(entity + 1, oldLength * 2);
+            cellOf = Arrays.copyOf(cellOf, newLength);
+            slotOf = Arrays.copyOf(slotOf, newLength);
+            Arrays.fill(cellOf, oldLength, newLength, NONE);
         }
     }
 
@@ -150,29 +209,6 @@ public final class SpatialGrid {
             xs[count] = x;
             zs[count] = z;
             count++;
-        }
-
-        boolean remove(int entity) {
-            for (int i = 0; i < count; i++) {
-                if (ids[i] == entity) {
-                    count--;
-                    ids[i] = ids[count];
-                    xs[i] = xs[count];
-                    zs[i] = zs[count];
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        void update(int entity, float x, float z) {
-            for (int i = 0; i < count; i++) {
-                if (ids[i] == entity) {
-                    xs[i] = x;
-                    zs[i] = z;
-                    return;
-                }
-            }
         }
     }
 }

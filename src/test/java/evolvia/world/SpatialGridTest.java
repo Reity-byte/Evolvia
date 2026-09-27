@@ -67,9 +67,33 @@ class SpatialGridTest {
         grid.move(7, 5, 5, 60, 60);
         assertEquals(-1, grid.nearest(5, 5, 10, e -> true));
         assertEquals(7, grid.nearest(58, 58, 10, e -> true));
-        assertFalse(grid.remove(7, 5, 5), "not stored at the old position any more");
         assertTrue(grid.remove(7, 60, 60));
+        assertFalse(grid.remove(7, 60, 60), "already removed");
         assertEquals(0, grid.size());
+    }
+
+    @Test
+    void crowdedCellKeepsTrackOfEveryEntity() {
+        SpatialGrid grid = new SpatialGrid(64, 64, 16);
+        for (int e = 0; e < 200; e++) {
+            grid.insert(e, 5 + e * 0.01f, 5);
+        }
+        for (int e = 0; e < 200; e += 2) {
+            grid.move(e, 5, 5, 40, 40); // to another cell
+        }
+        for (int e = 1; e < 200; e += 4) {
+            assertTrue(grid.remove(e, 0, 0));
+        }
+        Set<Integer> left = new HashSet<>();
+        grid.forEachWithin(5, 5, 10, left::add);
+        Set<Integer> moved = new HashSet<>();
+        grid.forEachWithin(40, 40, 1, moved::add);
+        assertEquals(50, left.size());
+        assertEquals(100, moved.size());
+        assertEquals(150, grid.size());
+        for (int e : left) {
+            assertTrue(e % 4 == 3, "unexpected entity " + e);
+        }
     }
 
     @Test
