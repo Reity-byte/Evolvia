@@ -1,22 +1,29 @@
 package evolvia.render;
 
-import org.joml.Matrix4fc;
+import evolvia.world.Terrain;
+import evolvia.world.WorldConfig;
+import org.joml.Vector3fc;
 
 import static org.lwjgl.opengl.GL33C.*;
 
 /**
- * Renders 3D meshes with the basic flat-color shader.
+ * Renders the world: terrain first (opaque), then the transparent water.
  */
 public final class SceneRenderer implements AutoCloseable {
 
-    private final Shader shader;
+    private final Lighting lighting = new Lighting();
+    private final TerrainRenderer terrainRenderer;
+    private final WaterRenderer waterRenderer;
 
-    public SceneRenderer() {
-        shader = Shader.fromResources("shaders/basic");
+    public SceneRenderer(Terrain terrain, WorldConfig.WaterSettings water) {
+        terrainRenderer = new TerrainRenderer(terrain);
+        waterRenderer = new WaterRenderer(terrain, water);
+
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
-        glClearColor(0.53f, 0.72f, 0.88f, 1f);
+        Vector3fc sky = lighting.skyColor();
+        glClearColor(sky.x(), sky.y(), sky.z(), 1f);
     }
 
     /** Human-readable description of the active OpenGL context. */
@@ -24,22 +31,16 @@ public final class SceneRenderer implements AutoCloseable {
         return "OpenGL " + glGetString(GL_VERSION) + " | " + glGetString(GL_RENDERER);
     }
 
-    /** Clears the framebuffer and sets up the camera for this frame. */
-    public void beginFrame(int framebufferWidth, int framebufferHeight, Camera camera) {
+    public void render(Camera camera, int framebufferWidth, int framebufferHeight) {
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        shader.bind();
-        shader.setUniform("uProjection", camera.projection());
-        shader.setUniform("uView", camera.view());
-    }
-
-    public void draw(Mesh mesh, Matrix4fc model) {
-        shader.setUniform("uModel", model);
-        mesh.draw();
+        terrainRenderer.render(camera, lighting);
+        waterRenderer.render(camera, lighting);
     }
 
     @Override
     public void close() {
-        shader.close();
+        terrainRenderer.close();
+        waterRenderer.close();
     }
 }

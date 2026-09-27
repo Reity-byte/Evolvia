@@ -1,6 +1,7 @@
 package evolvia.render;
 
 import org.joml.Matrix4fc;
+import org.joml.Vector3fc;
 import org.lwjgl.system.MemoryStack;
 
 import java.io.IOException;
@@ -85,6 +86,14 @@ public final class Shader implements AutoCloseable {
 
     public void setUniform(String uniform, float value) {
         glUniform1f(location(uniform), value);
+    }
+
+    public void setUniform(String uniform, Vector3fc value) {
+        glUniform3f(location(uniform), value.x(), value.y(), value.z());
+    }
+
+    public void setUniform(String uniform, float x, float y, float z, float w) {
+        glUniform4f(location(uniform), x, y, z, w);
     }
 
     private int location(String uniform) {

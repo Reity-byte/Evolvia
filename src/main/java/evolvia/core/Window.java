@@ -17,6 +17,8 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public final class Window {
 
     private final long handle;
+    private int width;
+    private int height;
     private int framebufferWidth;
     private int framebufferHeight;
 
@@ -46,17 +48,24 @@ public final class Window {
         glfwSwapInterval(vsync ? 1 : 0);
         GL.createCapabilities();
 
-        // Framebuffer size can differ from window size (HiDPI / Retina), so track it separately.
+        // Framebuffer size (pixels) can differ from window size (screen coordinates) on HiDPI / Retina.
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer w = stack.mallocInt(1);
             IntBuffer h = stack.mallocInt(1);
             glfwGetFramebufferSize(handle, w, h);
             framebufferWidth = w.get(0);
             framebufferHeight = h.get(0);
+            glfwGetWindowSize(handle, w, h);
+            this.width = w.get(0);
+            this.height = h.get(0);
         }
         glfwSetFramebufferSizeCallback(handle, (window, w, h) -> {
             framebufferWidth = w;
             framebufferHeight = h;
+        });
+        glfwSetWindowSizeCallback(handle, (window, w, h) -> {
+            this.width = w;
+            this.height = h;
         });
 
         glfwShowWindow(handle);
@@ -77,6 +86,25 @@ public final class Window {
 
     public long handle() {
         return handle;
+    }
+
+    /** Window width in screen coordinates (the space of cursor positions). */
+    public int width() {
+        return width;
+    }
+
+    /** Window height in screen coordinates (the space of cursor positions). */
+    public int height() {
+        return height;
+    }
+
+    public boolean isFocused() {
+        return glfwGetWindowAttrib(handle, GLFW_FOCUSED) == GLFW_TRUE;
+    }
+
+    /** True if the cursor is over the window content area. */
+    public boolean isHovered() {
+        return glfwGetWindowAttrib(handle, GLFW_HOVERED) == GLFW_TRUE;
     }
 
     public int framebufferWidth() {

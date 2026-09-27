@@ -1,0 +1,13 @@
+{
+  "width": 256,
+  "depth": 256,
+  "heightScale": 36.0,
+  "seaLevel": 0.18,
+  "height": { "scale": 110.0, "octaves": 4, "lacunarity": 2.0, "gain": 0.42 },
+  "heightExponent": 1.2,
+  "edgeFalloff": { "width": 28.0, "minFactor": 0.0 },
+  "temperature": { "scale": 220.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
+  "altitudeCooling": 0.25,
+  "moisture": { "scale": 160.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
+  "water": { "color": "#2f6fa8", "alpha": 0.72 }
+}

@@ -83,6 +83,7 @@ src/main/resources/
   shaders/
   data/evolution/*.json
   data/biomes.json
+  data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
   data/resources.json
 src/test/java/evolvia/
 ```
@@ -94,9 +95,10 @@ src/test/java/evolvia/
 - **Simulace a rendering jsou oddělené.**
 - Simulace běží s **pevným tickem 20 ticků/s** (fixed timestep s akumulátorem).
 - Rendering běží tak rychle, jak to jde (V-Sync), a **interpoluje** pozice mezi posledními dvěma ticky.
-- **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru. Když V-Sync funguje, omezovač prakticky nic nedělá.
+- **Pojistka FPS:** některé ovladače (NVIDIA Optimus na notebooku) V-Sync ignorují. `GameLoop` proto má omezovač snímků, výchozí strop = obnovovací frekvence monitoru, změna přes `--fps-cap <n>` (0 = vypnuto). Když V-Sync funguje, omezovač prakticky nic nedělá.
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
+- Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
 ---
 
@@ -226,7 +228,7 @@ Později: `Hunt`, `Gather`, `Deliver`, `Build`, `FollowLeader`.
 
 ## 9. Hráč a božské zásahy
 
-- **Kamera:** RTS styl — WASD / okraje obrazovky posun, kolečko zoom, prostřední tlačítko rotace. Omezení na hranice mapy.
+- **Kamera:** RTS styl — WASD / okraje obrazovky posun, kolečko zoom, prostřední tlačítko rotace (+ Q/E pro trackpad bez prostředního tlačítka). Omezení na hranice mapy.
 - **Výběr bytosti:** kliknutí (raycast na terén + nejbližší bytost) → panel s potřebami, věkem, akcí.
 - **Panel druhu:** populace, EP, statistiky, otevření evolučního stromu.
 - **Evoluční strom UI:** grafy uzlů s čarami prerekvizit; stavy odemčeno / dostupné / zamčeno / vyloučeno.

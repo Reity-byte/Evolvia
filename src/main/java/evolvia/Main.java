@@ -1,5 +1,7 @@
 package evolvia;
 
+import evolvia.core.LaunchOptions;
+
 /**
  * Entry point.
  * <p>
@@ -11,6 +13,15 @@ public final class Main {
     }
 
     public static void main(String[] args) {
-        new Evolvia().run();
+        LaunchOptions options;
+        try {
+            options = LaunchOptions.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.err.println(LaunchOptions.USAGE);
+            System.exit(2);
+            return;
+        }
+        new Evolvia(options).run();
     }
 }

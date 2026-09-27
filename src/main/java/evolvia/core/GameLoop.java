@@ -11,8 +11,12 @@ public final class GameLoop {
 
     /** Callbacks driven by the loop. */
     public interface Handler {
-        /** Called once per rendered frame, before simulation ticks. For UI / non-simulation input. */
-        void handleInput();
+        /**
+         * Called once per rendered frame, before simulation ticks. For UI / camera / non-simulation input.
+         *
+         * @param frameSeconds real time since the previous frame (independent of game speed)
+         */
+        void handleInput(float frameSeconds);
 
         /** Advances the simulation by exactly one fixed tick. Must not depend on frame time. */
         void update(long tick);
@@ -63,10 +67,11 @@ public final class GameLoop {
             window.pollEvents();
 
             long now = System.nanoTime();
-            int ticksToRun = time.advance(now - lastFrame);
+            long frameNanos = now - lastFrame;
+            int ticksToRun = time.advance(frameNanos);
             lastFrame = now;
 
-            handler.handleInput();
+            handler.handleInput(frameNanos / (float) NANOS_PER_SECOND);
 
             for (int i = 0; i < ticksToRun; i++) {
                 long tickStart = System.nanoTime();
