@@ -13,6 +13,13 @@ import evolvia.data.DataLoader;
 import evolvia.ecs.ComponentStore;
 import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.god.DivinePower;
+import evolvia.god.GodConfig;
+import evolvia.god.GodPowers;
+import evolvia.render.GodEffectsRenderer;
+import evolvia.ui.GroundPicker;
+import evolvia.ui.PowerBar;
+import org.joml.Vector3f;
 import evolvia.render.Camera;
 import evolvia.render.CameraController;
 import evolvia.render.CreatureMeshBuilder;
@@ -44,6 +51,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_F4;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F6;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
 /**
@@ -61,12 +69,19 @@ public final class Evolvia implements GameLoop.Handler {
     private final CreatureSelection selection = new CreatureSelection();
     private final EvolutionTreeView treeView = new EvolutionTreeView();
     private final Hud hud = new Hud();
+    private final PowerBar powerBar = new PowerBar();
+    private final GroundPicker groundPicker = new GroundPicker();
+    private GodEffectsRenderer.Brush brush;
+    private static final double FLASH_SECONDS = 0.25;
+    private GodPowers.Strike lastFlashedStrike;
+    private long flashStartNanos;
 
     private WorldConfig worldConfig;
     private BiomeTable biomes;
     private SpeciesDefinition species;
     private ResourceTable resources;
     private EvolutionTree evolutionTree;
+    private GodConfig godConfig;
     private World world;
 
     private Window window;
@@ -91,6 +106,7 @@ public final class Evolvia implements GameLoop.Handler {
         resources = DataLoader.loadResources();
         evolutionTree = DataLoader.loadEvolutionTree(biomes);
         CreatureMeshBuilder.validate(evolutionTree);
+        godConfig = DataLoader.loadGodConfig();
         world = createWorld(options.seed().orElseGet(Evolvia::randomSeed));
 
         window = new Window("Evolvia", WINDOW_WIDTH, WINDOW_HEIGHT, true);
@@ -127,7 +143,7 @@ public final class Evolvia implements GameLoop.Handler {
 
     private World createWorld(long seed) {
         long start = System.nanoTime();
-        World created = World.create(worldConfig, biomes, species, evolutionTree, resources, seed);
+        World created = World.create(worldConfig, biomes, species, evolutionTree, resources, godConfig, seed);
         System.out.printf(Locale.ROOT, "World seed %d: %dx%d tiles, %d creatures, %d resource nodes, generated in %d ms%n",
                 seed, created.terrain().width(), created.terrain().depth(), created.creatureCount(),
                 created.resourceNodeCount(),
@@ -142,8 +158,10 @@ public final class Evolvia implements GameLoop.Handler {
     @Override
     public void handleInput(float frameSeconds) {
         if (input.isKeyPressed(GLFW_KEY_ESCAPE)) {
-            // Close the topmost open window first; quit when nothing is open.
-            if (treeView.isVisible()) {
+            // Put away the selected power / close the topmost open window first; quit when nothing is open.
+            if (powerBar.armed() != null) {
+                powerBar.disarm();
+            } else if (treeView.isVisible()) {
                 treeView.close();
             } else if (selection.selected(world) >= 0) {
                 selection.clear();
@@ -168,6 +186,9 @@ public final class Evolvia implements GameLoop.Handler {
         if (input.isKeyPressed(GLFW_KEY_F7)) {
             world.species().addPoints(100f); // debug
         }
+        if (input.isKeyPressed(GLFW_KEY_F8)) {
+            world.godPowers().faith().add(100f); // debug
+        }
         if (input.isKeyPressed(GLFW_KEY_SPACE)) {
             time.togglePause();
         }
@@ -188,8 +209,15 @@ public final class Evolvia implements GameLoop.Handler {
             treeView.build(ui, world, Hud.BAR_HEIGHT);
         } else {
             selection.buildPanel(ui, world, Hud.BAR_HEIGHT);
+            powerBar.build(ui, world);
         }
         boolean mouseOnUi = ui.wantsMouse();
+
+        brush = null;
+        if (!treeView.isVisible() && !mouseOnUi && powerBar.armed() != null) {
+            Vector3f ground = groundPicker.pick(input, window, camera, world.terrain());
+            brush = powerBar.handleWorld(input, world, ground, frameSeconds);
+        }
 
         if (selection.isFollowing()) {
             Transform followed = world.ecs().get(selection.selected(world), Transform.class);
@@ -197,8 +225,11 @@ public final class Evolvia implements GameLoop.Handler {
                 cameraController.follow(followed.position.x, followed.position.z);
             }
         }
+        if (time.speed() == Speed.PAUSED) {
+            world.applyGodPowersNow((int) time.tickCount()); // powers work during a pause too
+        }
         cameraController.update(input, window, frameSeconds, !mouseOnUi, !treeView.isVisible());
-        if (!mouseOnUi) {
+        if (!mouseOnUi && powerBar.armed() == null) {
             selection.handleInput(input, window, camera, world);
         }
     }
@@ -240,7 +271,7 @@ public final class Evolvia implements GameLoop.Handler {
         int height = window.framebufferHeight();
         camera.setViewport(width, height);
         double simSeconds = (time.tickCount() + alpha) / Time.TICKS_PER_SECOND;
-        sceneRenderer.render(camera, width, height, alpha, simSeconds, selection.selected(world));
+        sceneRenderer.render(camera, width, height, alpha, simSeconds, selection.selected(world), brush);
 
         if (debugOverlay.isVisible() && !treeView.isVisible()) {
             selection.renderLabel(debugOverlay, camera, world, alpha, width, height);
@@ -251,7 +282,27 @@ public final class Evolvia implements GameLoop.Handler {
         if (!treeView.isVisible()) {
             selection.renderMarker(ui, camera, world, alpha, width, height);
         }
+        lightningFlash();
         ui.render(width, height);
+    }
+
+    /** Brief white flash of the screen right after a lightning strike (real time, so it also fades while paused). */
+    private void lightningFlash() {
+        GodPowers.Strike newest = null;
+        for (GodPowers.Strike strike : world.godPowers().recentStrikes()) {
+            if (strike.power() == DivinePower.LIGHTNING) {
+                newest = strike;
+            }
+        }
+        if (newest != null && newest != lastFlashedStrike) {
+            lastFlashedStrike = newest;
+            flashStartNanos = System.nanoTime();
+        }
+        double age = (System.nanoTime() - flashStartNanos) / 1e9;
+        if (lastFlashedStrike != null && age < FLASH_SECONDS) {
+            int alpha = (int) (110 * (1 - age / FLASH_SECONDS));
+            ui.draw().rect(0, 0, ui.width(), ui.height(), (alpha << 24) | 0xFFFFF0);
+        }
     }
 
     private String debugText() {
@@ -273,9 +324,13 @@ public final class Evolvia implements GameLoop.Handler {
                 world.seed(), terrain.width(), terrain.depth(), world.resourceNodeCount()));
         sb.append(String.format(Locale.ROOT, "Population: %d | births %d | max generation %d%n",
                 world.creatureCount(), world.births().total(), world.maxGeneration()));
-        sb.append(String.format(Locale.ROOT, "Food: %.0f units | deaths: hunger %d, thirst %d, climate %d, old age %d%n",
+        sb.append(String.format(Locale.ROOT, "Food: %.0f units | deaths: hunger %d, thirst %d, climate %d, old age %d, lightning %d%n",
                 world.totalFood(), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
-                deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE)));
+                deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE),
+                deaths.count(DeathStats.Cause.LIGHTNING)));
+        sb.append(String.format(Locale.ROOT, "Faith: %.0f (+%.1f/min) | believers %d | alignment %+.2f | rains %d%n",
+                world.godPowers().faith().points(), world.godPowers().faith().perMinute(), world.believers(),
+                world.godPowers().faith().alignment(), world.godPowers().rains().size()));
         sb.append(String.format(Locale.ROOT, "Evolution: %.0f EP (+%.1f/min) | unlocked %d / %d (F4)%n",
                 world.species().points(), world.evolutionSystem().pointsPerMinute(),
                 world.species().unlockedNodes().size(), world.species().tree().size()));
@@ -288,7 +343,7 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(contextInfo).append("\n\n");
         sb.append("WASD / screen edge: pan | wheel: zoom | MMB drag, Q/E: rotate\n");
         sb.append("LMB: select creature | Space: pause | 1/2/3: speed 1x/3x/10x\n");
-        sb.append("F4: evolution tree | F5: new world | F6: empty all food | F7: +100 EP (debug) | F3: overlay | ESC: close / quit");
+        sb.append("F4: evolution tree | F5: new world | F6: empty all food | F7: +100 EP, F8: +100 faith (debug) | F3: overlay | ESC: close / quit");
         return sb.toString();
     }
 }

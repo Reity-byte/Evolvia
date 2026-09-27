@@ -4,11 +4,13 @@ import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.ai.actions.ConsumeAction;
+import evolvia.ai.actions.FleeAction;
 import evolvia.ai.actions.SeekMateAction;
 import evolvia.ai.actions.SeekResourceAction;
 import evolvia.ai.actions.SleepAction;
 import evolvia.ai.actions.WanderAction;
 import evolvia.components.AiState;
+import evolvia.components.Fear;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -42,6 +44,7 @@ public final class AiSystem implements GameSystem {
         register(new ConsumeAction(ResourceKind.WATER));
         register(new SleepAction());
         register(new SeekMateAction());
+        register(new FleeAction());
         for (ActionType type : ActionType.values()) {
             if (actions[type.ordinal()] == null) {
                 throw new IllegalStateException("No action registered for " + type);
@@ -60,6 +63,7 @@ public final class AiSystem implements GameSystem {
         ComponentStore<Velocity> velocities = world.store(Velocity.class);
         ComponentStore<Needs> needsStore = world.store(Needs.class);
         ComponentStore<SpeciesRef> speciesStore = world.store(SpeciesRef.class);
+        ComponentStore<Fear> fears = world.store(Fear.class);
         context.beginTick(world, tick);
 
         for (int i = 0; i < aiStore.size(); i++) {
@@ -75,7 +79,8 @@ public final class AiSystem implements GameSystem {
             context.bind(entity, transform, velocity, needs, ai, species.species);
 
             int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.species.stats().ai().evaluateEverySeconds()));
-            boolean evaluate = ai.action == null || (tick + entity) % interval == 0;
+            boolean evaluate = ai.action == null || (tick + entity) % interval == 0
+                    || (ai.action != ActionType.FLEE && fears.has(entity) && fears.get(entity).isActive(tick)); // react at once
 
             if (ai.action != null) {
                 Action current = actions[ai.action.ordinal()];

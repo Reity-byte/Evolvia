@@ -77,7 +77,7 @@ src/main/java/evolvia/
   world/       World (terén + entity + systémy, jeden Random), Terrain, TerrainGenerator, Biome, SpatialGrid, ResourceNode
   evolution/   SpeciesDefinition (základ ze species.json), Species (stav druhu: EP, odemčené uzly, přepočtené statistiky, schopnosti), SpeciesStats, EvolutionTree, EvolutionNode, Effect, Condition, Stat
   ai/          Pathfinder (A*), Navigation (souš / plavání), akce utility AI (WanderAction, SeekResourceAction, ConsumeAction, SleepAction, SeekMateAction)
-  god/         Faith, DivinePower, konkrétní zásahy
+  god/         Faith (Víra, věřící, morálka), DivinePower, GodConfig, GodPowers (fronta příkazů, aktivní déšť, události pro efekty)
   render/      Shader, Mesh, MeshData, Camera, TerrainRenderer, CreatureRenderer, CreatureMeshBuilder, PartMeshBuilder
   ui/          Ui (immediate-mode UI), UiRenderer, FontAtlas + Font (stb_truetype), Hud, EvolutionTreeView, TreeLayout, CreatureSelection, DebugOverlay (F3)
   data/        načítání JSON definic
@@ -89,6 +89,7 @@ src/main/resources/
   data/species.json       základní statistiky startovního druhu (velikost, rychlost, bloudění, počáteční populace)
   data/world.json         parametry generování světa (velikost, noise, hladina moře, vzhled vody)
   data/resources.json
+  data/powers.json        Víra (start, příjem) a parametry zásahů
   fonts/                  Droid Sans (Apache 2.0, licence vedle), UI font s češtinou
 src/test/java/evolvia/
 packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lokální release)
@@ -106,7 +107,7 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - Rychlost hry: `pauza`, `1×`, `3×`, `10×` = počet simulačních ticků na reálný čas. Při 10× se simulace nesmí rozpadnout (žádné závislosti na delta času renderu).
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
 - Klávesy: F4 evoluční strom (jinak tlačítko Evoluce), ESC zavře otevřené okno / zruší výběr, bez otevřeného okna ukončí hru.
-- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP.
+- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F5 nový svět, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
@@ -140,6 +141,8 @@ Jednoduchý vlastní ECS, žádná knihovna.
 | `Selectable` | může být vybrán hráčem |
 | `Genome` | geny velikost, rychlost, odstín (násobitele kolem 1) a generace |
 | `Reproduction` | cooldown rozmnožování, počet potomků |
+| `Believer` | značka: bytost věří v boha (fáze 7) |
+| `Fear` | odkud a do kdy utíká před bleskem (fáze 7) |
 
 ### Pořadí systémů (orientační)
 
@@ -254,7 +257,7 @@ Animace jen procedurální: pohupování těla a kmitání nohou podle rychlosti
 
 **Utility AI:** každý tick (nebo každých N ticků kvůli výkonu, rozloženě mezi entity) bytost ohodnotí dostupné akce skóre 0..1 podle svých potřeb a okolí a vybere nejvyšší. Akce pak běží jako malý stavový automat, dokud neskončí nebo není přerušena výrazně silnější potřebou.
 
-**Akce (první verze):** `Wander`, `SeekFood`, `Eat`, `SeekWater`, `Drink`, `Sleep`, `SeekMate`, `Flee`.
+**Akce (první verze):** `Wander`, `SeekFood`, `Eat`, `SeekWater`, `Drink`, `Sleep`, `SeekMate`, `Flee` (od fáze 7: útěk před bleskem, přebije vše ostatní).
 
 - Hodnocení každých `ai.evaluateEverySeconds` (rozloženo podle ID entity); akce se skóre 0 je nahrazena hned, jinak jen akcí s vyšším skóre o `ai.switchMargin`. Neúspěšná akce má krátký cooldown.
 - Hladová / žíznivá bytost, která nic nevidí, bloudí dál (`ai.exploreRadiusFactor`); při žízni preferuje nižší terén. Při kritickém hladu/žízni nespí.
@@ -271,8 +274,19 @@ Později: `Hunt`, `Gather`, `Deliver`, `Build`, `FollowLeader`.
 - **Výběr bytosti:** kliknutí (raycast na terén + nejbližší bytost) → panel s potřebami, věkem, akcí.
 - **Panel druhu:** populace, EP, statistiky, otevření evolučního stromu.
 - **Evoluční strom UI:** grafy uzlů s čarami prerekvizit; stavy odemčeno / dostupné / zamčeno / vyloučeno.
-- **Víra** roste s velikostí populace a s „pozitivními“ zásahy. Zásahy (první verze): *Déšť* (zvýší úrodnost v oblasti), *Hojnost* (spawn jídla), *Zdvihni/sniž terén*, *Blesk* (zabije/vyděsí).
-- Morální osa good/evil ve stylu Black & White = **mimo scope první verze**, ale nezavírat si k ní cestu.
+- **Víra** roste s počtem **věřících** bytostí. Zásahy (první verze): *Déšť* (zvýší úrodnost v oblasti), *Hojnost* (spawn jídla), *Zdvihni/sniž terén*, *Blesk* (zabije/vyděsí).
+- Morální osa good/evil ve stylu Black & White: ve fázi 7 se jen **počítá** (hodnota dobro ↔ zlo, zobrazená v UI), herní dopady (strach, poslušnost, zásahy navíc pro dobrého / zlého boha) přijdou později.
+
+**Rozhodnutí k fázi 7:**
+- **Věřící** = příznak na bytosti (komponenta `Believer`). Bytost uvěří, když využije něco, co způsobil bůh: sní jídlo z božského keře (Hojnost, keře v dešti), napije se deště, nebo přežije blesk v okolí (uvěří ze strachu). Mládě věřícího rodiče je věřící.
+- **Příjem Víry** = malý základ (aby hra nezamrzla bez věřících) + pevná částka za každého věřícího za minutu. Hráč začíná s počáteční Vírou na pár zásahů. Hodnoty v `data/powers.json`.
+- **Zásahy se provádějí v simulaci:** kliknutí zařadí příkaz do fronty, provede se na začátku dalšího ticku (`GodPowerSystem` hned po `PrevTransform`), náhoda z `Random` světa → deterministické a připravené na save. Při pauze se fronta provede hned mimo tick (terén jde tvarovat i v pauze); déšť a útěk pak běží až po spuštění. Víra se přičítá jednou za herní sekundu (`FaithSystem`, poslední systém).
+- **Déšť** (dočasný): po dobu trvání v kruhu rychleji dorůstá jídlo (keře jsou po dobu deště „božské“) a bytostem pod mrakem klesá žízeň.
+- **Hojnost:** naplní keře v kruhu a přidá několik nových, které zůstanou. Keř z Hojnosti je božský, dokud ho nesnědí do dna.
+- **Terén:** štětec zvedne / sníží rohy výšek v kruhu (měkký okraj); podržení tlačítka opakuje. Smí vznikat voda i pevnina. Po změně: přepočet biomů dotčených dlaždic (voda ↔ souš, z původní teploty a vlhkosti), oblastí pro hledání cest, napajedel na březích, zmizí keře pod vodou, bytosti ve vodě se přesunou na nejbližší průchodnou dlaždici, renderer přestaví dotčené chunky.
+- **Blesk:** zabije bytosti v malém poloměru (zůstanou mršiny), okolní bytosti se vyděsí (akce `Flee`: utíkají pryč od místa úderu) a uvěří ze strachu. Posouvá morálku ke zlu.
+- **Morálka:** každý zásah má v datech posun dobro/zlo (déšť, hojnost +, blesk −, terén 0); hodnota −1..1 plus počty laskavých a krutých činů.
+- **Ovládání:** lišta zásahů dole (cena, tooltip, bez dost Víry zašedlé), vybraný zásah ukazuje kruh na terénu, LMB použije, RMB / ESC zruší.
 
 ---
 

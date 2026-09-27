@@ -35,6 +35,7 @@ public final class Texts {
             case DRINK -> "Pije";
             case SLEEP -> "Spí";
             case SEEK_MATE -> "Hledá partnera";
+            case FLEE -> "Utíká v hrůze";
         };
     }
 

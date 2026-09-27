@@ -10,6 +10,8 @@ public final class ResourceNode {
     public float amount;
     /** Regrowth per tick at this node (type rate scaled by the tile's fertility). */
     public final float regrowPerTick;
+    /** Caused by the god (Abundance, rain): whoever eats from it starts believing. Cleared when emptied. */
+    public boolean divine;
 
     public ResourceNode(ResourceDefinition type, float amount, float regrowPerTick) {
         this.type = type;

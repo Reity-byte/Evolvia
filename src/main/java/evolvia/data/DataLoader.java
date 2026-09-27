@@ -8,6 +8,7 @@ import evolvia.evolution.EvolutionNode;
 import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.evolution.Stat;
+import evolvia.god.GodConfig;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
 import evolvia.world.BiomeTable;
@@ -40,6 +41,7 @@ public final class DataLoader {
     public static final String BIOMES = "data/biomes.json";
     public static final String SPECIES = "data/species.json";
     public static final String RESOURCES = "data/resources.json";
+    public static final String POWERS = "data/powers.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -62,6 +64,17 @@ public final class DataLoader {
         WorldConfig config = fromJson(json, WorldConfig.class, source);
         config.validate(source);
         Colors.parseHex(config.water().color(), source + ": water.color");
+        return config;
+    }
+
+    /** Loads and validates {@code data/powers.json} (faith and god powers). */
+    public static GodConfig loadGodConfig() {
+        return parseGodConfig(readResource(POWERS), POWERS);
+    }
+
+    public static GodConfig parseGodConfig(String json, String source) {
+        GodConfig config = fromJson(json, GodConfig.class, source);
+        config.validate(source);
         return config;
     }
 

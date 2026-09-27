@@ -15,7 +15,6 @@ import evolvia.core.Time;
 import evolvia.core.Window;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
-import evolvia.world.Terrain;
 import evolvia.world.World;
 import org.joml.Vector3f;
 
@@ -32,11 +31,7 @@ public final class CreatureSelection {
 
     /** How far from the clicked ground point a creature may be to get selected (tiles). */
     private static final float PICK_RADIUS = 2.5f;
-    private static final float RAY_STEP = 0.5f;
-    private static final float RAY_LENGTH = 3000f;
-
-    private final Vector3f origin = new Vector3f();
-    private final Vector3f direction = new Vector3f();
+    private final GroundPicker picker = new GroundPicker();
     private final Vector3f screen = new Vector3f();
     private int selected = -1;
     private boolean following;
@@ -48,8 +43,7 @@ public final class CreatureSelection {
         if (!input.isButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
             return;
         }
-        camera.pickRay(input.mouseX(), input.mouseY(), window.width(), window.height(), origin, direction);
-        Vector3f hit = groundHit(world.terrain());
+        Vector3f hit = picker.pick(input, window, camera, world.terrain());
         int picked = hit != null ? world.nearestCreature(hit.x, hit.z, PICK_RADIUS) : -1;
         if (picked != selected) {
             following = false;
@@ -200,37 +194,5 @@ public final class CreatureSelection {
                 needs.hunger, needs.thirst, needs.energy,
                 health.hp, age.ageTicks * minutesPerTick, age.maxAgeTicks * minutesPerTick, adult ? "adult" : "young",
                 genome.generation, reproduction.offspring, genome.size, genome.speed);
-    }
-
-    /** First point where the ray hits the terrain or the water surface, or null. */
-    private Vector3f groundHit(Terrain terrain) {
-        Vector3f point = new Vector3f();
-        float previous = 0f;
-        for (float distance = 0f; distance < RAY_LENGTH; distance += RAY_STEP) {
-            origin.fma(distance, direction, point);
-            if (point.y <= surface(terrain, point.x, point.z)) {
-                // Refine between the last point above and this one.
-                float low = previous;
-                float high = distance;
-                for (int i = 0; i < 8; i++) {
-                    float mid = (low + high) * 0.5f;
-                    origin.fma(mid, direction, point);
-                    if (point.y <= surface(terrain, point.x, point.z)) {
-                        high = mid;
-                    } else {
-                        low = mid;
-                    }
-                }
-                origin.fma(high, direction, point);
-                boolean onMap = point.x >= 0 && point.z >= 0 && point.x <= terrain.width() && point.z <= terrain.depth();
-                return onMap ? point : null;
-            }
-            previous = distance;
-        }
-        return null;
-    }
-
-    private static float surface(Terrain terrain, float x, float z) {
-        return Math.max(terrain.heightAt(x, z), terrain.seaLevel());
     }
 }

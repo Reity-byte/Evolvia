@@ -48,6 +48,7 @@ public final class TerrainGenerator {
         }
         normalize(temperature);
         normalize(moisture);
+        float[] baseTemperature = temperature.clone();
 
         Biome[] tileBiomes = new Biome[tiles];
         for (int tz = 0; tz < depth; tz++) {
@@ -66,7 +67,7 @@ public final class TerrainGenerator {
         }
 
         return new Terrain(seed, biomes, width, depth, seaLevel, config.heightScale(),
-                heights, tileBiomes, temperature, moisture);
+                heights, tileBiomes, temperature, moisture, baseTemperature, config.altitudeCooling());
     }
 
     /** Corner heights in world units: noise, normalized to 0..1, shaped by exponent and edge falloff. */

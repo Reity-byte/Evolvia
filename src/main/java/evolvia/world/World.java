@@ -3,6 +3,17 @@ package evolvia.world;
 import evolvia.ai.ActionContext;
 import evolvia.ai.Navigation;
 import evolvia.ai.PathQueue;
+import evolvia.ai.Pathfinder;
+import evolvia.components.AiState;
+import evolvia.components.Believer;
+import evolvia.components.Fear;
+import evolvia.components.PrevTransform;
+import evolvia.components.Velocity;
+import evolvia.data.DataLoader;
+import evolvia.god.GodConfig;
+import evolvia.god.GodPowers;
+import evolvia.systems.FaithSystem;
+import evolvia.systems.GodPowerSystem;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -25,6 +36,8 @@ import evolvia.systems.ReproductionSystem;
 import evolvia.systems.ResourceRegrowthSystem;
 import evolvia.systems.SpatialIndexSystem;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
@@ -63,13 +76,19 @@ public final class World implements EvolutionConditions {
     private final PathfindingSystem pathfindingSystem;
     private final ReproductionSystem reproductionSystem;
     private final EvolutionSystem evolutionSystem;
+    private final AgingSystem agingSystem;
+    private final GodPowerSystem godPowerSystem;
+    private final GodPowers godPowers;
+    private final Random random;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
     private final long[] systemNanos;
 
     private World(long seed, Terrain terrain, Species species, ResourceTable resourceTable,
-                  float shallowDepth, Random random) {
+                  float shallowDepth, GodConfig godConfig, Random random) {
         this.seed = seed;
+        this.random = random;
+        this.godPowers = new GodPowers(godConfig);
         this.terrain = terrain;
         this.species = species;
         this.resourceTable = resourceTable;
@@ -81,11 +100,14 @@ public final class World implements EvolutionConditions {
         this.pathfindingSystem = new PathfindingSystem(navigation, pathQueue);
         this.reproductionSystem = new ReproductionSystem(births, creatureFactory, terrain);
         this.evolutionSystem = new EvolutionSystem(species, reproductionSystem::maxGeneration);
+        this.agingSystem = new AgingSystem(deaths, creatureGrid, this::leaveCarcass);
+        this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
                 creatureGrid, births, random);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
+                godPowerSystem,
                 new NeedsSystem(terrain),
                 new AiSystem(actionContext),
                 pathfindingSystem,
@@ -94,24 +116,31 @@ public final class World implements EvolutionConditions {
                 new SpatialIndexSystem(creatureGrid),
                 new ResourceRegrowthSystem(foodGrid),
                 reproductionSystem,
-                new AgingSystem(deaths, creatureGrid, this::leaveCarcass),
-                evolutionSystem);
+                agingSystem,
+                evolutionSystem,
+                new FaithSystem(godPowers.faith(), godConfig.faith()));
         this.systemNanos = new long[systems.size()];
     }
 
     /** Generates the terrain, places resources and spawns the starting population. */
     public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
-                               EvolutionTree tree, ResourceTable resources, long seed) {
+                               EvolutionTree tree, ResourceTable resources, GodConfig god, long seed) {
         Random random = new Random(seed);
         Terrain terrain = TerrainGenerator.generate(config, biomes, seed, random);
-        World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(), random);
+        World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(), god, random);
         world.spawnResources(random);
         world.spawnPopulation(random);
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
     }
 
-    /** Same as {@link #create(WorldConfig, BiomeTable, SpeciesDefinition, EvolutionTree, ResourceTable, long)} with an empty evolution tree. */
+    /** Like the full {@code create} with the god powers from {@code data/powers.json}. */
+    public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
+                               EvolutionTree tree, ResourceTable resources, long seed) {
+        return create(config, biomes, species, tree, resources, DataLoader.loadGodConfig(), seed);
+    }
+
+    /** Same as above with an empty evolution tree. */
     public static World create(WorldConfig config, BiomeTable biomes, SpeciesDefinition species,
                                ResourceTable resources, long seed) {
         return create(config, biomes, species, new EvolutionTree(List.of(), "none"), resources, seed);
@@ -300,6 +329,208 @@ public final class World implements EvolutionConditions {
         }
     }
 
+    // ---------------------------------------------------------------- god powers (applied by GodPowerSystem)
+
+    /** Fills the food nodes of the given type within the radius and adds new ones; all become divine. */
+    public void abundance(float x, float z, float radius, String resourceId, int newNodes) {
+        ResourceDefinition type = resourceTable.byId(resourceId);
+        if (type == null || type.kind() != ResourceKind.FOOD) {
+            throw new IllegalArgumentException("Abundance needs a food resource, got '" + resourceId + "'");
+        }
+        ComponentStore<ResourceNode> nodes = ecs.store(ResourceNode.class);
+        foodGrid.forEachWithin(x, z, radius, entity -> {
+            ResourceNode node = nodes.get(entity);
+            if (node != null && node.type == type) {
+                node.amount = type.capacity();
+                node.divine = true;
+            }
+        });
+        int placed = 0;
+        for (int attempt = 0; attempt < newNodes * 10 && placed < newNodes; attempt++) {
+            float angle = random.nextFloat() * TWO_PI;
+            float distance = radius * (float) Math.sqrt(random.nextFloat());
+            float nx = x + (float) Math.sin(angle) * distance;
+            float nz = z + (float) Math.cos(angle) * distance;
+            if (terrain.isPassable((int) Math.floor(nx), (int) Math.floor(nz))) {
+                nodes.get(placeResource(resourceId, nx, nz)).divine = true;
+                placed++;
+            }
+        }
+    }
+
+    /**
+     * Lightning strike: kills up to {@code maxKills} creatures within {@code killRadius} (nearest first);
+     * the survivors within {@code scareRadius} flee and start believing, out of fear.
+     *
+     * @return number of creatures killed
+     */
+    public int lightning(float x, float z, float killRadius, int maxKills, float scareRadius, int scareTicks,
+                         float fleeDistance, int tick) {
+        List<Integer> near = new ArrayList<>();
+        creatureGrid.forEachWithin(x, z, scareRadius, near::add);
+        ComponentStore<Transform> transforms = ecs.store(Transform.class);
+        near.sort(Comparator.<Integer>comparingDouble(e -> distanceSquared(transforms.get(e), x, z))
+                .thenComparingInt(e -> e));
+        int killed = 0;
+        for (int entity : near) {
+            Transform t = transforms.get(entity);
+            if (killed < maxKills && distanceSquared(t, x, z) <= killRadius * killRadius) {
+                agingSystem.die(ecs, entity, DeathStats.Cause.LIGHTNING);
+                killed++;
+                continue;
+            }
+            Fear fear = ecs.get(entity, Fear.class);
+            if (fear == null) {
+                fear = ecs.add(entity, new Fear());
+            }
+            fear.fromX = x;
+            fear.fromZ = z;
+            fear.distance = fleeDistance;
+            fear.untilTick = tick + scareTicks;
+            if (ecs.get(entity, Believer.class) == null) {
+                ecs.add(entity, new Believer());
+            }
+        }
+        return killed;
+    }
+
+    private static double distanceSquared(Transform t, float x, float z) {
+        double dx = t.position.x - x;
+        double dz = t.position.z - z;
+        return dx * dx + dz * dz;
+    }
+
+    /**
+     * Raises ({@code delta} > 0) or lowers the ground in a circle, then brings the world in line: walkable
+     * regions, water sources on the shore, food under water disappears, creatures in water move to land.
+     */
+    public void changeTerrain(float x, float z, float radius, float delta) {
+        int[] tiles = terrain.adjustHeight(x, z, radius, delta);
+        if (tiles == null) {
+            return;
+        }
+        navigation.refresh();
+        int x0 = Math.max(0, tiles[0] - 1);
+        int z0 = Math.max(0, tiles[1] - 1);
+        int x1 = Math.min(terrain.width(), tiles[2] + 1);
+        int z1 = Math.min(terrain.depth(), tiles[3] + 1);
+        float centerX = (x0 + x1) * 0.5f;
+        float centerZ = (z0 + z1) * 0.5f;
+        float reach = (float) Math.hypot(x1 - x0, z1 - z0) * 0.5f + 1f;
+        ComponentStore<Transform> transforms = ecs.store(Transform.class);
+
+        // Water sources: exactly one on every shore tile.
+        List<Integer> water = new ArrayList<>();
+        waterGrid.forEachWithin(centerX, centerZ, reach, water::add);
+        boolean[] hasWater = new boolean[(x1 - x0) * (z1 - z0)];
+        for (int entity : water) {
+            Transform t = transforms.get(entity);
+            int tx = (int) Math.floor(t.position.x);
+            int tz = (int) Math.floor(t.position.z);
+            if (tx < x0 || tz < z0 || tx >= x1 || tz >= z1) {
+                continue;
+            }
+            if (terrain.isPassable(tx, tz) && isShore(tx, tz)) {
+                hasWater[(tz - z0) * (x1 - x0) + (tx - x0)] = true;
+                t.position.y = Navigation.groundHeight(terrain, t.position.x, t.position.z);
+            } else {
+                waterGrid.remove(entity, t.position.x, t.position.z);
+                ecs.destroyEntity(entity);
+            }
+        }
+        for (int tz = z0; tz < z1; tz++) {
+            for (int tx = x0; tx < x1; tx++) {
+                if (!hasWater[(tz - z0) * (x1 - x0) + (tx - x0)] && terrain.isPassable(tx, tz) && isShore(tx, tz)) {
+                    addResource(resourceTable.water(), tx + 0.5f, tz + 0.5f, 0f, 0f);
+                }
+            }
+        }
+
+        // Food: gone under water, otherwise follows the ground.
+        List<Integer> food = new ArrayList<>();
+        foodGrid.forEachWithin(centerX, centerZ, reach, food::add);
+        for (int entity : food) {
+            Transform t = transforms.get(entity);
+            if (terrain.isPassable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
+                t.position.y = Navigation.groundHeight(terrain, t.position.x, t.position.z);
+            } else {
+                foodGrid.remove(entity, t.position.x, t.position.z);
+                ecs.destroyEntity(entity);
+            }
+        }
+
+        // Creatures follow the ground; whoever is now where it cannot be climbs out to the nearest walkable tile.
+        List<Integer> creatures = new ArrayList<>();
+        creatureGrid.forEachWithin(centerX, centerZ, reach, creatures::add);
+        for (int entity : creatures) {
+            Transform t = transforms.get(entity);
+            SpeciesRef ref = ecs.get(entity, SpeciesRef.class);
+            Pathfinder space = ref != null ? navigation.forSpecies(ref.species) : navigation.land();
+            if (!space.isWalkable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
+                int[] tile = nearestWalkable(space, (int) Math.floor(t.position.x), (int) Math.floor(t.position.z));
+                if (tile != null) {
+                    // Moved at once (also in the grid and without interpolation), so it works while paused too.
+                    creatureGrid.move(entity, t.position.x, t.position.z, tile[0] + 0.5f, tile[1] + 0.5f);
+                    t.position.x = tile[0] + 0.5f;
+                    t.position.z = tile[1] + 0.5f;
+                    PrevTransform prev = ecs.get(entity, PrevTransform.class);
+                    if (prev != null) {
+                        prev.position.set(t.position.x, navigation.groundHeight(t.position.x, t.position.z), t.position.z);
+                    }
+                }
+                AiState ai = ecs.get(entity, AiState.class);
+                if (ai != null && ai.pathStatus != AiState.PathStatus.NONE) {
+                    ai.path = null;
+                    ai.pathStatus = AiState.PathStatus.FAILED; // the current action re-plans
+                }
+                Velocity velocity = ecs.get(entity, Velocity.class);
+                if (velocity != null) {
+                    velocity.speed = 0f;
+                }
+            }
+            t.position.y = navigation.groundHeight(t.position.x, t.position.z);
+        }
+    }
+
+    /** Nearest tile the pathfinder can walk on, searching in growing squares, or null. */
+    private static int[] nearestWalkable(Pathfinder space, int tx, int tz) {
+        for (int r = 1; r <= 32; r++) {
+            int[] best = null;
+            int bestDistance = Integer.MAX_VALUE;
+            for (int dz = -r; dz <= r; dz++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != r || !space.isWalkable(tx + dx, tz + dz)) {
+                        continue;
+                    }
+                    int d = dx * dx + dz * dz;
+                    if (d < bestDistance) {
+                        bestDistance = d;
+                        best = new int[]{tx + dx, tz + dz};
+                    }
+                }
+            }
+            if (best != null) {
+                return best;
+            }
+        }
+        return null;
+    }
+
+    /** Applies queued god powers without advancing the simulation (while paused). */
+    public void applyGodPowersNow(int nextTick) {
+        godPowerSystem.applyQueued(nextTick);
+        ecs.flushDestroyed();
+    }
+
+    public GodPowers godPowers() {
+        return godPowers;
+    }
+
+    /** Number of believing creatures. */
+    public int believers() {
+        return ecs.store(Believer.class).size();
+    }
+
     // ---------------------------------------------------------------- queries and debug
 
     /** Creature closest to (x, z) within {@code maxDistance}, or -1. For selecting with the mouse. */
@@ -308,8 +539,7 @@ public final class World implements EvolutionConditions {
     }
 
     /**
-     * Places a full resource node of the given type at (x, z), e.g. for the "Abundance" god power
-     * (phase 7) or tests.
+     * Places a full resource node of the given type at (x, z), e.g. for the "Abundance" god power or tests.
      *
      * @return the new node's entity
      * @throws IllegalArgumentException for an unknown resource id

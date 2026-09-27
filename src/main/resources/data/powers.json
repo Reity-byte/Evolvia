@@ -1,0 +1,55 @@
+{
+  "faith": {
+    "starting": 120,
+    "basePerMinute": 2.0,
+    "perBelieverPerMinute": 0.15
+  },
+  "rain": {
+    "name": "Déšť",
+    "description": "Mrak nad krajinou: jídlo v oblasti rychleji dorůstá a bytosti pod ním méně žízní. Kdo se napije deště nebo sní jídlo z deštěm zalitého keře, uvěří.",
+    "cost": 40,
+    "radius": 10,
+    "alignment": 0.03,
+    "durationSeconds": 120,
+    "regrowMultiplier": 4.0,
+    "thirstReliefPerSecond": 0.02
+  },
+  "abundance": {
+    "name": "Hojnost",
+    "description": "Naplní keře v oblasti a přidá nové, které zůstanou. Kdo z božského keře sní, uvěří.",
+    "cost": 50,
+    "radius": 6,
+    "alignment": 0.03,
+    "resource": "berry_bush",
+    "newNodes": 6
+  },
+  "raise": {
+    "name": "Zvednout terén",
+    "description": "Zvedne zem v kruhu. Podržením tlačítka zvedáš dál; z mělké vody tak uděláš pevninu.",
+    "cost": 4,
+    "radius": 4,
+    "alignment": 0.0,
+    "step": 0.8,
+    "repeatSeconds": 0.2
+  },
+  "lower": {
+    "name": "Snížit terén",
+    "description": "Sníží zem v kruhu. Podržením tlačítka snižuješ dál; pod hladinou moře vznikne jezero.",
+    "cost": 4,
+    "radius": 4,
+    "alignment": 0.0,
+    "step": 0.8,
+    "repeatSeconds": 0.2
+  },
+  "lightning": {
+    "name": "Blesk",
+    "description": "Zabije bytosti v místě úderu. Ostatní v okolí utečou a uvěří ze strachu. Krutý čin.",
+    "cost": 20,
+    "radius": 1.2,
+    "alignment": -0.08,
+    "maxKills": 2,
+    "scareRadius": 12,
+    "scareSeconds": 6,
+    "fleeDistance": 14
+  }
+}

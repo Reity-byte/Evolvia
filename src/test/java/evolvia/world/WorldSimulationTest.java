@@ -124,8 +124,9 @@ class WorldSimulationTest {
                 }
             }
         }
-        // SeekMate is covered by ReproductionTest (population is capped here, so nobody may reproduce).
-        assertEquals(EnumSet.complementOf(EnumSet.of(ActionType.SEEK_MATE)), seen);
+        // SeekMate is covered by ReproductionTest (population is capped here, so nobody may reproduce),
+        // Flee by GodPowersTest (only lightning scares creatures).
+        assertEquals(EnumSet.complementOf(EnumSet.of(ActionType.SEEK_MATE, ActionType.FLEE)), seen);
     }
 
     @Test

@@ -1,6 +1,8 @@
 package evolvia.ai;
 
 import evolvia.components.Age;
+import evolvia.components.Believer;
+import evolvia.components.Fear;
 import evolvia.components.AiState;
 import evolvia.components.Health;
 import evolvia.components.Memory;
@@ -111,6 +113,18 @@ public final class ActionContext {
         foodInReach = -2;
         waterInReach = -2;
         nearestMate = -2;
+    }
+
+    /** Makes the current creature a believer (it used something the god caused). */
+    public void makeBeliever() {
+        if (ecs.get(entity, Believer.class) == null) {
+            ecs.add(entity, new Believer());
+        }
+    }
+
+    /** The current creature's fear of a lightning strike, or null. */
+    public Fear fear() {
+        return ecs.get(entity, Fear.class);
     }
 
     /** Pathfinder for the current creature's way of moving (walking, or also swimming). */

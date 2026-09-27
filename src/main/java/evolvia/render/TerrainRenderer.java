@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Renders the terrain as a grid of chunk meshes (so a chunk can later be rebuilt alone,
- * e.g. after terraforming). Each tile has its own four vertices so it gets one flat biome color;
+ * Renders the terrain as a grid of chunk meshes; a chunk is rebuilt alone when the terrain reports
+ * a change in it (terraforming, {@link Terrain#blockRevision}). Each tile has its own four vertices so it gets one flat biome color;
  * normals are per-vertex, computed from the heightmap.
  * <p>
  * Also draws a flat "ocean floor" around the map so the sea continues past the border.
@@ -16,7 +16,7 @@ import java.util.List;
 public final class TerrainRenderer implements AutoCloseable {
 
     /** Chunk size in tiles. */
-    public static final int CHUNK_SIZE = 32;
+    public static final int CHUNK_SIZE = Terrain.REVISION_BLOCK;
     /** Vertex layout: position (3), normal (3), color (3). */
     private static final int FLOATS_PER_VERTEX = 9;
     /** Per-tile brightness variation for a less uniform low-poly look. */
@@ -25,22 +25,26 @@ public final class TerrainRenderer implements AutoCloseable {
     private static final float DEEP_SEABED_BRIGHTNESS = 0.45f;
 
     private final Shader shader;
+    private final Terrain terrain;
     private final List<Mesh> chunks = new ArrayList<>();
+    /** Terrain block revision each chunk was built from. */
+    private final List<Integer> builtRevisions = new ArrayList<>();
     private final Mesh oceanFloor;
 
     public TerrainRenderer(Terrain terrain) {
+        this.terrain = terrain;
         shader = Shader.fromResources("shaders/terrain");
         for (int cz = 0; cz < terrain.depth(); cz += CHUNK_SIZE) {
             for (int cx = 0; cx < terrain.width(); cx += CHUNK_SIZE) {
-                chunks.add(buildChunk(terrain, cx, cz,
-                        Math.min(cx + CHUNK_SIZE, terrain.width()),
-                        Math.min(cz + CHUNK_SIZE, terrain.depth())));
+                chunks.add(buildChunk(terrain, cx, cz));
+                builtRevisions.add(terrain.blockRevision(cx, cz));
             }
         }
         oceanFloor = buildOceanFloor(terrain);
     }
 
     public void render(Camera camera, Lighting lighting) {
+        rebuildChangedChunks();
         shader.bind();
         shader.setUniform("uProjection", camera.projection());
         shader.setUniform("uView", camera.view());
@@ -51,7 +55,24 @@ public final class TerrainRenderer implements AutoCloseable {
         oceanFloor.draw();
     }
 
-    private static Mesh buildChunk(Terrain terrain, int x0, int z0, int x1, int z1) {
+    private void rebuildChangedChunks() {
+        int index = 0;
+        for (int cz = 0; cz < terrain.depth(); cz += CHUNK_SIZE) {
+            for (int cx = 0; cx < terrain.width(); cx += CHUNK_SIZE) {
+                int revision = terrain.blockRevision(cx, cz);
+                if (revision != builtRevisions.get(index)) {
+                    chunks.get(index).close();
+                    chunks.set(index, buildChunk(terrain, cx, cz));
+                    builtRevisions.set(index, revision);
+                }
+                index++;
+            }
+        }
+    }
+
+    private static Mesh buildChunk(Terrain terrain, int x0, int z0) {
+        int x1 = Math.min(x0 + CHUNK_SIZE, terrain.width());
+        int z1 = Math.min(z0 + CHUNK_SIZE, terrain.depth());
         int tiles = (x1 - x0) * (z1 - z0);
         float[] vertices = new float[tiles * 4 * FLOATS_PER_VERTEX];
         int[] indices = new int[tiles * 6];

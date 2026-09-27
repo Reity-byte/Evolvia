@@ -67,7 +67,8 @@ public final class AgingSystem implements GameSystem {
         }
     }
 
-    private void die(EcsWorld world, int entity, DeathStats.Cause cause) {
+    /** Kills a creature now (removal deferred to the end of the tick), counting the cause and telling the listener. */
+    public void die(EcsWorld world, int entity, DeathStats.Cause cause) {
         Transform t = world.get(entity, Transform.class);
         if (t != null) {
             creatureGrid.remove(entity, t.position.x, t.position.z);

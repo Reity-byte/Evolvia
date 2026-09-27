@@ -5,6 +5,7 @@ import evolvia.core.Time.Speed;
 import evolvia.evolution.EvolutionNode;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.god.Faith;
 import evolvia.world.DeathStats;
 import evolvia.world.World;
 
@@ -66,6 +67,8 @@ public final class Hud {
         if (available > 0 && !tree.isVisible()) {
             ui.draw().outline(x, buttonY, bw, buttonH, 2f, 0xFFE0B040);
         }
+        x += bw + 22f;
+        faith(ui, world, x, y);
 
         // Game speed, right-aligned
         Speed[] speeds = {Speed.PAUSED, Speed.NORMAL, Speed.FAST, Speed.FASTEST};
@@ -87,6 +90,36 @@ public final class Hud {
 
         if (speciesPanel && !tree.isVisible()) {
             speciesPanel(ui, world);
+        }
+    }
+
+    /** Faith, believers and the god's alignment (good / evil). */
+    private static void faith(Ui ui, World world, float x, float y) {
+        Faith faith = world.godPowers().faith();
+        x += stat(ui, "Víra", String.format(Locale.ROOT, "%.0f", faith.points()), x, y);
+        x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", faith.perMinute()), x - 12f, y + 2f, Ui.TEXT_DIM) + 8f;
+        x += stat(ui, "Věřící", Integer.toString(faith.believers()), x, y);
+
+        float barX = x;
+        float barY = y + 6f;
+        float barW = 64f;
+        float centre = barX + barW / 2f;
+        ui.draw().rect(barX, barY, barW, 6f, 0xFF30343C);
+        float value = faith.alignment();
+        if (value > 0) {
+            ui.draw().rect(centre, barY, barW / 2f * value, 6f, 0xFFE8D27A);
+        } else if (value < 0) {
+            ui.draw().rect(centre + barW / 2f * value, barY, -barW / 2f * value, 6f, 0xFFC0473A);
+        }
+        ui.draw().rect(centre - 0.5f, barY - 2f, 1f, 10f, 0xFF9AA0A8);
+        String label = value > 0.05f ? "dobrý bůh" : value < -0.05f ? "zlý bůh" : "neutrální";
+        float labelWidth = ui.text(ui.small, label, barX + barW + 6f, y + 2f, value > 0.05f ? 0xFFE8D27A : value < -0.05f ? 0xFFE08A7A : Ui.TEXT_DIM);
+        if (ui.hovered(barX - 4f, 0f, barW + labelWidth + 12f, BAR_HEIGHT)) {
+            String text = String.format(Locale.ROOT, "Morálka %+.2f · laskavé činy %d, kruté %d", value, faith.kindActs(), faith.cruelActs());
+            float w = ui.small.width(text) + 16f;
+            float tx = Math.min(barX, ui.width() - w - 4f);
+            ui.draw().rect(tx, BAR_HEIGHT + 4f, w, ui.small.lineHeight() + 10f, 0xF5181B20);
+            ui.text(ui.small, text, tx + 8f, BAR_HEIGHT + 9f, Ui.TEXT);
         }
     }
 
@@ -133,9 +166,10 @@ public final class Hud {
         rows.add(row("Schopnosti", abilities.isEmpty() ? "–" : String.join(", ", abilities), 1f));
 
         DeathStats deaths = world.deaths();
-        String deathText = String.format(Locale.ROOT, "hlad %d, žízeň %d, klima %d, stáří %d",
+        String deathText = String.format(Locale.ROOT, "hlad %d, žízeň %d, klima %d, stáří %d, blesk %d",
                 deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
-                deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE));
+                deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE),
+                deaths.count(DeathStats.Cause.LIGHTNING));
         String evolution = String.format(Locale.ROOT, "%d / %d uzlů odemčeno, celkem získáno %.0f EP",
                 species.unlockedNodes().size(), species.tree().size(), species.pointsEarned());
 

@@ -29,6 +29,12 @@ public final class Navigation {
                 || (terrain.inBounds(tx, tz) && terrain.tileHeight(tx, tz) >= terrain.seaLevel() - shallowDepth));
     }
 
+    /** Recomputes the walkable regions after the terrain changed (god powers). */
+    public void refresh() {
+        land.labelRegions();
+        swim.labelRegions();
+    }
+
     /** Pathfinder for the way a species moves. */
     public Pathfinder forSpecies(Species species) {
         return species.hasAbility(SWIM) ? swim : land;

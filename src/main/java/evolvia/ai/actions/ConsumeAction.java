@@ -60,6 +60,12 @@ public final class ConsumeAction implements Action {
                 ResourceNode food = c.resources.get(node);
                 food.amount -= 1f;
                 c.needs.hunger = Math.max(0f, c.needs.hunger - eating.hungerPerUnit() * c.nutrition(food));
+                if (food.divine) {
+                    c.makeBeliever(); // ate what the god gave
+                    if (food.amount < 1f) {
+                        food.divine = false; // eaten to the bottom: whatever grows back is ordinary
+                    }
+                }
             }
         } else {
             c.needs.thirst = Math.max(0f, c.needs.thirst - SpeciesDefinition.perTick(eating.thirstReliefPerSecond()));

@@ -18,6 +18,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final ResourceRenderer resourceRenderer;
     private final CreatureRenderer creatureRenderer;
     private final WaterRenderer waterRenderer;
+    private final GodEffectsRenderer effectsRenderer;
 
     public SceneRenderer(World world, WorldConfig.WaterSettings water) {
         this.world = world;
@@ -25,6 +26,7 @@ public final class SceneRenderer implements AutoCloseable {
         resourceRenderer = new ResourceRenderer();
         creatureRenderer = new CreatureRenderer();
         waterRenderer = new WaterRenderer(world.terrain(), water);
+        effectsRenderer = new GodEffectsRenderer();
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -42,14 +44,18 @@ public final class SceneRenderer implements AutoCloseable {
      * @param alpha      interpolation factor between the previous and the current tick
      * @param simSeconds simulation time in seconds (drives animations, stops when paused)
      * @param selected   creature to highlight, or -1
+     * @param brush      where the selected god power would hit, or null
      */
-    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, double simSeconds, int selected) {
+    public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, double simSeconds, int selected,
+                       GodEffectsRenderer.Brush brush) {
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         terrainRenderer.render(camera, lighting);
         resourceRenderer.render(camera, lighting, world.ecs());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
+        effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
         waterRenderer.render(camera, lighting);
+        effectsRenderer.renderTranslucent(camera, lighting);
     }
 
     @Override
@@ -58,5 +64,6 @@ public final class SceneRenderer implements AutoCloseable {
         resourceRenderer.close();
         creatureRenderer.close();
         waterRenderer.close();
+        effectsRenderer.close();
     }
 }

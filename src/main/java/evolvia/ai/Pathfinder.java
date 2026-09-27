@@ -81,7 +81,8 @@ public final class Pathfinder {
         return region((int) Math.floor(x), (int) Math.floor(z));
     }
 
-    private void labelRegions() {
+    /** Recomputes the connected regions (after the terrain changed). */
+    public void labelRegions() {
         Arrays.fill(region, -1);
         int[] stack = new int[width * depth];
         int next = 0;
