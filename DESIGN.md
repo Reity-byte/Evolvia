@@ -384,6 +384,17 @@ Rozhodnutí k fázi 9 (celé):
 - **Save:** `saveVersion` 2 (skupiny a členství); save verze 1 se načte bez skupin (vytvoří se znovu).
 - **Testy:** skupiny vzniknou jen po odemčení, velikosti v mezích, členové jsou u vůdce výrazně blíž než bez skupin, výměna vůdce po smrti, dělení velké skupiny, mládě ve skupině rodiče, save → load → identický běh i se skupinami.
 
+#### 9b Vzpřímená chůze (detail)
+- **Uzly** (větev Tělo, řetěz):
+  - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.
+  - `body_bipedal` „Chůze po dvou“ (vyžaduje Vzpřímený postoj, ~80 EP): únava ×0.85 (úsporná chůze), rychlost ×1.1, vzhled `posture: upright`.
+  - `body_hands` „Šikovné ruce“ (vyžaduje Chůzi po dvou, ~70 EP): schopnost `hands` (podmínka nástrojů v 9c), vzhled `hands: nimble` (prsty a palec).
+- **Model podle postoje** (`posture`: quadruped / semi / upright), `CreatureMeshBuilder` staví kostru podle postoje a ostatní díly (srst, kůže, zuby, oči, uši, chodidla, břicho, velká hlava, dlouhé / silné nohy) se k ní připojují:
+  - *semi*: trup nakloněný ~35°, zadní nohy, dlouhé přední končetiny opřené o zem (chůze po kloubech), kratší ocas,
+  - *upright*: svislý trup, 2 nohy, 2 ruce volně podél těla, hlava nahoře, bez ocasu, kratší čumák (víc obličej než tlama).
+- **Animace:** nohy se kývají jako dnes; ruce se kývají proti noze na stejné straně (pivot v rameni). Vzpřímená postava je vyšší, popisky a značka výběru se řídí výškou modelu.
+- **Testy:** každý postoj se postaví a stojí na zemi, vzpřímený má 2 nohy + 2 ruce v pohybu, je vyšší než čtyřnožec, každý uzel řetězu viditelně změní model, `hands` odemkne až poslední uzel.
+
 ### Průřezová infrastruktura (mimo fáze)
 Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádné fáze.
 
