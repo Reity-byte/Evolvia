@@ -1,6 +1,7 @@
 package evolvia.render;
 
 import evolvia.components.Age;
+import evolvia.components.Carrying;
 import evolvia.components.Genome;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
@@ -46,6 +47,8 @@ public final class CreatureRenderer implements AutoCloseable {
     /** Meshes of one species, one per evolutionary stage alive; all rebuilt when the species evolves. */
     private static final class SpeciesMesh {
         final Map<Integer, InstanceBatch> stages = new TreeMap<>();
+        /** Model height per stage, in body sizes (where a carried load sits). */
+        final Map<Integer, Float> heights = new TreeMap<>();
         final int revision;
 
         SpeciesMesh(Species species) {
@@ -55,7 +58,9 @@ public final class CreatureRenderer implements AutoCloseable {
         InstanceBatch batch(Species species, int stage) {
             return stages.computeIfAbsent(stage, s -> {
                 Species.Stage data = species.stage(s);
-                InstanceBatch batch = new InstanceBatch(CreatureMeshBuilder.build(data.stats().rgb(), data.visuals()).toMesh());
+                MeshData meshData = CreatureMeshBuilder.build(data.stats().rgb(), data.visuals());
+                heights.put(s, CreatureMeshBuilder.height(meshData));
+                InstanceBatch batch = new InstanceBatch(meshData.toMesh());
                 batch.begin();
                 return batch;
             });
@@ -66,8 +71,14 @@ public final class CreatureRenderer implements AutoCloseable {
         }
     }
 
+    /** Loads carried to the camp (phase 9g): a log or a stone on the back. */
+    private final Shader loadShader;
+    private final InstanceBatch loads;
+
     public CreatureRenderer() {
         shader = Shader.fromResources("shaders/creature.vert", "shaders/terrain.frag");
+        loadShader = Shader.fromResources("shaders/instanced.vert", "shaders/terrain.frag");
+        loads = new InstanceBatch(new BoxMeshBuilder().box(0f, 0f, 0f, 1f, 1f, 1f, 1f).build());
     }
 
     /**
@@ -87,6 +98,8 @@ public final class CreatureRenderer implements AutoCloseable {
         for (SpeciesMesh mesh : meshes.values()) {
             mesh.stages.values().forEach(InstanceBatch::begin);
         }
+        loads.begin();
+        ComponentStore<Carrying> carried = ecs.store(Carrying.class);
         for (int i = 0; i < creatures.size(); i++) {
             int entity = creatures.entityAt(i);
             Transform current = transforms.get(entity);
@@ -143,6 +156,18 @@ public final class CreatureRenderer implements AutoCloseable {
                 b = 1.9f;
             }
             batch.add(model, r, g, b, phase, amplitude);
+            Carrying load = carried.get(entity);
+            if (load != null) {
+                float top = meshes.get(ref.species).heights.getOrDefault(ref.stage, 1f) * size;
+                model.translation(x, y + top * 0.82f, z).rotateY(yaw);
+                if ("stone".equals(load.material)) {
+                    model.translate(0f, 0.08f * size, -0.12f * size).rotateY(0.6f).scale(0.28f * size, 0.22f * size, 0.26f * size);
+                    loads.add(model, 0.58f, 0.57f, 0.55f);
+                } else {
+                    model.translate(0f, 0.06f * size, -0.1f * size).rotateY((float) (Math.PI / 2)).scale(0.8f * size, 0.13f * size, 0.13f * size);
+                    loads.add(model, 0.48f, 0.34f, 0.2f);
+                }
+            }
         }
 
         shader.bind();
@@ -152,6 +177,11 @@ public final class CreatureRenderer implements AutoCloseable {
         for (SpeciesMesh mesh : meshes.values()) {
             mesh.stages.values().forEach(InstanceBatch::draw);
         }
+        loadShader.bind();
+        loadShader.setUniform("uProjection", camera.projection());
+        loadShader.setUniform("uView", camera.view());
+        lighting.apply(loadShader, camera);
+        loads.draw();
     }
 
     /** The batch for a creature's species and stage, (re)building meshes when the species has evolved since. */
@@ -191,6 +221,8 @@ public final class CreatureRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        loads.close();
+        loadShader.close();
         meshes.values().forEach(SpeciesMesh::close);
         meshes.clear();
         shader.close();

@@ -29,7 +29,9 @@ public final class Milestones {
         /** Days passed (nights survived). */
         DAYS,
         /** Sacred places. */
-        SACRED
+        SACRED,
+        /** Materials stored in the best camp of the player's people (phase 9g). */
+        STOCK
     }
 
     public record Milestone(String id, String name, String description, Type type, int value, float rewardEp,

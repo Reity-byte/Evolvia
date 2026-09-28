@@ -3,6 +3,7 @@ package evolvia.systems;
 import evolvia.core.Time;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
+import evolvia.world.Groups;
 import evolvia.world.Milestones;
 import evolvia.world.World;
 
@@ -41,6 +42,8 @@ public final class MilestoneSystem implements GameSystem {
             case SHELTERED -> world.shelteredSleepers(false);
             case DAYS -> world.clock().day(world.tick()) - 1;
             case SACRED -> world.refuges().sacredCount();
+            case STOCK -> (int) world.groups().all().stream().filter(g -> g.player)
+                    .mapToDouble(Groups.Group::stockTotal).max().orElse(0);
         };
     }
 

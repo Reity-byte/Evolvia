@@ -9,6 +9,7 @@ public final class ResourceTable {
 
     private final List<ResourceDefinition> all;
     private final List<ResourceDefinition> food;
+    private final List<ResourceDefinition> materials;
     private final ResourceDefinition water;
     private final ResourceDefinition onDeath;
 
@@ -16,6 +17,7 @@ public final class ResourceTable {
     public ResourceTable(List<ResourceDefinition> resources, String source) {
         this.all = List.copyOf(resources);
         this.food = all.stream().filter(r -> r.kind() == ResourceKind.FOOD).toList();
+        this.materials = all.stream().filter(r -> r.kind() == ResourceKind.MATERIAL).toList();
         List<ResourceDefinition> waters = all.stream().filter(r -> r.kind() == ResourceKind.WATER).toList();
         if (waters.size() != 1) {
             throw new IllegalStateException(source + ": exactly one resource of kind \"water\" is required, found " + waters.size());
@@ -34,6 +36,11 @@ public final class ResourceTable {
 
     public List<ResourceDefinition> food() {
         return food;
+    }
+
+    /** Wood, stone... (phase 9g). */
+    public List<ResourceDefinition> materials() {
+        return materials;
     }
 
     public ResourceDefinition water() {

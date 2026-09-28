@@ -32,6 +32,16 @@
       "effects": [
         { "type": "unlock_ability", "ability": "groups" }
       ]
+    },
+    {
+      "id": "mind_tools",
+      "name": "Nástroje",
+      "description": "Šikovné ruce drží kámen a klacek: dospělí sbírají dřevo a kámen a nosí je do tábora stáda.",
+      "cost": 70,
+      "requires": ["body_hands"],
+      "effects": [
+        { "type": "unlock_ability", "ability": "tools" }
+      ]
     }
   ]
 }

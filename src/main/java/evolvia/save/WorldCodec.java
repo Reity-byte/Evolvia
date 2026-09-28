@@ -5,6 +5,7 @@ import evolvia.ai.Path;
 import evolvia.components.Age;
 import evolvia.components.AiState;
 import evolvia.components.Believer;
+import evolvia.components.Carrying;
 import evolvia.components.Fear;
 import evolvia.components.Genome;
 import evolvia.components.GroupMember;
@@ -49,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -65,14 +67,15 @@ public final class WorldCodec {
      * form again; wild or not follows the believers), with every creature at the latest stage, no milestones
      * reached and freshly placed refuges; 6: weather, disasters, disease, carcass age (phase 9e), older saves start
      * in clear weather without disasters; 7: the species of every creature and herd (wild game, phase 9f), older
-     * saves get the game of a new world with the same seed.
+     * saves get the game of a new world with the same seed; 8: carried materials, camps and their stock (phase 9g),
+     * older saves get the trees and rocks of a new world with the same seed.
      */
-    public static final int SAVE_VERSION = 7;
+    public static final int SAVE_VERSION = 8;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
             SpeciesRef.class, Genome.class, Needs.class, Health.class, Age.class, Reproduction.class, AiState.class,
-            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class, Sick.class);
+            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class, Sick.class, Carrying.class);
 
     /** Game data a save is loaded against (the current definitions). */
     public record GameData(float shallowDepth, WorldConfig.TimeSettings time, BiomeTable biomes, SpeciesDefinition species,
@@ -177,7 +180,8 @@ public final class WorldCodec {
                 stages(ecs.store(SpeciesRef.class)),
                 list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)),
                 list(ecs.store(Sick.class), (e, s) -> new SickData(e, s.untilTick, s.immuneUntilTick)),
-                speciesIds(ecs.store(SpeciesRef.class)));
+                speciesIds(ecs.store(SpeciesRef.class)),
+                list(ecs.store(Carrying.class), (e, c) -> new CarryingData(e, c.material, c.amount)));
     }
 
     private static List<String> speciesIds(ComponentStore<SpeciesRef> creatures) {
@@ -201,7 +205,7 @@ public final class WorldCodec {
         for (Groups.Group g : groups.all()) {
             list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
                     g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ,
-                    g.species != null ? g.species.id() : null));
+                    g.species != null ? g.species.id() : null, g.hasCamp, g.campX, g.campZ, new TreeMap<>(g.stock)));
         }
         return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
@@ -293,6 +297,9 @@ public final class WorldCodec {
             restoreGroups(world, save.groups());
             if (save.ecs().creatureSpecies() == null) {
                 world.placeAnimalsAfterLoad(save.seed()); // a save from before wild game
+            }
+            if (save.saveVersion() < 8) {
+                world.placeMaterialsAfterLoad(save.seed()); // a save from before trees and rocks
             }
             if (save.milestones() != null) {
                 world.milestones().restore(save.milestones());
@@ -412,6 +419,11 @@ public final class WorldCodec {
                 a.untilTick = d.untilTick();
             }
         }
+        if (data.carrying() != null) {
+            for (CarryingData d : data.carrying()) {
+                ecs.add(d.e(), new Carrying(d.material(), d.amount()));
+            }
+        }
         if (data.sick() != null) {
             for (SickData d : data.sick()) {
                 Sick s = ecs.add(d.e(), new Sick());
@@ -483,6 +495,12 @@ public final class WorldCodec {
             g.attackGroup = d.attackGroup();
             g.attackUntilTick = d.attackUntilTick();
             g.shelter = d.shelter();
+            g.hasCamp = d.hasCamp();
+            g.campX = d.campX();
+            g.campZ = d.campZ();
+            if (d.stock() != null) {
+                g.stock.putAll(d.stock());
+            }
             g.leader = d.leader();
             g.size = d.size();
             g.knowsWater = d.knowsWater();

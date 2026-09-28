@@ -23,6 +23,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final GroupOverlayRenderer groupRenderer;
     private final RefugeRenderer refugeRenderer;
     private final WeatherRenderer weatherRenderer;
+    private final CampRenderer campRenderer;
     private boolean showGroups;
     private int selectedGroup;
 
@@ -36,6 +37,7 @@ public final class SceneRenderer implements AutoCloseable {
         groupRenderer = new GroupOverlayRenderer();
         refugeRenderer = new RefugeRenderer();
         weatherRenderer = new WeatherRenderer();
+        campRenderer = new CampRenderer();
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -77,6 +79,7 @@ public final class SceneRenderer implements AutoCloseable {
         resourceRenderer.render(camera, lighting, world.ecs(),
                 Math.round(world.nature().config().disease().spoilSeconds() * Time.TICKS_PER_SECOND));
         refugeRenderer.render(camera, lighting, world.terrain(), world.refuges());
+        campRenderer.render(camera, lighting, world.terrain(), world.groups());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         weatherRenderer.render(camera, lighting, world.terrain(), world.nature(), simSeconds);
         effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
@@ -96,5 +99,6 @@ public final class SceneRenderer implements AutoCloseable {
         groupRenderer.close();
         refugeRenderer.close();
         weatherRenderer.close();
+        campRenderer.close();
     }
 }

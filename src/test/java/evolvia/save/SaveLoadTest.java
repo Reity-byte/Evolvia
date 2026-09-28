@@ -89,6 +89,15 @@ class SaveLoadTest {
                 world.godPowers().request(DivinePower.LOWER, x + 10f, z + 10f);
             }
             case 1700 -> world.godPowers().request(DivinePower.RAISE, x + 10f, z + 10f);
+            case 1200 -> { // phase 9g: gathering (loads, camps, stock are saved)
+                world.species().addPoints(1000f);
+                for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "mind_tools")) {
+                    if (!world.species().isUnlocked(node)) {
+                        world.unlock(node);
+                    }
+                }
+                world.evolveEveryone();
+            }
             case 2100 -> { // phase 9e: a storm, a fire and an illness are saved
                 world.nature().setWeather(evolvia.world.Nature.Weather.STORM, 4600);
                 world.nature().setNextStrike(2200);
@@ -147,6 +156,7 @@ class SaveLoadTest {
         assertTrue(original.groups().count() > 3, "herds were saved and restored");
         assertTrue(copy.refuges().sacredCount() > 0, "the sacred place was saved");
         assertTrue(copy.nature().hasBurntGround(), "the fire was saved");
+        assertTrue(copy.groups().all().stream().anyMatch(g -> g.hasCamp && g.stockTotal() > 0), "camps were saved");
         assertEquals(original.nature().weather(), copy.nature().weather());
         assertTrue(copy.ecs().store(evolvia.components.Sick.class).size() > 0, "the illness was saved");
         assertTrue(copy.groups().all().stream().anyMatch(g -> g.shelter != 0), "the refuges of herds were saved");
@@ -205,7 +215,7 @@ class SaveLoadTest {
         SaveData.EcsData e = save.ecs();
         SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
                 e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
-                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null, null);
+                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null, null, null);
         SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
                 save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null, null);
         World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();

@@ -19,7 +19,7 @@ out vec4 fragColor;
 
 void main() {
     float diffuse = max(dot(normalize(vNormal), uSunDirection), 0.0);
-    float scorch = texture(uScorch, vWorldPos.xz / uMapSize).r;
+    float scorch = uMapSize.x > 0.0 ? texture(uScorch, vWorldPos.xz / uMapSize).r : 0.0; // terrain only
     vec3 base = mix(vColor, vec3(0.09, 0.07, 0.06), scorch);
     float level = smoothstep(0.55, 0.85, normalize(vNormal).y);
     base = mix(base, vec3(0.93, 0.95, 0.99), clamp(uSnow * level * 1.2, 0.0, 0.95));

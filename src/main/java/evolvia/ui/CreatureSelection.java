@@ -3,6 +3,7 @@ package evolvia.ui;
 import evolvia.ai.ActionType;
 import evolvia.components.Age;
 import evolvia.components.Believer;
+import evolvia.components.Carrying;
 import evolvia.components.Genome;
 import evolvia.components.GroupMember;
 import evolvia.components.AiState;
@@ -189,7 +190,7 @@ public final class CreatureSelection {
             hand.add(HandAction.BLESS); // wild game does not believe
         }
         int handRows = (hand.size() + 2) / 3;
-        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 6 * line + 10f
+        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 7 * line + 10f
                 + (hand.isEmpty() ? 0f : ui.bold.lineHeight()) + handRows * 30f + padding;
         float x = ui.width() - PANEL_WIDTH - 10f;
         float y = top + 10f;
@@ -241,6 +242,15 @@ public final class CreatureSelection {
         ty += line;
         ui.text(ui.regular, String.format(Locale.ROOT, "Geny: velikost %s, rychlost %s",
                 Texts.percent(genome.size - 1f), Texts.percent(genome.speed - 1f)), x + padding, ty, Ui.TEXT_DIM);
+        ty += line;
+        Carrying load = world.ecs().get(entity, Carrying.class);
+        String work = group != null && group.hasCamp
+                ? String.format(Locale.ROOT, "Tábor: dřevo %.0f, kámen %.0f", group.stock("wood"), group.stock("stone"))
+                : "Tábor: zatím žádný";
+        if (load != null) {
+            work = "Nese " + Texts.material(load.material) + " · " + work;
+        }
+        ui.text(ui.regular, animal ? "" : work, x + padding, ty, Ui.TEXT_DIM);
         ty += line + 10f;
 
         // The god's hand (nothing for wild game: it can only be the target of an attack order)

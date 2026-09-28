@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import evolvia.evolution.Animal;
 import evolvia.evolution.Species;
+import evolvia.world.Tribe;
 import evolvia.world.Wildlife;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -55,6 +56,7 @@ public final class DataLoader {
     public static final String REFUGES = "data/refuges.json";
     public static final String NATURE = "data/nature.json";
     public static final String ANIMALS = "data/animals.json";
+    public static final String TRIBE = "data/tribe.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -251,6 +253,20 @@ public final class DataLoader {
         }
     }
 
+    /** Loads and validates {@code data/tribe.json} (the tribe's work, phase 9g). */
+    public static Tribe.Config loadTribe() {
+        return parseTribe(readResource(TRIBE), TRIBE);
+    }
+
+    public static Tribe.Config parseTribe(String json, String source) {
+        Tribe.Config config = fromJson(json, Tribe.Config.class, source);
+        Tribe.Gathering g = config.gathering();
+        require(g != null && g.ability() != null && g.stockCap() > 0 && g.workSeconds() > 0 && g.radius() > 0
+                        && g.score() > 0 && g.deliverScore() > 0 && g.maxNeed() > 0 && g.maxNeed() <= 1, source,
+                "gathering: ability, positive stockCap, workSeconds, radius, score, deliverScore, maxNeed in (0, 1]");
+        return config;
+    }
+
     /** Loads and validates {@code data/species.json}. */
     public static SpeciesDefinition loadSpecies() {
         return parseSpecies(readResource(SPECIES), SPECIES);
@@ -379,7 +395,7 @@ public final class DataLoader {
             try {
                 kind = ResourceKind.valueOf(String.valueOf(r.kind()).toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                throw new IllegalStateException(where + ": kind must be \"food\" or \"water\", got: " + r.kind());
+                throw new IllegalStateException(where + ": kind must be \"food\", \"water\" or \"material\", got: " + r.kind());
             }
             if (kind == ResourceKind.FOOD) {
                 require(positive(r.capacity()) && positive(r.size()), where, "food needs a positive capacity and size");
@@ -389,6 +405,13 @@ public final class DataLoader {
                 require(r.decayPerSecond() == null || r.decayPerSecond() >= 0, where, "decayPerSecond must not be negative");
                 require(r.spawnDensity() != null && r.spawnDensity() >= 0 && r.spawnDensity() <= 1, where,
                         "spawnDensity must be in [0, 1]");
+            }
+            if (kind == ResourceKind.MATERIAL) {
+                require(positive(r.capacity()) && positive(r.size()), where, "a material needs a positive capacity and size");
+                require(r.material() != null && !r.material().isBlank(), where, "a material needs \"material\" (e.g. wood, stone)");
+                require(r.biomeDensity() != null && r.biomeDensity().values().stream().allMatch(d -> d >= 0 && d <= 1), where,
+                        "a material needs \"biomeDensity\" with chances in [0, 1]");
+                require(r.regrowPerSecond() == null || r.regrowPerSecond() >= 0, where, "regrowPerSecond must not be negative");
             }
             resources.add(new ResourceDefinition(
                     resources.size(),
@@ -404,7 +427,8 @@ public final class DataLoader {
                     r.spawnDensity() != null ? r.spawnDensity() : 0f,
                     r.size() != null ? r.size() : 0f,
                     r.color() != null ? Colors.parseHex(r.color(), where + ": color") : 0,
-                    r.emptyColor() != null ? Colors.parseHex(r.emptyColor(), where + ": emptyColor") : 0));
+                    r.emptyColor() != null ? Colors.parseHex(r.emptyColor(), where + ": emptyColor") : 0,
+                    r.material(), r.biomeDensity() != null ? Map.copyOf(r.biomeDensity()) : Map.of()));
         }
         return new ResourceTable(resources, source);
     }
@@ -626,7 +650,7 @@ public final class DataLoader {
 
     private record ResourceJson(String id, String name, String kind, String foodType, Float nutrition, Float capacity,
                                 Float regrowPerSecond, Float decayPerSecond, Boolean spawnOnDeath, Float spawnDensity, Float size,
-                                String color, String emptyColor) {
+                                String color, String emptyColor, String material, Map<String, Float> biomeDensity) {
     }
 
     private record WanderJson(Float radius, float[] pauseSeconds) {

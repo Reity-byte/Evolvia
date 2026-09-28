@@ -70,7 +70,7 @@ public record SaveData(
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
                           List<ResourceData> resources, int[] believers, List<FearData> fears,
                           List<GroupMemberData> groupMembers, int[] creatureStages, List<UnderAttackData> underAttacks,
-                          List<SickData> sick, List<String> creatureSpecies) {
+                          List<SickData> sick, List<String> creatureSpecies, List<CarryingData> carrying) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {
@@ -125,11 +125,15 @@ public record SaveData(
     public record SickData(int e, int untilTick, int immuneUntilTick) {
     }
 
+    public record CarryingData(int e, String material, float amount) {
+    }
+
     public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {
     }
 
     public record GroupData(int id, int leader, int size, boolean player, float homeX, float homeZ, boolean settled,
                             float hunger, int attackGroup, int attackUntilTick, int shelter, boolean knowsWater, float waterX, float waterZ,
-                            boolean knowsFood, float foodX, float foodZ, String species) {
+                            boolean knowsFood, float foodX, float foodZ, String species, boolean hasCamp, float campX,
+                            float campZ, Map<String, Float> stock) {
     }
 }

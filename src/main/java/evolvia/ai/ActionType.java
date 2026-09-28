@@ -13,7 +13,9 @@ public enum ActionType {
     FOLLOW_LEADER("FollowLeader"),
     ATTACK("Attack"),
     SEEK_SHELTER("SeekShelter"),
-    HUNT("Hunt");
+    HUNT("Hunt"),
+    GATHER("Gather"),
+    DELIVER("Deliver");
 
     private final String label;
 

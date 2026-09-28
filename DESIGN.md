@@ -440,6 +440,17 @@ Rozhodnutí k fázi 9 (celé):
 - **Save verze 7:** druh každé bytosti a každého stáda; starší save dostane zvěř rozmístěnou ze semínka.
 - **Testy:** zvěř rozmístěná podle dat, nevěří a nedává Víru, stáda jen jednoho druhu, vlk uloví kořist a sní mršinu, kořist utíká, vlci loví hlavně v noci, útočiště chrání spící, lid s Masožravcem loví, rozkaz útoku na zvěř, save → load identický.
 
+#### 9g Nástroje a sběr (detail)
+- **Suroviny ve světě** (`resources.json`, druh `material`): *strom* (dřevo; hustě v lese, řídce v trávě a bažině; pomalu dorůstá) a *kámen* (tundra, poušť, řídce jinde; nedorůstá). Hustota je po biomech (`biomeDensity`). Rozmístí je vlastní generátor ze semínka, takže nemění zbytek světa. Požár spálí stromy na hořících dlaždicích.
+- **Uzel Nástroje** `mind_tools` (větev Mysl, vyžaduje Šikovné ruce, ~70 EP): schopnost `tools`. Jen dospělí se schopností sbírají.
+- **Tábor stáda:** stádo lidu (i divoké stádo tvého druhu) má tábor s zásobami (dřevo, kámen). Tábor vznikne při první donášce v místě domova a stádo se tam usadí; *Usaď se* ho přesune. Zásoby mají strop (`gathering.stockCap`), pak se daná surovina nesbírá.
+- **Akce `Gather`:** nasycený dospělý se schopností a táborem jde k nejbližší surovině (té, které je v táboře méně) v okruhu tábora, chvíli pracuje a vezme jednu jednotku (komponenta `Carrying`). **`Deliver`:** kdo nese, jde do tábora a složí náklad do zásob. Potřeby mají přednost; sběr je nad bloumáním.
+- **Vidět:** stromy (kmen + koruna, vykácený = pařez) a kameny v krajině; nesená surovina na zádech bytosti; hromady dřeva a kamení v táboře podle zásob; panel bytosti ukazuje, co nese, a zásoby tábora.
+- **Milník** Zásoby (20 jednotek v táboře).
+- **Upřesněno při implementaci:** pravidla sběru jsou v `data/tribe.json` (strop 40 každé suroviny, práce 3 s, okruh 30 polí od tábora, skóre 0.22, donáška 0.5, sbírá jen kdo má hlad i žízeň pod 0.5). Nástroje leží ve větvi Mysl, požadavek Šikovné ruce z Těla ukazuje tooltip. Požár pálí stromy, kameny ne; *Usaď se* a Posvátné místo přesunou i tábor. Po odemčení na seedu 11 byl milník Zásoby splněný během první noci.
+- **Save verze 8:** nesené suroviny, tábory a zásoby; starší save dostane suroviny rozmístěné ze semínka.
+- **Testy:** suroviny podle biomů, bez Nástrojů se nesbírá, s nimi zásoby rostou a je vidět nošení, první donáška založí tábor, strop zásob, požár spálí stromy, save → load identický.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.

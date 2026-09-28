@@ -75,6 +75,10 @@ public final class World implements EvolutionConditions {
     private final EcsWorld ecs = new EcsWorld();
     private final SpatialGrid foodGrid;
     private final SpatialGrid waterGrid;
+    /** Trees and rocks (phase 9g). */
+    private final SpatialGrid materialGrid;
+    /** Rules of the tribe's work (phase 9g). */
+    private final Tribe.Config tribe = DataLoader.loadTribe();
     private final SpatialGrid creatureGrid;
     private final Navigation navigation;
     private final PathQueue pathQueue = new PathQueue();
@@ -114,6 +118,7 @@ public final class World implements EvolutionConditions {
         this.resourceTable = resourceTable;
         this.foodGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.waterGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
+        this.materialGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.creatureGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.creatureFactory = new CreatureFactory(ecs, terrain, creatureGrid, random);
         this.navigation = new Navigation(terrain, shallowDepth);
@@ -124,7 +129,8 @@ public final class World implements EvolutionConditions {
         agingSystem.setNature(nature);
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
-                creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting());
+                creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting(), materialGrid, tribe.gathering(),
+                resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList());
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
@@ -156,6 +162,7 @@ public final class World implements EvolutionConditions {
                 config.time(), god, random);
         world.spawnResources(random);
         world.placeRefuges(refugeRandom(seed));
+        world.spawnMaterials(materialRandom(seed));
         world.spawnPopulation(random);
         world.spawnAnimals(animalRandom(seed));
         world.history.record(world.creatureCount(), world.totalFood());
@@ -335,6 +342,44 @@ public final class World implements EvolutionConditions {
     /** Places wild game in a world loaded from a save made before there was any: the same as in a new world. */
     public void placeAnimalsAfterLoad(long seed) {
         spawnAnimals(animalRandom(seed));
+    }
+
+    /** Places trees and rocks in a world loaded from a save made before there were any. */
+    public void placeMaterialsAfterLoad(long seed) {
+        spawnMaterials(materialRandom(seed));
+    }
+
+    private static Random materialRandom(long seed) {
+        return new Random(seed ^ 0x5707eL);
+    }
+
+    /** Trees and rocks (phase 9g): a chance per land tile by biome, with their own generator. */
+    private void spawnMaterials(Random random) {
+        List<ResourceDefinition> materials = resourceTable.materials();
+        if (materials.isEmpty()) {
+            return;
+        }
+        for (int tz = 0; tz < terrain.depth(); tz++) {
+            for (int tx = 0; tx < terrain.width(); tx++) {
+                if (!terrain.isPassable(tx, tz)) {
+                    continue;
+                }
+                String biome = terrain.biome(tx, tz).id();
+                for (ResourceDefinition material : materials) {
+                    if (random.nextFloat() < material.biomeDensity().getOrDefault(biome, 0f)) {
+                        float x = tx + 0.2f + 0.6f * random.nextFloat();
+                        float z = tz + 0.2f + 0.6f * random.nextFloat();
+                        addResource(material, x, z, material.capacity(), SpeciesDefinition.perTick(material.regrowPerSecond()));
+                        break; // one per tile
+                    }
+                }
+            }
+        }
+    }
+
+    /** Rules of the tribe's work (phase 9g). */
+    public Tribe.Config tribe() {
+        return tribe;
     }
 
     private static Random animalRandom(long seed) {
@@ -705,17 +750,19 @@ public final class World implements EvolutionConditions {
             }
         }
 
-        // Food: gone under water, otherwise follows the ground.
-        List<Integer> food = new ArrayList<>();
-        foodGrid.forEachWithin(centerX, centerZ, reach, food::add);
-        food.sort(null);
-        for (int entity : food) {
-            Transform t = transforms.get(entity);
-            if (terrain.isPassable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
-                t.position.y = Navigation.groundHeight(terrain, t.position.x, t.position.z);
-            } else {
-                foodGrid.remove(entity, t.position.x, t.position.z);
-                ecs.destroyEntity(entity);
+        // Food, trees and rocks: gone under water, otherwise follow the ground.
+        for (SpatialGrid grid : List.of(foodGrid, materialGrid)) {
+            List<Integer> nodes = new ArrayList<>();
+            grid.forEachWithin(centerX, centerZ, reach, nodes::add);
+            nodes.sort(null);
+            for (int entity : nodes) {
+                Transform t = transforms.get(entity);
+                if (terrain.isPassable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
+                    t.position.y = Navigation.groundHeight(terrain, t.position.x, t.position.z);
+                } else {
+                    grid.remove(entity, t.position.x, t.position.z);
+                    ecs.destroyEntity(entity);
+                }
             }
         }
 
@@ -818,6 +865,10 @@ public final class World implements EvolutionConditions {
                 group.settled = true;
                 group.homeX = t.position.x;
                 group.homeZ = t.position.z;
+                if (group.hasCamp) { // the camp (and its stock) moves with the herd
+                    group.campX = t.position.x;
+                    group.campZ = t.position.z;
+                }
             }
             case HEAL -> {
                 if (!own) {
@@ -965,6 +1016,10 @@ public final class World implements EvolutionConditions {
             nearest.settled = true;
             nearest.homeX = refuge.x;
             nearest.homeZ = refuge.z;
+            if (nearest.hasCamp) {
+                nearest.campX = refuge.x;
+                nearest.campZ = refuge.z;
+            }
         }
         return true;
     }
@@ -1121,11 +1176,15 @@ public final class World implements EvolutionConditions {
 
     /** Spatial index of the resource nodes of one kind (separate grids keep food searches from scanning water). */
     public SpatialGrid resourceGrid(ResourceKind kind) {
-        return kind == ResourceKind.FOOD ? foodGrid : waterGrid;
+        return switch (kind) {
+            case FOOD -> foodGrid;
+            case WATER -> waterGrid;
+            case MATERIAL -> materialGrid;
+        };
     }
 
     public int resourceNodeCount() {
-        return foodGrid.size() + waterGrid.size();
+        return foodGrid.size() + waterGrid.size() + materialGrid.size();
     }
 
     public Navigation navigation() {

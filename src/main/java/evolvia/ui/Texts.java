@@ -41,6 +41,8 @@ public final class Texts {
             case ATTACK -> "Bojuje";
             case SEEK_SHELTER -> "Jde do úkrytu";
             case HUNT -> "Loví";
+            case GATHER -> "Sbírá suroviny";
+            case DELIVER -> "Nese do tábora";
         };
     }
 
@@ -69,6 +71,7 @@ public final class Texts {
             case "memory" -> "paměť";
             case "groups" -> "stáda";
             case "hands" -> "šikovné ruce";
+            case "tools" -> "nástroje (sběr dřeva a kamene)";
             default -> ability;
         };
     }
@@ -138,5 +141,14 @@ public final class Texts {
 
     public static String number(float value) {
         return String.format(Locale.ROOT, "%.2f", value);
+    }
+
+    /** Czech name of a material in the accusative ("nese dřevo"). */
+    public static String material(String material) {
+        return switch (material) {
+            case "wood" -> "dřevo";
+            case "stone" -> "kámen";
+            default -> material;
+        };
     }
 }

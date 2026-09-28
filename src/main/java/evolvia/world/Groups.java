@@ -39,6 +39,24 @@ public final class Groups {
         public int attackUntilTick;
         /** Refuge the herd spends the night at (0 = none chosen, phase 9d). */
         public int shelter;
+        /** The herd's camp (phase 9g): where gatherers bring materials; set by the first delivery. */
+        public boolean hasCamp;
+        public float campX;
+        public float campZ;
+        /** Materials stored in the camp (material -> amount), in name order. */
+        public final java.util.TreeMap<String, Float> stock = new java.util.TreeMap<>();
+
+        public float stock(String material) {
+            return stock.getOrDefault(material, 0f);
+        }
+
+        public float stockTotal() {
+            float total = 0f;
+            for (float amount : stock.values()) {
+                total += amount;
+            }
+            return total;
+        }
         public boolean knowsWater;
         public float waterX;
         public float waterZ;

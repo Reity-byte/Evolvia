@@ -282,14 +282,17 @@ public final class NatureSystem implements GameSystem {
         for (int i : nature.burningTiles()) {
             int tx = i % terrain.width();
             int tz = i / terrain.width();
-            world.resourceGrid(ResourceKind.FOOD).forEachWithin(tx + 0.5f, tz + 0.5f, 1f, entity -> {
-                ResourceNode node = nodes.get(entity);
-                Transform t = ecs.get(entity, Transform.class);
-                if (node != null && t != null && (int) Math.floor(t.position.x) == tx && (int) Math.floor(t.position.z) == tz) {
-                    node.amount = 0f;
-                    node.divine = false;
-                }
-            });
+            for (ResourceKind kind : new ResourceKind[]{ResourceKind.FOOD, ResourceKind.MATERIAL}) {
+                world.resourceGrid(kind).forEachWithin(tx + 0.5f, tz + 0.5f, 1f, entity -> {
+                    ResourceNode node = nodes.get(entity);
+                    Transform t = ecs.get(entity, Transform.class);
+                    if (node != null && t != null && (int) Math.floor(t.position.x) == tx && (int) Math.floor(t.position.z) == tz
+                            && !"stone".equals(node.type.material())) { // plants and trees burn, rocks do not
+                        node.amount = 0f;
+                        node.divine = false;
+                    }
+                });
+            }
         }
     }
 

@@ -17,6 +17,8 @@ package evolvia.world;
  * @param size            render size in tiles
  * @param rgb             color when full, 0xRRGGBB
  * @param emptyRgb        color when empty, 0xRRGGBB
+ * @param material        what gathering it gives ({@code wood}, {@code stone}); materials only
+ * @param biomeDensity    chance per land tile of each biome that a node spawns at world start (materials only)
  */
 public record ResourceDefinition(
         int index,
@@ -32,7 +34,9 @@ public record ResourceDefinition(
         float spawnDensity,
         float size,
         int rgb,
-        int emptyRgb) {
+        int emptyRgb,
+        String material,
+        java.util.Map<String, Float> biomeDensity) {
 
     /** True if nodes of this type disappear when empty. */
     public boolean decays() {

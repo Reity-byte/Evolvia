@@ -1,5 +1,7 @@
 package evolvia.ai;
 
+import evolvia.components.Carrying;
+import evolvia.world.Tribe;
 import evolvia.world.Wildlife;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -63,6 +65,12 @@ public final class ActionContext {
     public final Nature nature;
     /** Rules of hunting (phase 9f). */
     public final Wildlife.Hunting hunting;
+    /** Trees and rocks (phase 9g). */
+    public final SpatialGrid materialGrid;
+    /** Rules of gathering (phase 9g). */
+    public final Tribe.Gathering gathering;
+    /** The materials there are (wood, stone...), in name order. */
+    public final java.util.List<String> materials;
     /** Living creatures of each species this tick (population caps). */
     private final Map<Species, Integer> speciesCounts = new IdentityHashMap<>();
 
@@ -106,7 +114,8 @@ public final class ActionContext {
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
                          Random random, Groups groups, WorldClock clock, Refuges refuges, Nature nature,
-                         Wildlife.Hunting hunting) {
+                         Wildlife.Hunting hunting, SpatialGrid materialGrid, Tribe.Gathering gathering,
+                         java.util.List<String> materials) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -120,6 +129,63 @@ public final class ActionContext {
         this.refuges = refuges;
         this.nature = nature;
         this.hunting = hunting;
+        this.materialGrid = materialGrid;
+        this.gathering = gathering;
+        this.materials = java.util.List.copyOf(materials);
+    }
+
+    // ---------------------------------------------------------------- gathering (phase 9g)
+
+    /** What the current creature carries to the camp, or null. */
+    public Carrying carrying() {
+        return ecs.get(entity, Carrying.class);
+    }
+
+    /** True if the current creature may gather now: a grown member of a herd of the people's kind, able, fed, awake time. */
+    public boolean canGather() {
+        if (kind.isAnimal() || !ref.hasAbility(gathering.ability()) || carrying() != null || restTime()) {
+            return false;
+        }
+        Age age = ages.get(entity);
+        if (age == null || age.ageTicks < SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds())) {
+            return false;
+        }
+        return group() != null && Math.max(needs.hunger, needs.thirst) < gathering.maxNeed() && needs.energy > 0.25f;
+    }
+
+    /** Where the herd's materials go: its camp, or its home before the first delivery. */
+    public float[] campSpot(Groups.Group group) {
+        return group.hasCamp ? new float[]{group.campX, group.campZ} : new float[]{group.homeX, group.homeZ};
+    }
+
+    /**
+     * Nearest tree or rock within the gathering radius of the camp that gives the material the camp has least
+     * of (below the cap), reachable from here; or -1.
+     */
+    public int gatherTarget() {
+        Groups.Group group = group();
+        if (group == null) {
+            return -1;
+        }
+        float[] camp = campSpot(group);
+        int myRegion = pathfinder().regionAt(transform.position.x, transform.position.z);
+        java.util.List<String> wanted = new ArrayList<>(materials);
+        wanted.removeIf(m -> group.stock(m) >= gathering.stockCap());
+        wanted.sort(java.util.Comparator.<String>comparingDouble(group::stock).thenComparing(m -> m));
+        for (String material : wanted) {
+            int node = materialGrid.nearest(camp[0], camp[1], gathering.radius(), n -> {
+                ResourceNode r = resources.get(n);
+                if (r == null || r.amount < 1f || !material.equals(r.type.material())) {
+                    return false;
+                }
+                Transform t = transforms.get(n);
+                return pathfinder().regionAt(t.position.x, t.position.z) == myRegion;
+            });
+            if (node >= 0) {
+                return node;
+            }
+        }
+        return -1;
     }
 
     /** Time to sleep through: the night, or the day for night animals (phase 9f). */

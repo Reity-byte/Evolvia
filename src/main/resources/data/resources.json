@@ -29,6 +29,30 @@
       "emptyColor": "#5a4a40"
     },
     {
+      "id": "tree",
+      "name": "Strom",
+      "kind": "material",
+      "material": "wood",
+      "capacity": 6,
+      "regrowPerSecond": 0.004,
+      "biomeDensity": { "forest": 0.06, "swamp": 0.02, "grass": 0.006 },
+      "size": 1.0,
+      "color": "#3f7a32",
+      "emptyColor": "#6b5236"
+    },
+    {
+      "id": "stone",
+      "name": "Kámen",
+      "kind": "material",
+      "material": "stone",
+      "capacity": 10,
+      "regrowPerSecond": 0,
+      "biomeDensity": { "tundra": 0.03, "desert": 0.015, "grass": 0.003, "forest": 0.002 },
+      "size": 0.8,
+      "color": "#8d8a86",
+      "emptyColor": "#6f6c68"
+    },
+    {
       "id": "water",
       "name": "Voda",
       "kind": "water"

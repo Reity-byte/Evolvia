@@ -1,0 +1,11 @@
+{
+  "gathering": {
+    "ability": "tools",
+    "stockCap": 40,
+    "workSeconds": 3,
+    "radius": 30,
+    "score": 0.22,
+    "deliverScore": 0.5,
+    "maxNeed": 0.5
+  }
+}
