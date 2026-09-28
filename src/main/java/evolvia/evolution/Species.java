@@ -163,6 +163,48 @@ public final class Species {
         }
     }
 
+    /**
+     * What unlocking {@code node} costs now (phase 10a): its data cost, raised by
+     * {@code evolution.costGrowthPerNode} for every node unlocked so far.
+     */
+    public int cost(EvolutionNode node) {
+        return Math.round(node.cost() * (1f + base.evolution().costGrowthPerNode() * unlocked.size()));
+    }
+
+    /**
+     * The level of a trait to show and unlock next (phase 10a): the first level not unlocked yet, or the last
+     * level once all are. A node that is no trait is returned as it is.
+     */
+    public EvolutionNode currentLevel(EvolutionNode node) {
+        EvolutionNode.Trait trait = node.trait();
+        if (trait == null) {
+            return node;
+        }
+        EvolutionNode last = node;
+        for (int level = 1; level <= trait.levels(); level++) {
+            last = tree.node(trait.nodeId(level));
+            if (!unlocked.contains(last.id())) {
+                return last;
+            }
+        }
+        return last;
+    }
+
+    /** How many levels of the trait {@code node} belongs to are unlocked (0 for a node that is no trait). */
+    public int unlockedLevels(EvolutionNode node) {
+        EvolutionNode.Trait trait = node.trait();
+        if (trait == null) {
+            return 0;
+        }
+        int count = 0;
+        for (int level = 1; level <= trait.levels(); level++) {
+            if (unlocked.contains(trait.nodeId(level))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /** Whether a node can be unlocked now, and why not. */
     public Availability availability(EvolutionNode node, EvolutionConditions world) {
         if (unlocked.contains(node.id())) {
@@ -188,8 +230,8 @@ public final class Species {
         if (node.condition() != null && !node.condition().isMet(world)) {
             return new Availability(NodeStatus.LOCKED, node.condition().describe());
         }
-        if (points < node.cost()) {
-            return new Availability(NodeStatus.LOCKED, String.format(Locale.ROOT, "chybí %.0f EP", node.cost() - points));
+        if (points < cost(node)) {
+            return new Availability(NodeStatus.LOCKED, String.format(Locale.ROOT, "chybí %.0f EP", cost(node) - points));
         }
         return new Availability(NodeStatus.AVAILABLE, null);
     }
@@ -231,7 +273,7 @@ public final class Species {
             throw new IllegalStateException("Cannot unlock '" + nodeId + "': " + availability.status()
                     + (availability.reason() != null ? " (" + availability.reason() + ")" : ""));
         }
-        points -= node.cost();
+        points -= cost(node);
         unlocked.add(nodeId);
         recompute();
     }

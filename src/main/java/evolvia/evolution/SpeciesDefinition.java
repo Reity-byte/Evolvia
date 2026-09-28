@@ -50,7 +50,19 @@ public record SpeciesDefinition(
         Climate climate,
         EvolutionRates evolution,
         Groups groups,
-        Combat combat) {
+        Combat combat,
+        Skills skills) {
+
+    /**
+     * Work and learning (phase 10a): multipliers that start at 1 and change only through evolution.
+     *
+     * @param workSpeed how fast the creature gathers and builds
+     * @param learning  how much knowledge it makes
+     */
+    public record Skills(float workSpeed, float learning) {
+
+        public static final Skills NONE = new Skills(1f, 1f);
+    }
 
     /**
      * Diet as nutrition per food type: 1 = normal, 0 = the species does not eat it. Herbivore, omnivore
@@ -96,8 +108,17 @@ public record SpeciesDefinition(
      * @param harshPointsPerCreatureMinute EP per minute for each creature living outside its comfort range
      * @param traitStepsPerBirth          a newborn is at most this many stages ahead of its more evolved parent
      */
+    /**
+     * @param costGrowthPerNode every unlocked node makes the next ones this much dearer (0.12 = +12 % of the
+     *                          data cost per node, phase 10a)
+     */
     public record EvolutionRates(float populationPointsPerMinute, float pointsPerGeneration,
-                                 float harshPointsPerCreatureMinute, int traitStepsPerBirth) {
+                                 float harshPointsPerCreatureMinute, int traitStepsPerBirth, float costGrowthPerNode) {
+
+        public EvolutionRates(float populationPointsPerMinute, float pointsPerGeneration,
+                              float harshPointsPerCreatureMinute, int traitStepsPerBirth) {
+            this(populationPointsPerMinute, pointsPerGeneration, harshPointsPerCreatureMinute, traitStepsPerBirth, 0f);
+        }
     }
 
     /**
@@ -174,12 +195,14 @@ public record SpeciesDefinition(
     /** Same species with other herd rules (tests). */
     public SpeciesDefinition withGroups(Groups newGroups) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, population, diet, climate, evolution, newGroups, combat);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, population, diet, climate, evolution, newGroups, combat,
+                skills);
     }
 
     public SpeciesDefinition withPopulation(Population newPopulation) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution, groups, combat);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution, groups, combat,
+                skills);
     }
 
     /**

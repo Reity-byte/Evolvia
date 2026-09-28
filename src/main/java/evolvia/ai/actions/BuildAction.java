@@ -53,7 +53,7 @@ public final class BuildAction implements Action {
             }
             c.face(site.x, site.z);
             site.progress = Math.min(1f, site.progress
-                    + c.settlement.workFactor() / SpeciesDefinition.secondsToTicks(site.type.buildSeconds()));
+                    + c.workFactor() / SpeciesDefinition.secondsToTicks(site.type.buildSeconds()));
             return site.done() ? Status.DONE : Status.RUNNING;
         }
         return c.ai.pathStatus == AiState.PathStatus.FAILED ? Status.FAILED : Status.RUNNING;

@@ -20,6 +20,7 @@ public final class Texts {
             case "diet" -> "Potrava";
             case "adaptation" -> "Adaptace";
             case "mind" -> "Mysl";
+            case "traits" -> "Vlastnosti";
             default -> branch;
         };
     }
@@ -114,6 +115,9 @@ public final class Texts {
             case COMFORT_MAX -> "Horní hranice teploty";
             case PLANT_NUTRITION -> "Výživnost rostlin";
             case MEAT_NUTRITION -> "Výživnost masa";
+            case DAMAGE -> "Útok";
+            case WORK_SPEED -> "Rychlost práce";
+            case LEARNING -> "Učenlivost";
         };
     }
 

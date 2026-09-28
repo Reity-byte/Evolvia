@@ -5,7 +5,7 @@
       "id": "adapt_fur",
       "name": "Hustá srst",
       "description": "Snese chlad, v horku je jí ale hůř.",
-      "cost": 40,
+      "cost": 25,
       "exclusiveGroup": "coat",
       "effects": [
         { "type": "stat_add", "stat": "comfortMin", "value": -0.12 },
@@ -29,7 +29,7 @@
       "id": "adapt_sweat",
       "name": "Pocení",
       "description": "Snese horko, ale víc pije.",
-      "cost": 40,
+      "cost": 25,
       "effects": [
         { "type": "stat_add", "stat": "comfortMax", "value": 0.12 },
         { "type": "stat_mul", "stat": "thirstRate", "value": 1.1 },
@@ -67,7 +67,7 @@
       "id": "adapt_swim",
       "name": "Plavání",
       "description": "Umí plavat mělkou vodou, dostane se na blízké ostrovy.",
-      "cost": 50,
+      "cost": 30,
       "effects": [
         { "type": "unlock_ability", "ability": "swim" },
         { "type": "visual", "part": "feet", "variant": "webbed" }

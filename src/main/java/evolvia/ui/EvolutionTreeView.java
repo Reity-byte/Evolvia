@@ -90,11 +90,13 @@ public final class EvolutionTreeView {
         float textX = x + ui.title.width("Evoluční strom") + 24f;
         ui.text(ui.bold, String.format(Locale.ROOT, "%.0f EP", species.points()), textX, y + 3f, Ui.TEXT_ACCENT);
         textX += ui.bold.width(String.format(Locale.ROOT, "%.0f EP", species.points())) + 10f;
-        ui.text(ui.regular, String.format(Locale.ROOT, "k utracení  (+%.1f za minutu)", world.evolutionSystem().pointsPerMinute()),
-                textX, y + 3f, Ui.TEXT_DIM);
+        textX += ui.text(ui.regular, String.format(Locale.ROOT, "k utracení  (+%.1f za minutu)", world.evolutionSystem().pointsPerMinute()),
+                textX, y + 3f, Ui.TEXT_DIM) + 14f;
+        ui.text(ui.small, String.format(Locale.ROOT, "každý odemčený uzel zdraží další o %.0f %%",
+                species.base().evolution().costGrowthPerNode() * 100f), textX, y + 6f, Ui.TEXT_DIM);
         if (!message.isEmpty() && System.nanoTime() - messageTime < MESSAGE_NANOS) {
             float messageX = width / 2f - ui.bold.width(message) / 2f;
-            ui.text(ui.bold, message, Math.max(textX + 260f, messageX), y + 3f, messageGood ? 0xFF7FD68A : 0xFFE08A7A);
+            ui.text(ui.bold, message, Math.max(textX + 250f, messageX), y + 3f, messageGood ? 0xFF7FD68A : 0xFFE08A7A);
         }
         String closeLabel = "Zavřít (F4)";
         float closeWidth = ui.buttonWidth(closeLabel);
@@ -106,9 +108,10 @@ public final class EvolutionTreeView {
             Species.Availability availability = species.availability(hovered, world);
             if (ui.clicked(0, 0, width, ui.height())) {
                 unlock(world, hovered, availability);
+                hovered = species.currentLevel(hovered); // a trait moves on to its next level
                 availability = species.availability(hovered, world);
             }
-            drawTooltip(ui, hovered, availability);
+            drawTooltip(ui, species, hovered, availability);
         }
         ui.clickedAnywhere(); // clicks on the background do nothing
     }
@@ -154,8 +157,11 @@ public final class EvolutionTreeView {
     private static void drawLines(Ui ui, World world, TreeLayout layout, float ox, float oy) {
         Species species = world.species();
         for (EvolutionNode node : species.tree().nodes()) {
+            if (!node.isShown()) {
+                continue;
+            }
             TreeLayout.Box child = layout.node(node.id());
-            int color = switch (species.availability(node, world).status()) {
+            int color = switch (species.availability(species.currentLevel(node), world).status()) {
                 case UNLOCKED -> LINE_UNLOCKED;
                 case AVAILABLE -> LINE_AVAILABLE;
                 default -> LINE_LOCKED;
@@ -188,18 +194,24 @@ public final class EvolutionTreeView {
         EvolutionNode hovered = null;
         int[] stageCounts = world.stageCounts();
         int population = Math.max(1, world.creatureCount());
-        for (EvolutionNode node : species.tree().nodes()) {
-            TreeLayout.Box box = layout.node(node.id());
+        for (EvolutionNode card : species.tree().nodes()) {
+            if (!card.isShown()) {
+                continue;
+            }
+            TreeLayout.Box box = layout.node(card.id());
             float x = ox + box.x();
             float y = oy + box.y();
             if (y < clipTop) {
                 continue; // scrolled up out of view
             }
+            EvolutionNode node = species.currentLevel(card); // a levelled trait shows its next level (phase 10a)
+            EvolutionNode.Trait trait = node.trait();
             boolean hover = ui.hovered(x, y, box.w(), box.h()) && ui.mouseY() >= visibleTop;
             if (hover) {
                 hovered = node;
             }
             Species.NodeStatus status = species.availability(node, world).status();
+            String level = trait != null ? " · stupeň " + trait.level() : "";
             int fill;
             int border;
             int text;
@@ -211,14 +223,15 @@ public final class EvolutionTreeView {
                     border = 0xFF7FD68A;
                     text = Ui.TEXT;
                     subText = 0xFFBFE8C6;
-                    sub = "odemčeno · " + carrying(stageCounts, species.stageOf(node.id()), population) + " % populace";
+                    sub = (trait != null ? "vše odemčeno · " : "odemčeno · ")
+                            + carrying(stageCounts, species.stageOf(node.id()), population) + " % populace";
                 }
                 case AVAILABLE -> {
                     fill = hover ? 0xFF3E3726 : 0xFF2E2A20;
                     border = 0xFFE0B040;
                     text = Ui.TEXT;
                     subText = Ui.TEXT_ACCENT;
-                    sub = node.cost() + " EP – odemknout";
+                    sub = species.cost(node) + " EP – " + (trait != null ? "stupeň " + trait.level() : "odemknout");
                 }
                 case EXCLUDED -> {
                     fill = 0xFF2B2224;
@@ -232,13 +245,21 @@ public final class EvolutionTreeView {
                     border = 0xFF555A63;
                     text = Ui.TEXT_DIM;
                     subText = 0xFF7C828B;
-                    sub = node.cost() + " EP";
+                    sub = species.cost(node) + " EP" + level;
                 }
             }
             ui.draw().rect(x, y, box.w(), box.h(), fill);
             ui.draw().outline(x, y, box.w(), box.h(), status == Species.NodeStatus.AVAILABLE ? 2f : 1f, hover ? 0xFFFFFFFF : border);
-            String name = fit(ui.bold, node.name(), box.w() - 16f);
+            float pips = trait != null ? trait.levels() * 8f + 4f : 0f;
+            String name = fit(ui.bold, trait != null ? trait.name() : node.name(), box.w() - 16f - pips);
             ui.text(ui.bold, name, x + 8f, y + 5f, text);
+            if (trait != null) { // one square per level, filled when unlocked
+                int owned = species.unlockedLevels(node);
+                for (int i = 0; i < trait.levels(); i++) {
+                    float px = x + box.w() - 8f - (trait.levels() - i) * 8f;
+                    ui.draw().rect(px, y + 9f, 6f, 6f, i < owned ? 0xFF7FD68A : 0xFF30343C);
+                }
+            }
             ui.text(ui.small, sub, x + 8f, y + 25f, subText);
         }
         return hovered;
@@ -265,7 +286,7 @@ public final class EvolutionTreeView {
         ui.text(ui.small, "Najeď myší na uzel pro detail, kliknutím odemkneš. Nové znaky se objeví u mláďat.", x + 10f, y + 1f, Ui.TEXT_DIM);
     }
 
-    private static void drawTooltip(Ui ui, EvolutionNode node, Species.Availability availability) {
+    private static void drawTooltip(Ui ui, Species species, EvolutionNode node, Species.Availability availability) {
         float padding = 10f;
         float inner = TOOLTIP_WIDTH - 2 * padding;
         List<String> description = Ui.wrap(ui.regular, node.description(), inner);
@@ -295,7 +316,7 @@ public final class EvolutionTreeView {
         float ty = y + padding;
         String header = node.name();
         ui.text(ui.bold, header, x + padding, ty, Ui.TEXT);
-        String cost = node.cost() + " EP";
+        String cost = species.cost(node) + " EP";
         ui.text(ui.bold, cost, x + TOOLTIP_WIDTH - padding - ui.bold.width(cost), ty, Ui.TEXT_ACCENT);
         ty += ui.bold.lineHeight() + 2f;
         for (String line : description) {

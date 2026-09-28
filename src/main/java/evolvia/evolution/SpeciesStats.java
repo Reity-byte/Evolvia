@@ -51,6 +51,9 @@ public final class SpeciesStats {
         values.put(Stat.COMFORT_MAX, base.climate().comfortMax());
         values.put(Stat.PLANT_NUTRITION, base.diet().plantNutrition());
         values.put(Stat.MEAT_NUTRITION, base.diet().meatNutrition());
+        values.put(Stat.DAMAGE, 1f);
+        values.put(Stat.WORK_SPEED, base.skills().workSpeed());
+        values.put(Stat.LEARNING, base.skills().learning());
         return values;
     }
 
@@ -75,6 +78,10 @@ public final class SpeciesStats {
         float comfortMax = Math.max(comfortMin, v.get(Stat.COMFORT_MAX));
         SpeciesDefinition.Climate c = base.climate();
         float lifespan = positive(v.get(Stat.LIFESPAN));
+        SpeciesDefinition.Combat k = base.combat();
+        SpeciesDefinition.Combat combat = new SpeciesDefinition.Combat(k.territoryRadius(), k.aggroNeed(),
+                k.damagePerSecond() * positive(v.get(Stat.DAMAGE)), k.attackRange(), k.fleeHealth(), k.surrenderHealth(),
+                k.attackScore(), k.orderScore());
         return new SpeciesDefinition(
                 base.id(), base.name(), base.rgb(),
                 positive(v.get(Stat.SIZE)),
@@ -94,7 +101,8 @@ public final class SpeciesStats {
                 new SpeciesDefinition.Climate(comfortMin, comfortMax, c.needFactorPerUnit(), c.damageBeyond(), c.damagePerSecond()),
                 base.evolution(),
                 base.groups(),
-                base.combat());
+                combat,
+                new SpeciesDefinition.Skills(positive(v.get(Stat.WORK_SPEED)), positive(v.get(Stat.LEARNING))));
     }
 
     /** Keeps stats that must stay positive from reaching zero (a node could multiply by a tiny factor). */

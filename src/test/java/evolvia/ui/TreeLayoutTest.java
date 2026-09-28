@@ -25,7 +25,8 @@ class TreeLayoutTest {
     void everyNodeHasItsOwnPlace() {
         for (float width : new float[]{600f, 1200f, 2400f}) {
             TreeLayout layout = TreeLayout.of(tree, width);
-            assertEquals(tree.size(), layout.nodes().size());
+            assertEquals(tree.nodes().stream().filter(EvolutionNode::isShown).count(), layout.nodes().size(),
+                    "one card per node, one per levelled trait");
             assertTrue(layout.hasNoOverlaps(), "overlap at width " + width);
         }
     }
@@ -35,7 +36,7 @@ class TreeLayoutTest {
         TreeLayout layout = TreeLayout.of(tree, 1200f);
         for (EvolutionNode node : tree.nodes()) {
             for (String required : node.requires()) {
-                if (tree.node(required).branch().equals(node.branch())) {
+                if (node.isShown() && tree.node(required).branch().equals(node.branch())) {
                     assertTrue(layout.node(node.id()).y() > layout.node(required).bottom(), node.id() + " under " + required);
                 }
             }

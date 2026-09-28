@@ -517,6 +517,50 @@ Každá fáze se před začátkem rozepíše do detailu (podfáze, data, testy) 
 | **19 Zvuk a atmosféra** | zvuky prostředí (les, déšť, bouřka, noc), hudba podle denní doby a nebezpečí, zvuky zásahů, staveb a boje (OpenAL z LWJGL), hlasitost v nastavení | hra má zvuk, jde ztlumit po kategoriích a nesnižuje výkon |
 | **20 Vyvážení a verze 1.0** | automatické dlouhé simulace pro vyvážení, volitelné cíle (např. „Jediný kmen“, „Bůh všech“), statistiky hry, opravy, anglická lokalizace, vydání 1.0 přes launcher | dvouhodinová hra bez zaseknutí a propadů výkonu; vydání v1.0 |
 
+### Fáze 10 — Evoluce a věda (detail)
+Cíl: rychlý evoluční začátek, který pak zpomalí, a nový postup přes vědu, kterou tvoří sami lidé. Podfáze mají vlastní DoD a commit; vydání až po celé fázi 10.
+
+| Podfáze | Obsah | DoD |
+|---|---|---|
+| **10a Tempo evoluce a vlastnosti** | zdražování uzlů, levné první uzly a vyšší raný příjem EP, stupňované vlastnosti (Síla, Výdrž, Hbitost, Smysly, Odolnost, Plodnost, Bystrost), kompaktní zobrazení stupňů ve stromu | v simulaci přijde první uzel do ~2 min, Řeč do ~20 min; každý další uzel je dražší; stupně vlastností mají měřitelný efekt |
+| **10b Věda** | Znalosti od lidí, strom vědy s cílem výzkumu a frontou, objevy (Nástroje, Oheň, Stavitelství, Skladování, Obřady, Oděv, Vaření, Oštěpy, Léčitelství), stavby podmíněné objevy, UI (horní lišta, strom, záložka Věda) | věda začne s Řečí, lidé sami vytváří Znalosti, vybraný výzkum postupuje a každý objev má viditelný efekt; kmen bez objevů nestaví |
+| **10c Lidská podoba** | poslední kroky ke vzhledu člověka (Lidská postava, Vysoké čelo), oděv z kůží na modelu, vaření u ohně | lidé na konci fáze vypadají jako lidé, oděv je vidět a chrání před chladem |
+
+Rozhodnutí (Lucas, po 9i): věda se zkoumá **cílem výzkumu** (vybraný objev + fronta, Znalosti do něj plynou postupně, rozpracovaný postup se při přepnutí neztrácí), ne utrácením bodů. Věda začíná **Řečí**: první objev jsou Nástroje, uzel Kmen vyžaduje Řeč a objev Nástroje.
+
+#### 10a Tempo evoluce a vlastnosti (detail)
+- **Zdražování:** skutečná cena uzlu = cena z dat × (1 + `evolution.costGrowthPerNode` × počet odemčených uzlů), výchozí 0.12 (10. uzel stojí ~2× víc než první). Cena ve stromu, tooltipu i kontrole dostupnosti je vždy ta skutečná.
+- **Raný příjem:** `populationPointsPerMinute` 1 → 3 (log populace), první uzly levnější (Instinkty, Silné nohy, Bystrý zrak, Tuhá kůže, Býložravec / Všežravec ~15 EP). Milníky dávají EP jako dřív.
+- **Stupňované vlastnosti** (nová větev `traits` „Vlastnosti“, soubor `data/evolution/traits.json`): uzel s `"levels": N` a `"levelCostGrowth"` se při načtení rozvine na N uzlů `id_1 … id_N` („Síla I … V“), každý vyžaduje předchozí, cena stupně k = cena × růst^(k−1), efekty má každý stupeň stejné (násobí se). Stupně jdou přes generační evoluci jako každý uzel.
+  - *Síla* (5): útok ×1.15, rychlost práce ×1.08, hlad ×1.03.
+  - *Výdrž* (5): únava ×0.92, žízeň ×0.97.
+  - *Hbitost* (5): rychlost ×1.06.
+  - *Smysly* (5): dohled ×1.10.
+  - *Odolnost* (5): zdraví ×1.12, rozsah pohodlí o 0.03 na každou stranu.
+  - *Plodnost* (3): pauza mezi mláďaty ×0.92.
+  - *Bystrost* (5, vyžaduje Řeč): Znalosti ×1.10 (pro 10b).
+- **Nové statistiky:** `damage` (útok v boji a lovu), `workSpeed` (sběr a stavba), `learning` (Znalosti, využije 10b).
+- **Strom:** stupně jedné vlastnosti jsou jedna karta „Síla II / V“ s tečkami stupňů; klik odemkne další stupeň, tooltip ukazuje efekt a cenu dalšího stupně.
+- **Upřesněno při implementaci:** skutečnou cenu počítá `Species.cost(node)` (strom, tooltip, dostupnost, platba); zdražují i stupně vlastností. Levnější první uzly: Instinkty 10, Silné nohy a Bystrý zrak 15, Tuhá kůže a Býložravec 15–20, Větší tělo, Srst, Pocení 25, Plavání 30; střed cesty k Řeči zlevněn (Paměť 35, Sociální skupiny 60, Řeč 50, Vzpřímení 45, Chůze po dvou 60, Ruce 55). Stupeň vlastnosti je `EvolutionNode.Trait` (id, název, stupeň, počet); karta ve stromu ukazuje název, čtverečky odemčených stupňů a cenu dalšího stupně, tooltip patří dalšímu stupni. `damage` násobí `combat.damagePerSecond`, `workSpeed` a `learning` jsou v `SpeciesDefinition.Skills`. Hlavička stromu ukazuje zdražení. Simulace (seed 11, nákup vždy nejlevnějšího uzlu): uzly v minutách 1, 3, 4, 5, 7, 8, 12, 14, 19, 21, 27.
+- **Testy:** zdražování (cena roste s počtem uzlů, dostupnost ji respektuje), rozvinutí stupňů (id, názvy, ceny, požadavky), efekt Síly (útok, práce) a Bystrosti (stat), headless simulace tempa (automatický nákup nejlevnějšího uzlu: první uzel do 2 min, 8. uzel až po 10 min), starý save se načte (ceny se přepočtou, stupně chybí).
+
+#### 10b Věda (detail)
+- **Znalosti (ZN):** tvoří je dospělí tvého lidu s Řečí: `science.basePerMinute` × log(1 + dospělí) × Bystrost; navíc každý donesený náklad (`perDelivery`) a každá dostavěná stavba (`perBuilding`); kmen ×`tribeFactor`. Znalosti plynou do vybraného cíle výzkumu; bez cíle se hromadí v zásobě a použijí se na další cíl.
+- **Strom vědy** (`data/science/*.json`, stejná struktura uzlu jako evoluce, cena v ZN, také zdražování): Nástroje (sběr surovin, dříve uzel evoluce), Oheň (stavba ohniště), Stavitelství (přístřešek), Skladování (sklad, strop zásob ×1.2), Obřady (svatyně), Oděv z kůží (vyžaduje Oheň: rozsah pohodlí −0.12 dole), Vaření (vyžaduje Oheň: výživa rostlin ×1.15, masa ×1.3, menší riziko nemoci z mršiny), Oštěpy (vyžaduje Nástroje: útok a lov ×1.3), Léčitelství (nemoci se méně šíří a rychleji léčí).
+- **Kulturní efekty:** objev platí hned pro všechny žijící (neplatí generační evoluce), jeho efekty se přičtou ke každému stupni druhu.
+- **Stavby** mají `requires` objev; kmen si sám staví jen objevené, karty plánů neobjevených staveb jsou šedé s tooltipem „Vyžaduje objev …“.
+- **UI:** horní lišta „ZN 12 +6/min · Oheň 45 %“ a tlačítko Věda (F2) otevře strom vědy (stejné okno jako Evoluce, přepínač Evoluce / Věda); klik na dostupný objev = cíl výzkumu, Shift+klik = do fronty (max 5); spodní lišta dostane záložku **Věda** s kartami dostupných objevů a průběhem.
+- **Migrace:** `mind_tools` zmizí z evoluce; save starší než verze 10 s tímto uzlem dostane objev Nástroje. Kmen vyžaduje Řeč + objev Nástroje (nová podmínka `discovery`).
+- **Milníky:** První objev, Pět objevů.
+- **Save verze 10:** Znalosti, cíl, fronta, rozpracovaný postup a pořadí objevů.
+- **Testy:** Znalosti jen s Řečí a úměrně lidem, cíl postupuje a dokončí se, fronta, přepnutí nezahodí postup, kulturní efekt platí hned všem, stavby podmíněné objevy, migrace starého save, save → load identický.
+
+#### 10c Lidská podoba (detail)
+- *Lidská postava* `body_human_build` (vyžaduje Lidskou tvář): delší nohy, kratší ruce, užší trup (`build: human`), délka života ×1.05.
+- *Vysoké čelo* `mind_high_forehead` (vyžaduje Lidskou tvář a Řeč): Znalosti ×1.2, vyšší lebka (`head: human`).
+- *Oděv z kůží* (objev 10b) přidá na model kožený oděv (trup a stehna, barva kůže); vaření: lidé u ohniště občas „vaří“ (kouř nad ohništěm, když kmen jí).
+- **Testy:** modely s novými díly se postaví, oděv je jen s objevem, screenshoty celé cesty od zvířete k člověku.
+
 ### Průřezová infrastruktura (mimo fáze)
 Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádné fáze.
 

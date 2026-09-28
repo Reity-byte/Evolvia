@@ -1,0 +1,138 @@
+{
+  "branch": "traits",
+  "nodes": [
+    {
+      "id": "trait_strength",
+      "name": "Síla",
+      "description": "Silnější svaly: tvrdší rány v boji i na lovu a rychlejší práce, ale víc jídla.",
+      "cost": 30,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "damage",
+          "value": 1.15
+        },
+        {
+          "type": "stat_mul",
+          "stat": "workSpeed",
+          "value": 1.08
+        },
+        {
+          "type": "stat_mul",
+          "stat": "hungerRate",
+          "value": 1.03
+        }
+      ]
+    },
+    {
+      "id": "trait_endurance",
+      "name": "Výdrž",
+      "description": "Méně se unaví a pomaleji žízní.",
+      "cost": 30,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "energyDrain",
+          "value": 0.92
+        },
+        {
+          "type": "stat_mul",
+          "stat": "thirstRate",
+          "value": 0.97
+        }
+      ]
+    },
+    {
+      "id": "trait_agility",
+      "name": "Hbitost",
+      "description": "Rychlejší pohyb: dřív u jídla a vody, snáz uteče i dožene.",
+      "cost": 30,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "speed",
+          "value": 1.06
+        }
+      ]
+    },
+    {
+      "id": "trait_senses",
+      "name": "Smysly",
+      "description": "Bystřejší zrak, sluch a čich: vidí jídlo, vodu i nebezpečí dál.",
+      "cost": 25,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "sight",
+          "value": 1.1
+        }
+      ]
+    },
+    {
+      "id": "trait_resilience",
+      "name": "Odolnost",
+      "description": "Víc vydrží: zranění, chlad i horko.",
+      "cost": 35,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "maxHealth",
+          "value": 1.12
+        },
+        {
+          "type": "stat_add",
+          "stat": "comfortMin",
+          "value": -0.03
+        },
+        {
+          "type": "stat_add",
+          "stat": "comfortMax",
+          "value": 0.03
+        }
+      ]
+    },
+    {
+      "id": "trait_fertility",
+      "name": "Plodnost",
+      "description": "Kratší pauza mezi mláďaty.",
+      "cost": 40,
+      "levels": 3,
+      "levelCostGrowth": 1.6,
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "reproductionCooldown",
+          "value": 0.92
+        }
+      ]
+    },
+    {
+      "id": "trait_wit",
+      "name": "Bystrost",
+      "description": "Chápavější mysl: lid tvoří víc Znalostí pro vědu.",
+      "cost": 50,
+      "levels": 5,
+      "levelCostGrowth": 1.5,
+      "requires": [
+        "mind_speech"
+      ],
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "learning",
+          "value": 1.1
+        }
+      ]
+    }
+  ]
+}

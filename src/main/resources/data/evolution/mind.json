@@ -5,7 +5,7 @@
       "id": "mind_instincts",
       "name": "Instinkty",
       "description": "Pozornější k okolí: o něco dál vidí.",
-      "cost": 20,
+      "cost": 10,
       "effects": [
         { "type": "stat_mul", "stat": "sight", "value": 1.15 },
         { "type": "visual", "part": "ears", "variant": "alert" }
@@ -15,7 +15,7 @@
       "id": "mind_memory",
       "name": "Paměť",
       "description": "Pamatuje si, kde naposledy pila a jedla, a vrátí se tam, když nic nevidí.",
-      "cost": 50,
+      "cost": 35,
       "requires": ["mind_instincts"],
       "effects": [
         { "type": "unlock_ability", "ability": "memory" },
@@ -26,7 +26,7 @@
       "id": "mind_social_groups",
       "name": "Sociální skupiny",
       "description": "Stádo drží při sobě: dělí se o to, kde je voda a jídlo, stáda jsou větší a v boji si členové pomáhají.",
-      "cost": 80,
+      "cost": 60,
       "requires": ["mind_memory"],
       "requiresCondition": { "type": "population_min", "value": 25 },
       "effects": [
@@ -47,7 +47,7 @@
       "id": "mind_speech",
       "name": "Řeč",
       "description": "První slova a výkřiky: když jeden uvidí lovce, varuje celé stádo a utíkají všichni.",
-      "cost": 60,
+      "cost": 50,
       "requires": ["mind_social_groups"],
       "effects": [
         { "type": "unlock_ability", "ability": "speech" }

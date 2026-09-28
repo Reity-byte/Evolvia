@@ -173,7 +173,7 @@ public final class ActionContext {
 
     /** Speed of the current creature's work: the tribe works harder under an evil god. */
     public float workFactor() {
-        return inTribe() ? settlement.workFactor() : 1f;
+        return (inTribe() ? settlement.workFactor() : 1f) * species.skills().workSpeed(); // Strength (phase 10a)
     }
 
     /** Where the herd's materials go: its camp, or its home before the first delivery. */

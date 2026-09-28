@@ -89,9 +89,10 @@
     "damagePerSecond": 0.01
   },
   "evolution": {
-    "populationPointsPerMinute": 1.0,
+    "populationPointsPerMinute": 3.0,
     "pointsPerGeneration": 2.0,
     "harshPointsPerCreatureMinute": 0.02,
-    "traitStepsPerBirth": 1
+    "traitStepsPerBirth": 1,
+    "costGrowthPerNode": 0.12
   }
 }

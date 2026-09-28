@@ -348,8 +348,9 @@ public final class DataLoader {
                 "climate: comfortMin <= comfortMax, other values must not be negative");
         SpeciesDefinition.EvolutionRates evolution = s.evolution();
         require(evolution != null && evolution.populationPointsPerMinute() >= 0 && evolution.pointsPerGeneration() >= 0
-                        && evolution.harshPointsPerCreatureMinute() >= 0 && evolution.traitStepsPerBirth() >= 1, source,
-                "evolution: rates must not be negative, traitStepsPerBirth >= 1");
+                        && evolution.harshPointsPerCreatureMinute() >= 0 && evolution.traitStepsPerBirth() >= 1
+                        && evolution.costGrowthPerNode() >= 0, source,
+                "evolution: rates and costGrowthPerNode must not be negative, traitStepsPerBirth >= 1");
 
         SpeciesDefinition.Groups groups = s.groups();
         require(groups != null && groups.updateSeconds() > 0 && groups.joinRadius() > 0 && groups.minSize() >= 2
@@ -388,7 +389,8 @@ public final class DataLoader {
                 climate,
                 evolution,
                 groups,
-                combat);
+                combat,
+                SpeciesDefinition.Skills.NONE);
     }
 
     /** Loads and validates {@code data/resources.json}. */
@@ -482,16 +484,26 @@ public final class DataLoader {
                         effects.add(parseEffect(e, where));
                     }
                 }
-                nodes.add(new EvolutionNode(
-                        n.id(),
-                        n.name(),
-                        n.description() != null ? n.description() : "",
-                        branch.branch(),
-                        n.cost(),
-                        n.requires() != null ? List.copyOf(n.requires()) : List.of(),
-                        n.exclusiveGroup(),
-                        parseCondition(n.requiresCondition(), where, biomes),
-                        List.copyOf(effects)));
+                List<String> requires = n.requires() != null ? List.copyOf(n.requires()) : List.of();
+                String description = n.description() != null ? n.description() : "";
+                Condition condition = parseCondition(n.requiresCondition(), where, biomes);
+                if (n.levels() == null) {
+                    nodes.add(new EvolutionNode(n.id(), n.name(), description, branch.branch(), n.cost(), requires,
+                            n.exclusiveGroup(), condition, List.copyOf(effects)));
+                    continue;
+                }
+                // A levelled trait (phase 10a): one node per level, each requiring the level before.
+                require(n.levels() >= 2 && n.levels() <= ROMAN.length, where, "levels must be 2 to " + ROMAN.length);
+                float growth = n.levelCostGrowth() != null ? n.levelCostGrowth() : 1.5f;
+                require(growth >= 1f, where, "levelCostGrowth must be at least 1");
+                require(n.exclusiveGroup() == null, where, "a levelled trait cannot be in an exclusiveGroup");
+                for (int level = 1; level <= n.levels(); level++) {
+                    EvolutionNode.Trait trait = new EvolutionNode.Trait(n.id(), n.name(), level, n.levels());
+                    List<String> levelRequires = level == 1 ? requires : List.of(trait.nodeId(level - 1));
+                    nodes.add(new EvolutionNode(trait.nodeId(level), n.name() + " " + ROMAN[level - 1], description,
+                            branch.branch(), Math.round(n.cost() * (float) Math.pow(growth, level - 1)), levelRequires,
+                            null, level == 1 ? condition : null, List.copyOf(effects), trait));
+                }
             }
         }
         return new EvolutionTree(nodes, "data/evolution");
@@ -648,8 +660,12 @@ public final class DataLoader {
     }
 
     private record NodeJson(String id, String name, String description, Integer cost, List<String> requires,
-                            String exclusiveGroup, ConditionJson requiresCondition, List<EffectJson> effects) {
+                            String exclusiveGroup, ConditionJson requiresCondition, List<EffectJson> effects,
+                            Integer levels, Float levelCostGrowth) {
     }
+
+    /** Level names of levelled traits (phase 10a). */
+    private static final String[] ROMAN = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII"};
 
     private record EffectJson(String type, String stat, Float value, String ability, String part, String variant,
                               String action) {

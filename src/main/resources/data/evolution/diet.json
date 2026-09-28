@@ -5,7 +5,7 @@
       "id": "diet_herbivore",
       "name": "Býložravec",
       "description": "Specializace na rostliny: bobule víc zasytí.",
-      "cost": 30,
+      "cost": 15,
       "exclusiveGroup": "diet",
       "effects": [
         { "type": "stat_mul", "stat": "plantNutrition", "value": 1.4 },
@@ -16,7 +16,7 @@
       "id": "diet_omnivore",
       "name": "Všežravec",
       "description": "Jí rostliny i mršiny.",
-      "cost": 40,
+      "cost": 20,
       "exclusiveGroup": "diet",
       "effects": [
         { "type": "stat_add", "stat": "meatNutrition", "value": 1.0 },

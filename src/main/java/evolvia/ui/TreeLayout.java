@@ -67,7 +67,7 @@ public final class TreeLayout {
             int maxDepth = 0;
             List<EvolutionNode> branchNodes = new ArrayList<>();
             for (EvolutionNode node : tree.nodes()) {
-                if (node.branch().equals(branch)) {
+                if (node.branch().equals(branch) && node.isShown()) { // one card per levelled trait (phase 10a)
                     branchNodes.add(node);
                 }
             }

@@ -28,7 +28,7 @@ class EvolutionTreeTest {
     void shippedTreeLoadsWithAllBranches() {
         EvolutionTree tree = DataLoader.loadEvolutionTree(BIOMES);
         assertTrue(tree.size() >= 15, "only " + tree.size() + " nodes");
-        assertEquals(java.util.List.of("body", "diet", "adaptation", "mind"), tree.branches());
+        assertEquals(java.util.List.of("body", "diet", "adaptation", "mind", "traits"), tree.branches());
         assertNotNull(tree.node("mind_memory"));
         assertEquals(java.util.List.of("mind_instincts"), tree.node("mind_memory").requires());
     }

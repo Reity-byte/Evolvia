@@ -18,7 +18,13 @@ public enum Stat {
     COMFORT_MIN("comfortMin"),
     COMFORT_MAX("comfortMax"),
     PLANT_NUTRITION("plantNutrition"),
-    MEAT_NUTRITION("meatNutrition");
+    MEAT_NUTRITION("meatNutrition"),
+    /** Damage in fights and hunts (starts at 1, phase 10a). */
+    DAMAGE("damage"),
+    /** Speed of gathering and building (starts at 1, phase 10a). */
+    WORK_SPEED("workSpeed"),
+    /** Knowledge the creature makes (starts at 1, used by science in phase 10b). */
+    LEARNING("learning");
 
     private final String key;
 
