@@ -5,12 +5,8 @@ import evolvia.core.Time.Speed;
 import evolvia.evolution.EvolutionNode;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
-import evolvia.god.Faith;
-import evolvia.components.GroupMember;
 import evolvia.world.DeathStats;
-import evolvia.world.Groups;
 import evolvia.world.Nature;
-import evolvia.world.Settlement;
 import evolvia.world.World;
 
 import java.util.ArrayList;
@@ -18,8 +14,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Always visible top bar (species, population, EP, buttons for the species panel and the evolution
- * tree, game speed) and the species panel (DESIGN.md §9) with the current stats and what changed them.
+ * Always visible top bar (species, generation, EP, buttons for the species panel, the evolution tree and the
+ * herds, the time and weather, game speed) and the species panel (DESIGN.md §9) with the current stats and what
+ * changed them. The people, the stock and faith are in the {@link BottomBar} (phase 9i).
  */
 public final class Hud {
 
@@ -64,9 +61,6 @@ public final class Hud {
         boolean menuClicked = ui.button("Hra", x, 5f, ui.buttonWidth("Hra"), BAR_HEIGHT - 10f, menuOpen);
         x += ui.buttonWidth("Hra") + 14f;
         x += ui.text(ui.bold, species.stats().name(), x, y, Ui.TEXT) + 18f;
-        x += stat(ui, "Lid", Integer.toString(world.population()), x, y);
-        x += stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), x, y);
-        x += stat(ui, "Zvěř", Integer.toString(world.animalCount()), x, y);
         x += stat(ui, "Gen.", Integer.toString(world.maxGeneration()), x, y);
         x += stat(ui, "EP", String.format(Locale.ROOT, "%.0f", species.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", world.evolutionSystem().pointsPerMinute()),
@@ -99,10 +93,8 @@ public final class Hud {
             }
             x += hw + 6f;
         }
-        x += 16f;
-        faith(ui, world, x, y);
 
-        // Game speed, right-aligned
+        // Game speed, right-aligned; the time of day and the weather left of it
         Speed[] speeds = {Speed.PAUSED, Speed.NORMAL, Speed.FAST, Speed.FASTEST};
         String[] labels = {"Pauza", "1×", "3×", "10×"};
         float sx = w - 12f;
@@ -118,8 +110,7 @@ public final class Hud {
             }
             sx -= 4f;
         }
-        ui.text(ui.small, "Rychlost", sx - ui.small.width("Rychlost") - 6f, y + 2f, Ui.TEXT_DIM);
-        clock(ui, world, (int) time.tickCount());
+        clock(ui, world, (int) time.tickCount(), x + 12f, sx - 14f, y);
 
         if (speciesPanel && !tree.isVisible() && !menuOpen) {
             speciesPanel(ui, world);
@@ -127,66 +118,29 @@ public final class Hud {
         return menuClicked;
     }
 
-    /** Faith, believers and the god's alignment (good / evil). */
-    private static void faith(Ui ui, World world, float x, float y) {
-        Faith faith = world.godPowers().faith();
-        x += stat(ui, "Víra", String.format(Locale.ROOT, "%.0f", faith.points()), x, y);
-        x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", faith.perMinute()), x - 12f, y + 2f, Ui.TEXT_DIM) + 8f;
-
-        float barX = x;
-        float barY = y + 6f;
-        float barW = 64f;
-        float centre = barX + barW / 2f;
-        ui.draw().rect(barX, barY, barW, 6f, 0xFF30343C);
-        float value = faith.alignment();
-        if (value > 0) {
-            ui.draw().rect(centre, barY, barW / 2f * value, 6f, 0xFFE8D27A);
-        } else if (value < 0) {
-            ui.draw().rect(centre + barW / 2f * value, barY, -barW / 2f * value, 6f, 0xFFC0473A);
-        }
-        ui.draw().rect(centre - 0.5f, barY - 2f, 1f, 10f, 0xFF9AA0A8);
-        String label = value > 0.05f ? "dobrý bůh" : value < -0.05f ? "zlý bůh" : "neutrální";
-        float labelWidth = ui.text(ui.small, label, barX + barW + 6f, y + 2f, value > 0.05f ? 0xFFE8D27A : value < -0.05f ? 0xFFE08A7A : Ui.TEXT_DIM);
-        if (ui.hovered(barX - 4f, 0f, barW + labelWidth + 12f, BAR_HEIGHT)) {
-            String text = String.format(Locale.ROOT, "Morálka %+.2f · laskavé činy %d, kruté %d", value, faith.kindActs(), faith.cruelActs());
-            float w = ui.small.width(text) + 16f;
-            float tx = Math.min(barX, ui.width() - w - 4f);
-            ui.draw().rect(tx, BAR_HEIGHT + 4f, w, ui.small.lineHeight() + 10f, 0xF5181B20);
-            ui.text(ui.small, text, tx + 8f, BAR_HEIGHT + 9f, Ui.TEXT);
-        }
-    }
-
-    /** Day, time of day, season and weather: a small panel at the top right, under the bar. */
-    private static void clock(Ui ui, World world, int tick) {
+    /**
+     * Day, part of the day, season and weather in the top bar, right-aligned to {@code right} (phase 9i: the
+     * clock panel covered the creature panel). Parts that do not fit after {@code left} are left out.
+     */
+    private static void clock(Ui ui, World world, int tick, float left, float right, float y) {
         Nature nature = world.nature();
         String day = "Den " + world.clock().day(tick) + " · " + dayPart(world.clock().timeOfDay(tick));
         String season = nature.season(tick).name() + ", rok " + nature.year(tick);
         String weather = weather(world, tick);
-        String tribe = world.tribeGroup() != null
-                ? "Kmen " + world.tribeGroup().size + " · " + world.settlement().mood().label : null;
-        float width = Math.max(ui.bold.width(day), Math.max(ui.regular.width(season), ui.regular.width(weather)));
-        if (tribe != null) {
-            width = Math.max(width, ui.regular.width(tribe));
-        }
-        width += 20f;
-        float height = ui.bold.lineHeight() + (tribe != null ? 3 : 2) * ui.regular.lineHeight() + 14f;
-        float x = ui.width() - width - 8f;
-        float y = BAR_HEIGHT + 6f;
-        ui.panel(x, y, width, height);
-        ui.block(x, y, width, height);
-        float ty = y + 6f;
-        ui.text(ui.bold, day, x + 10f, ty, Ui.TEXT);
-        ty += ui.bold.lineHeight();
-        ui.text(ui.regular, season, x + 10f, ty, Ui.TEXT_ACCENT);
-        ty += ui.regular.lineHeight();
         boolean danger = nature.blizzard(tick) || !nature.burningTiles().isEmpty() || nature.floodLevel(tick) > 0f;
-        ui.text(ui.regular, weather, x + 10f, ty, danger ? 0xFFE08A7A : 0xFFB7C7DA);
-        if (tribe != null) {
-            ty += ui.regular.lineHeight();
-            Settlement.Mood mood = world.settlement().mood();
-            ui.text(ui.regular, tribe, x + 10f, ty, mood == Settlement.Mood.AFRAID ? 0xFFE08A7A
-                    : mood == Settlement.Mood.CONTENT ? 0xFF7FD68A : Ui.TEXT);
+        float gap = 14f;
+        float full = ui.bold.width(day) + gap + ui.regular.width(season) + gap + ui.regular.width(weather);
+        boolean withSeason = right - left >= full;
+        float width = withSeason ? full : ui.bold.width(day) + gap + ui.regular.width(weather);
+        if (right - left < width) {
+            return;
         }
+        float x = right - width;
+        x += ui.text(ui.bold, day, x, y, Ui.TEXT) + gap;
+        if (withSeason) {
+            x += ui.text(ui.regular, season, x, y, Ui.TEXT_ACCENT) + gap;
+        }
+        ui.text(ui.regular, weather, x, y, danger ? 0xFFE08A7A : 0xFFB7C7DA);
     }
 
     private static String weather(World world, int tick) {

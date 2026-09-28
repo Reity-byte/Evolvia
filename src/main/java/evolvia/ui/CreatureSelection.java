@@ -282,7 +282,7 @@ public final class CreatureSelection {
                     : "Klikni na bytost cizího stáda, na které má stádo zaútočit (pravé tlačítko zruší)";
             float hw = ui.bold.width(hint) + 24f;
             float hx = (ui.width() - hw) / 2f;
-            float hy = ui.height() - 110f;
+            float hy = ui.height() - BottomBar.HEIGHT - 40f;
             ui.draw().rect(hx, hy, hw, ui.bold.lineHeight() + 10f, 0xE8181B20);
             ui.text(ui.bold, hint, hx + 12f, hy + 5f, Ui.TEXT_ACCENT);
         }

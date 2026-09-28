@@ -135,7 +135,7 @@ public final class World implements EvolutionConditions {
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
                 creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting(), materialGrid, tribe.gathering(),
-                resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList(), settlement);
+                materials(), settlement);
         this.tribeSystem = new TribeSystem(groups, species, settlement, refuges, terrain, random);
         NeedsSystem needsSystem = new NeedsSystem(terrain, clock, refuges, nature);
         needsSystem.setSettlement(settlement);
@@ -403,6 +403,34 @@ public final class World implements EvolutionConditions {
 
     public TribeSystem tribeSystem() {
         return tribeSystem;
+    }
+
+    /** Materials that can be gathered, sorted by id ("stone", "wood"). */
+    public List<String> materials() {
+        return resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList();
+    }
+
+    /**
+     * The camp the bottom bar shows (phase 9i): the tribe's, else the camp of the player's herd with the biggest
+     * stock, or null while the people have no camp.
+     */
+    public Groups.Group playerCamp() {
+        Groups.Group tribeHerd = tribeSystem.tribe();
+        if (tribeHerd != null && tribeHerd.hasCamp) {
+            return tribeHerd;
+        }
+        Groups.Group best = null;
+        for (Groups.Group group : groups.all()) {
+            if (group.player && group.hasCamp && (best == null || group.stockTotal() > best.stockTotal())) {
+                best = group;
+            }
+        }
+        return best;
+    }
+
+    /** How much of each material a herd's camp stores (the tribe's store raises it). */
+    public float stockCap(Groups.Group group) {
+        return tribe.gathering().stockCap() * (group.tribe ? settlement.storageFactor() : 1f);
     }
 
     /** Extra faith from the shrine: a share of what the tribe's believers give. */

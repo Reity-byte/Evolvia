@@ -535,8 +535,8 @@ public final class ActionContext {
         Groups.Group mine = group();
         boolean sameKind = creatures.get(target) != null && creatures.get(target).species == kind;
         if (health.hp <= 0f) {
-            if (mine != null && mine.player && sameKind) {
-                groups.recordPlayerVictory();
+            if (mine != null && mine.player && (sameKind || creatures.get(target).species.isAnimal())) {
+                groups.recordPlayerVictory(); // a wild rival, a predator or game (phase 9i)
             }
             return true; // the aging system removes it this tick ("in a fight")
         }

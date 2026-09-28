@@ -2,7 +2,7 @@
   "milestones": [
     { "id": "people_20", "name": "Rostoucí lid", "description": "Tvůj lid má 20 bytostí.", "type": "people", "value": 20, "rewardEp": 30, "rewardFaith": 20 },
     { "id": "first_node", "name": "První krok evoluce", "description": "Odemkni první uzel evolučního stromu.", "type": "nodes", "value": 1, "rewardEp": 0, "rewardFaith": 30 },
-    { "id": "first_victory", "name": "První vítězství", "description": "Tvůj lid vyhraje střet s divokým stádem.", "type": "victories", "value": 1, "rewardEp": 25, "rewardFaith": 25 },
+    { "id": "first_victory", "name": "První vítězství", "description": "Tvůj lid vyhraje boj: nad divokým stádem, predátorem nebo na lovu.", "type": "victories", "value": 1, "rewardEp": 25, "rewardFaith": 25 },
     { "id": "second_herd", "name": "Dvě stáda", "description": "Tvůj lid tvoří aspoň dvě stáda (převzaté nebo rozdělené).", "type": "herds", "value": 2, "rewardEp": 40, "rewardFaith": 30 },
     { "id": "first_shelter", "name": "Útočiště", "description": "Aspoň 5 bytostí tvého lidu spí v úkrytu.", "type": "sheltered", "value": 5, "rewardEp": 20, "rewardFaith": 30 },
     { "id": "first_night", "name": "Přečkej noc", "description": "Tvůj lid přežije první noc.", "type": "days", "value": 1, "rewardEp": 20, "rewardFaith": 20 },

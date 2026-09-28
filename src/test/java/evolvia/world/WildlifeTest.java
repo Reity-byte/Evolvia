@@ -6,6 +6,7 @@ import evolvia.components.AiState;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
 import evolvia.components.GroupMember;
+import evolvia.components.Health;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -167,6 +168,7 @@ class WildlifeTest {
             world.tick(tick);
         }
         assertTrue(needs.hunger < before - 0.2f, "the wolf ate: " + before + " -> " + needs.hunger);
+        assertEquals(0, world.groups().playerVictories(), "a wolf's catch is no victory of the people");
     }
 
     @Test
@@ -254,5 +256,24 @@ class WildlifeTest {
         world.tick(0);
         assertEquals(deerHerd.id, herd.attackGroup, "a hunt on the god's order");
         assertNotNull(deerHerd.species);
+    }
+
+    @Test
+    void killingGameOrAPredatorIsAVictory() {
+        for (String id : List.of("deer", "wolf")) {
+            World world = create(8);
+            Groups.Group herd = world.groups().all().stream().filter(g -> g.player).findFirst().orElseThrow();
+            int target = ofSpecies(world, id).getFirst();
+            Groups.Group theirs = world.groups().get(world.ecs().get(target, GroupMember.class).group);
+            Transform leader = at(world, herd.leader);
+            world.moveCreature(target, leader.position.x + 1f, leader.position.z);
+            world.ecs().get(target, Health.class).hp = 0.01f; // one blow is enough
+            world.godPowers().faith().add(100f);
+            assertTrue(world.godPowers().request(new GodPowers.HandCommand(HandAction.ATTACK, herd.leader, target, 0, 0)));
+            for (int tick = 0; tick < 20 * Time.TICKS_PER_SECOND && world.groups().playerVictories() == 0; tick++) {
+                world.tick(tick);
+            }
+            assertEquals(1, world.groups().playerVictories(), id + " killed by the people is a victory (herd " + theirs.id + ")");
+        }
     }
 }

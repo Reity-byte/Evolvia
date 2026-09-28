@@ -365,12 +365,14 @@ Rozděleno do podfází; každá má vlastní DoD, commit a vydání a začíná
 | **9f Divoká zvěř** | kořist a predátoři jako druhy bez hráče, akce `Hunt` | predátoři ohrožují stáda, lov dává maso |
 | **9g Nástroje a sběr** | stromy a kámen ve světě, uzel *Nástroje*, `Gather` / `Carry` / `Deliver`, sběrné místo skupiny | suroviny se sbírají a hromadí, je vidět, kdo co nese |
 | **9h Řeč a kmen** | uzel *Kmen*: z největší skupiny vznikne kmen s tábořištěm, zásoby, role (sběrač, stavitel), stavby sklad / přístřešek / ohniště, `Build` | kmen sám postaví ≥ 3 druhy staveb a ty mají měřitelný efekt |
+| **9i Spodní lišta** | (po testu fáze 9) spodní lišta ve stylu The Universim: lid, suroviny, záložky Zásahy / Stavby, Víra; štíhlejší horní lišta; milník vítězství i za predátory a lov | UI se nepřekrývá na 1280×720, vše z horní lišty a lišty zásahů je dostupné, „První vítězství“ jde získat na každé mapě |
 
 Rozhodnutí k fázi 9 (celé):
 - **Stavby (9h):** kmen staví sám podle potřeb; hráč navíc může za Víru umístit *božský plán* stavby, který má přednost (kombinace Black & White a Universim).
 - **Kmeny (9h):** kmen vznikne z největší skupiny, ostatní skupiny se k němu časem přidají, nebo později založí vlastní kmen (příprava na soupeření). Ve fázi 9 jen jeden kmen hráčova druhu.
 - **Morálka (9h):** víra se promítne do kmene. Dobrý bůh = spokojenější kmen, rychlejší rozmnožování. Zlý bůh = strach, rychlejší práce, ale méně mláďat a občas útěk z kmene.
 - **Pořadí:** vzpřímená chůze a humanoidní model (9b) předchází nošení surovin a stavbám. Po zpětné vazbě na prázdnou ranou hru přišly před nástroje podfáze 9c–9f (rané hraní, noc, příroda, zvěř).
+- **Zpětná vazba po testu fáze 9 (Lucas):** vše funguje, ale zatím je to spíš simulátor začátků. Rozhodnuto: (1) UI staveb, zásahů a surovin do jedné spodní lišty (9i, hned); (2) „První vítězství“ počítá i predátory a lov (9i); (3) rozdělit evoluci a vědu: evoluce (EP) = tělo a mysl, rychlý levný začátek a pak stále dražší stupně; věda = nový strom od kmene, body tvoří sami lidé (fáze 10); (4) přístřešek pojme jen omezený počet bytostí, víc staveb se tak vyplatí (domy ve fázi 14); stavby a jejich UI se budou dál předělávat.
 - **Fáze 10+ — Soupeřící kmeny a války:** AI kmeny jiného druhu, území, nájezdy, souboje, vliv dobrého / zlého boha; spolu s vyhynutím tvoří game over. Detail před začátkem fáze.
 
 #### 9a Skupiny (detail)
@@ -468,6 +470,21 @@ Rozhodnutí k fázi 9 (celé):
 - **Save verze 9:** kmen, role, stavby (rozestavěné i hotové, plány), fronta plánů.
 - **Testy:** kmen vznikne z největšího stáda jen s uzlem, stáda se přidávají, role, kmen sám postaví ≥ 3 druhy staveb, efekt každé stavby (ohniště: chlad, přístřešek: útočiště, sklad: strop, svatyně: Víra), plán má přednost a stojí Víru, poplach s Řečí, morálka (dobrý: rychlejší mláďata, zlý: rychlejší práce a útěky), save → load identický.
 
+#### 9i Spodní lišta (detail)
+Mezifáze po testu celé fáze 9, před fází 10. Jen UI a milník, simulace se nemění (save verze zůstává 9).
+- **Spodní lišta** (přes celou šířku, dole, ~64 px, blokuje myš), zleva doprava:
+  - *Lid*: počet tvého lidu, kmen a jeho nálada (barevně), divocí lidé a zvěř (dva řádky).
+  - *Suroviny*: zásoby tábora tvého lidu (kmene, jinak stáda s největším táborem) jako „Dřevo 20 / 40“; bez tábora šedé „Tábor zatím není“. Tooltip: kde tábor je a strop zásob.
+  - *Záložky*: svislé přepínače **Zásahy** a **Stavby**. Stavby jsou šedé, dokud není kmen (tooltip „Stavby odemkne kmen“); když kmen vznikne, záložka krátce svítí.
+  - *Obsah záložky*: karty (název, cena, barevný proužek). Zásahy = dnešní božské zásahy, Stavby = božské plány staveb (cena ve Víře, tooltip s cenou v surovinách pro kmen). Šířka karet se přizpůsobí oknu (min. ~72 px).
+  - *Víra*: body, přírůstek za minutu, ukazatel dobrý / zlý bůh (tooltip s morálkou jako dnes).
+- **Horní lišta** se zúží: Hra, druh, Gen., EP (+/min), Druh, Evoluce, Stáda, čas (den, část dne, období, počasí; nebezpečí červeně), rychlost. Panel hodin vpravo nahoře zmizí (překrýval ho panel bytosti), údaje o kmeni jsou dole.
+- **Nápovědy a tooltipy** (vybraný zásah, plán, rozkaz ruky, hlášky „nedostatek Víry“) se kreslí nad spodní lištu.
+- **Klávesy:** Tab přepíná záložky Zásahy / Stavby (číslice zůstávají rychlosti hry).
+- **Milník „První vítězství“:** počítá se i zabití predátora (vlk) a úlovek zvěře tvým lidem, nejen porážka divokého stáda lidí. Popis: „Tvůj lid vyhraje boj: nad divokým stádem, predátorem nebo na lovu.“ Počítadlo v panelu Druh „vítězství“ zahrnuje obojí.
+- **Upřesněno při implementaci:** `PowerBar` se stal `BottomBar` (zásahy i plány v něm, logika beze změny). Karty mají pevné sekce vlevo (lid 150 px, suroviny 124 px, záložky 84 px) a vpravo (Víra 158 px), karty mezi nimi jsou 64–120 px široké a vystředěné; dlouhý název se zmenší nebo zkrátí „…“. Zásoby ukazuje `World.playerCamp()` a strop `World.stockCap()`. Čas v horní liště vynechá období, když se nevejde. Záložka Stavby svítí 10 s, jen když kmen vznikne během hry (ne po načtení). Opraveno: klik, kterým se použil zásah nebo umístil plán, zároveň nevybere bytost.
+- **Testy:** vítězství za zabitého vlka a uloveného jelena, ne za bytost zabitou divokým stádem; rozvržení lišty na 1280×720 a 1024×600 se nepřekrývá (layout spočítaný bez GL); screenshoty: start (bez kmene, Stavby šedé), kmen se zásobami, vybraný plán, panel bytosti vpravo.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.
@@ -484,16 +501,16 @@ Rozhodnutí k fázi 9 (celé):
 - **Testy:** každý postoj se postaví a stojí na zemi, vzpřímený má 2 nohy + 2 ruce v pohybu, je vyšší než čtyřnožec, každý uzel řetězu viditelně změní model, `hands` odemkne až poslední uzel.
 
 ### Fáze 10–20 — plán do verze 1.0
-Každá fáze se před začátkem rozepíše do detailu (podfáze, data, testy) a začne se až po schválení. Pořadí je doporučené a může se po testování fáze 9 změnit.
+Každá fáze se před začátkem rozepíše do detailu (podfáze, data, testy) a začne se až po schválení. Po testu fáze 9 přibyla fáze 10 *Evoluce a věda*; dřívější fáze *Lidé* se rozpustila do fáze 10 (vzhled, oheň, oděv, vaření jako věda) a 14 (domy a rodiny).
 
 | Fáze | Obsah | DoD |
 |---|---|---|
-| **10 Soupeřící kmeny** | AI kmen jiného druhu („zvířecí lidé“, druh s vlastní automatickou evolucí a vzhledem), vlastní tábor, stavby a území; nájezdy na zásoby a stáda; zajatci a obrácení na víru; zničení kmene; game over = zánik lidu nebo kmene | soupeřící kmen sám roste, staví a útočí; hráč ho může odrazit, obrátit na svou víru nebo zničit |
-| **11 Válka a obrana** | uzel *Zbraně* (kopí, kamenné sekery), role válečník a hlídka, palisáda a strážní věž, morálka v boji (útěk, vzdání), božské zásahy do bitvy (požehnání bojovníků, blesk, strach) | bitva dvou kmenů má viditelný průběh a výsledek; obrana z opevněného tábora je měřitelně silnější |
-| **12 Víra a kult** | šaman / kněz, modlitby lidu (kmen žádá déšť, jídlo, ochranu; splnění zvyšuje víru, nesplnění ji snižuje), rituály a oběti (zlá cesta), zlé zásahy (mor, zemětřesení, strach) a dobré (uzdravení kmene, úroda); větší rozdíl dobrého a zlého boha | kmen se modlí o konkrétní věci a reaguje na odpověď; dobrá a zlá cesta mají každá vlastní zásahy a důsledky |
-| **13 Lidé** | poslední kroky od zvířete k člověku (vzhled, postoj, ztráta srsti volitelně), oděv z kůží (chrání před chladem), rozdělávání ohně, vaření (lepší výživa), lov lidí ve skupině | bytosti vypadají jako lidé, oděv a vaření mají měřitelný efekt |
-| **14 Zemědělství a osada** | pole a sklizeň podle ročních období, domestikace zvěře (ohrada), zásoby jídla a sýpka, příprava na zimu; kmen se mění ve vesnici (domy místo přístřešků) | vesnice díky zásobám přežije zimu a roste i bez divoké potravy |
-| **15 Řemesla a věky** | nové suroviny (hlína, ruda), dílny, uzly Keramika, Tkaní, Kovářství; věky (kámen → bronz) mění vzhled staveb, nástrojů a zbraní | kmen projde aspoň dvěma věky s viditelnou a měřitelnou změnou |
+| **10 Evoluce a věda** | rozdělení postupu: *evoluce* (EP) = tělo a mysl, levný rychlý začátek, pak stupňované vlastnosti (Síla, Výdrž, Rychlost, Smysly, Odolnost I–V) se stále vyšší cenou, poslední kroky ke vzhledu člověka; *věda* = nový strom od kmene, body tvoří lidé (pozorování, práce, později učenec/šaman), odemyká nástroje, stavby, oheň, oděv, vaření; přesun Nástrojů z evoluce do vědy; záložka Věda ve spodní liště | prvních ~15 minut přinese rychlý sled evolučních uzlů, pak evoluce zpomalí a tempo převezme věda; každý vědecký objev má viditelný efekt |
+| **11 Soupeřící kmeny** | AI kmen jiného druhu („zvířecí lidé“, druh s vlastní automatickou evolucí a vzhledem), vlastní tábor, stavby a území; nájezdy na zásoby a stáda; zajatci a obrácení na víru; zničení kmene; game over = zánik lidu nebo kmene | soupeřící kmen sám roste, staví a útočí; hráč ho může odrazit, obrátit na svou víru nebo zničit |
+| **12 Válka a obrana** | věda *Zbraně* (kopí, kamenné sekery), role válečník a hlídka, palisáda a strážní věž, morálka v boji (útěk, vzdání), božské zásahy do bitvy (požehnání bojovníků, blesk, strach) | bitva dvou kmenů má viditelný průběh a výsledek; obrana z opevněného tábora je měřitelně silnější |
+| **13 Víra a kult** | šaman / kněz, modlitby lidu (kmen žádá déšť, jídlo, ochranu; splnění zvyšuje víru, nesplnění ji snižuje), rituály a oběti (zlá cesta), zlé zásahy (mor, zemětřesení, strach) a dobré (uzdravení kmene, úroda); větší rozdíl dobrého a zlého boha | kmen se modlí o konkrétní věci a reaguje na odpověď; dobrá a zlá cesta mají každá vlastní zásahy a důsledky |
+| **14 Zemědělství a vesnice** | pole a sklizeň podle ročních období, domestikace zvěře (ohrada), sýpka a příprava na zimu; rodiny a domy s omezenou kapacitou (místo jednoho přístřešku pro všechny), kmen se mění ve vesnici; nové UI staveb (kategorie ve spodní liště) | vesnice díky zásobám přežije zimu a roste i bez divoké potravy; počet domů měřitelně omezuje růst |
+| **15 Řemesla a věky** | nové suroviny (hlína, ruda), dílny, věda Keramika, Tkaní, Kovářství; věky (kámen → bronz) mění vzhled staveb, nástrojů a zbraní | kmen projde aspoň dvěma věky s viditelnou a měřitelnou změnou |
 | **16 Osady a diplomacie** | více osad hráčova lidu (kolonie, pěšiny mezi nimi), obchod mezi osadami a s AI kmeny, spojenectví a nepřátelství, vliv boha na vztahy | hráčův lid má 2+ osady, obchoduje a udrží mír nebo vede válku s AI kmenem |
 | **17 Velký svět a výkon** | mapa 512², zjednodušená simulace vzdálených oblastí, LOD a ořez vykreslování, minimapa, nastavení nového světa (velikost, ostrovy / kontinent, množství zvěře) | 512² svět s 3 000+ bytostmi běží na cílovém FPS; minimapa a nastavení světa fungují |
 | **18 Menu, nastavení a první kroky** | hlavní menu (Pokračovat, Nová hra, Načíst, Nastavení), nastavení grafiky a ovládání, úvodní průvodce přes milníky, encyklopedie druhů, staveb a zásahů | nový hráč se bez návodu dostane k prvnímu kmeni |

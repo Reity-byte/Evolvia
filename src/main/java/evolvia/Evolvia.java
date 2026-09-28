@@ -39,7 +39,7 @@ import evolvia.ui.GroundPicker;
 import evolvia.ui.Hud;
 import evolvia.ui.Notifications;
 import evolvia.ui.PopulationGraph;
-import evolvia.ui.PowerBar;
+import evolvia.ui.BottomBar;
 import evolvia.ui.Ui;
 import evolvia.world.Biome;
 import evolvia.world.BiomeTable;
@@ -62,6 +62,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F4;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
@@ -90,7 +91,7 @@ public final class Evolvia implements GameLoop.Handler {
     private final CreatureSelection selection = new CreatureSelection();
     private final EvolutionTreeView treeView = new EvolutionTreeView();
     private final Hud hud = new Hud();
-    private final PowerBar powerBar = new PowerBar();
+    private final BottomBar bottomBar = new BottomBar();
     private final GameMenu gameMenu = new GameMenu();
     private final Notifications notifications = new Notifications();
     private int debugDisaster;
@@ -210,8 +211,8 @@ public final class Evolvia implements GameLoop.Handler {
                 gameMenu.close();
             } else if (selection.hasPendingHand()) {
                 selection.cancelHand();
-            } else if (powerBar.isArmed()) {
-                powerBar.disarm();
+            } else if (bottomBar.isArmed()) {
+                bottomBar.disarm();
             } else if (treeView.isVisible()) {
                 treeView.close();
             } else if (selection.selected(world) >= 0) {
@@ -239,6 +240,9 @@ public final class Evolvia implements GameLoop.Handler {
         }
         if (input.isKeyPressed(GLFW_KEY_F7)) {
             world.species().addPoints(100f); // debug
+        }
+        if (input.isKeyPressed(GLFW_KEY_TAB) && !treeView.isVisible() && !gameMenu.isVisible()) {
+            bottomBar.nextTab(world);
         }
         if (input.isKeyPressed(GLFW_KEY_G)) {
             hud.toggleGroups();
@@ -280,7 +284,7 @@ public final class Evolvia implements GameLoop.Handler {
             } else {
                 gameMenu.open(saves.list());
                 treeView.close();
-                powerBar.disarm();
+                bottomBar.disarm();
             }
         }
         if (gameMenu.isVisible()) {
@@ -308,9 +312,9 @@ public final class Evolvia implements GameLoop.Handler {
                 milestonePanel.build(ui, world, Hud.BAR_HEIGHT);
             }
             selection.buildPanel(ui, world, Hud.BAR_HEIGHT, notifications);
-            powerBar.build(ui, world);
+            bottomBar.build(ui, world);
             if (selection.hasPendingHand()) {
-                powerBar.disarm();
+                bottomBar.disarm();
             }
         }
         for (Milestones.Milestone m : world.milestones().takeAnnouncements()) {
@@ -334,9 +338,10 @@ public final class Evolvia implements GameLoop.Handler {
         }
 
         brush = null;
-        if (!treeView.isVisible() && !gameMenu.isVisible() && !mouseOnUi && powerBar.isArmed()) {
+        boolean armed = bottomBar.isArmed(); // the click that uses a power or places a plan selects nobody
+        if (!treeView.isVisible() && !gameMenu.isVisible() && !mouseOnUi && armed) {
             Vector3f ground = groundPicker.pick(input, window, camera, world.terrain());
-            brush = powerBar.handleWorld(input, world, ground, frameSeconds);
+            brush = bottomBar.handleWorld(input, world, ground, frameSeconds);
         }
 
         if (selection.isFollowing()) {
@@ -351,7 +356,7 @@ public final class Evolvia implements GameLoop.Handler {
         cameraController.update(input, window, frameSeconds, !mouseOnUi, !treeView.isVisible());
         if (!mouseOnUi && selection.hasPendingHand()) {
             selection.handleHand(input, window, camera, world, notifications);
-        } else if (!mouseOnUi && !powerBar.isArmed()) {
+        } else if (!mouseOnUi && !armed) {
             selection.handleInput(input, window, camera, world);
         }
     }
@@ -368,7 +373,7 @@ public final class Evolvia implements GameLoop.Handler {
         sceneRenderer = new SceneRenderer(world, worldConfig.water());
         cameraController.setTerrain(world.terrain());
         selection.clear();
-        powerBar.disarm();
+        bottomBar.disarm();
         treeView.close();
         autosaveTimer = 0f;
     }
