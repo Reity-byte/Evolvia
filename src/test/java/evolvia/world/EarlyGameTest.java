@@ -58,7 +58,7 @@ class EarlyGameTest {
     }
 
     private static List<Groups.Group> wildHerds(World world) {
-        return world.groups().all().stream().filter(g -> !g.player).toList();
+        return world.groups().all().stream().filter(g -> !g.player && g.species == null).toList(); // not wild game
     }
 
     private static List<Integer> members(World world, Groups.Group group) {

@@ -63,7 +63,9 @@ public final class ReproductionSystem implements GameSystem {
                     z = births.z(i);
                 }
                 Genome genome = factory.inherit(species, a, b);
-                maxGeneration = Math.max(maxGeneration, genome.generation);
+                if (!kind.isAnimal()) {
+                    maxGeneration = Math.max(maxGeneration, genome.generation); // generations of the player's species
+                }
                 int child = factory.spawn(kind, stage, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
                 if (believer) {
                     world.add(child, new Believer());

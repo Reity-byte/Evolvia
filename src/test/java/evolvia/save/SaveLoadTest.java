@@ -205,12 +205,13 @@ class SaveLoadTest {
         SaveData.EcsData e = save.ecs();
         SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
                 e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
-                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null);
+                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null, null);
         SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
                 save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null, null);
         World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();
         assertEquals(world.population(), loaded.population());
-        assertEquals(0, loaded.groups().count());
+        assertTrue(loaded.groups().all().stream().noneMatch(g -> g.species == null), "herds of the people form again");
+        assertTrue(loaded.animalCount() > 0, "an old save gets wild game");
     }
 
     @Test

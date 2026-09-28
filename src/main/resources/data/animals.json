@@ -1,0 +1,64 @@
+{
+  "hunting": {
+    "hungerThreshold": 0.45,
+    "chaseSeconds": 40,
+    "score": 0.6,
+    "nightBonus": 0.25,
+    "scareRadius": 9,
+    "scareSeconds": 3,
+    "fleeDistance": 12,
+    "biteFactor": 3
+  },
+  "animals": [
+    {
+      "id": "deer",
+      "role": "prey",
+      "prey": [],
+      "nocturnal": false,
+      "herds": 4,
+      "herdSize": [5, 8],
+      "biomes": ["forest", "grass"],
+      "visuals": { "legs": "long", "ears": "alert", "horns": "antlers", "teeth": "flat" },
+      "species": {
+        "name": "Jelen",
+        "color": "#a0714a",
+        "bodySize": 1.0,
+        "speed": 1.8,
+        "maxHealth": 0.9,
+        "lifespanSeconds": [1100, 1500],
+        "senseRadius": 35.0,
+        "reproduction": { "adultAgeSeconds": 240, "cooldownSeconds": 260 },
+        "climate": { "comfortMin": 0.15, "comfortMax": 0.8 },
+        "population": { "starting": 0, "max": 90, "wildHerds": 0, "wildHerdSize": 0 },
+        "diet": { "plantNutrition": 1.0, "meatNutrition": 0.0 },
+        "groups": { "minFounders": 3, "minSize": 2, "maxSize": 10 }
+      }
+    },
+    {
+      "id": "wolf",
+      "role": "predator",
+      "prey": ["deer", "protocreature"],
+      "nocturnal": true,
+      "herds": 2,
+      "herdSize": [3, 4],
+      "biomes": ["forest", "grass", "tundra"],
+      "visuals": { "teeth": "sharp", "fur": "thick", "ears": "alert", "legs": "long" },
+      "species": {
+        "name": "Vlk",
+        "color": "#7d7f86",
+        "bodySize": 0.9,
+        "speed": 2.1,
+        "maxHealth": 1.2,
+        "lifespanSeconds": [1500, 2000],
+        "senseRadius": 45.0,
+        "needs": { "hungerPerSecond": 0.003 },
+        "reproduction": { "adultAgeSeconds": 360, "cooldownSeconds": 360, "maxNeed": 0.6, "litterSize": 2 },
+        "climate": { "comfortMin": 0.1, "comfortMax": 0.75 },
+        "population": { "starting": 0, "max": 16, "wildHerds": 0, "wildHerdSize": 0 },
+        "diet": { "plantNutrition": 0.0, "meatNutrition": 1.0 },
+        "groups": { "minFounders": 2, "minSize": 2, "maxSize": 5, "followDistance": 6 },
+        "combat": { "damagePerSecond": 0.2, "fleeHealth": 0.3 }
+      }
+    }
+  ]
+}

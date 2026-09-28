@@ -1,5 +1,7 @@
 package evolvia.world;
 
+import evolvia.evolution.Species;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.TreeMap;
@@ -24,6 +26,8 @@ public final class Groups {
         public int size;
         /** The player's people (believers) or a wild herd. */
         public boolean player;
+        /** Species of the herd (phase 9f); null = the player's species. */
+        public Species species;
         /** Home: the centre of the territory. Follows the leader unless the god settled the herd. */
         public float homeX;
         public float homeZ;
@@ -93,8 +97,13 @@ public final class Groups {
     }
 
     /** Whether two herds fight each other (the player's herds never fight among themselves). */
-    public static boolean enemies(Group a, Group b) {
+    /** The god may order herd {@code a} to attack herd {@code b}: any other herd but the player's own (also game). */
+    public static boolean canAttack(Group a, Group b) {
         return a != null && b != null && a != b && !(a.player && b.player);
+    }
+
+    public static boolean enemies(Group a, Group b) {
+        return a != null && b != null && a != b && !(a.player && b.player) && a.species == b.species; // territory: own kind
     }
 
     /** Called when a creature dies: a dead leader has to be replaced. */

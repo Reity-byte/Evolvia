@@ -427,6 +427,19 @@ Rozhodnutí k fázi 9 (celé):
 - **Upřesněno při implementaci:** oheň se šíří těsně pod hranicí, kdy by prošel celým lesem (šance za sekundu les 0.05, tráva 0.03, bažina 0.01, hoření 15 s, spálená zem 120 s, nejvýš 300 dlaždic), jinak na malé mapě spálil vše a lid vyhladověl. Za deště hoří 3× kratší dobu a šíří se 5× méně. Požár katastrofy začíná 3×3 dlaždic 15–35 polí od lidu. Nemoc: šíření 0.05 / s v okruhu 3. Spálená zem je tmavá přes texturu v terrain shaderu. Den, období a počasí ukazuje panel vpravo pod lištou. Ladicí klávesy: F11 další počasí, F12 další katastrofa (požár, záplava, vánice).
 - **Testy:** koloběh období a jejich efekty, počasí ze semínka a jeho střídání, déšť zmírní žízeň, zkažená mršina → nemoc → šíření ve stádu → uzdravení rukou, požár se šíří jen po hořlavé zemi, pálí keře a zraňuje, zásah Déšť ho uhasí, záplava zatopí nízké pobřeží a opadne, vánice ochladí, v ochranné době žádné katastrofy, save → load → identický běh s hořícím požárem a nemocí.
 
+#### 9f Divoká zvěř (detail)
+- **Data** `data/animals.json`: druh zvěře = základní `species.json` s přepsanými hodnotami, role (kořist / predátor), vzhled, počet a velikost stád, biomy, koho loví, noční; společný blok `hunting` (práh hladu, délka honu, skóre, noční bonus, dosah plašení).
+  - *Jelen* (kořist): rychlý býložravec, stáda 5–8 v lese a trávě, dožije se méně než lid.
+  - *Vlk* (predátor): masožravec, smečky 3–4, loví jeleny i tvůj lid, přes den spí a loví hlavně v noci.
+- **Zvěř je druh bez evolučního stromu a bez víry:** nevěří (déšť, blesk ani požehnání to nezmění), nedává Víru ani EP, nepočítá se do lidu ani divokých; horní lišta ji ukazuje zvlášť. Rozmnožuje se s vlastním stropem `population.max`.
+- **Stáda podle druhu:** stádo má druh; bytosti se přidávají jen ke stádu svého druhu a pravidla stáda (velikost, vzdálenosti) jsou z jeho definice. O území se perou jen stáda stejného druhu.
+- **Lov (`Hunt`):** masožravec s hladem nad prahem si vybere nejbližší kořist v dohledu (predátor druhy ze svého seznamu; tvůj lid s Masožravcem zvěř s rolí kořist), žene se za ní nejvýš `chaseSeconds` a útočí jako v boji. Zabitá kořist zůstane jako mršina a lovec ji sní. Predátor loví v noci ochotněji. Kdo spí v útočišti, toho predátor neloví (útočiště chrání).
+- **Útěk a obrana:** kořist, za kterou se lovec žene, i její stádo v okolí utíkají; rychlá kořist často unikne. Tvůj lid se vlkům brání (bojuje s útočníkem a pomáhá druhům ve stádě). Kořist sama neútočí a nevzdává se; mezi druhy se nikdo nepřidává k vítězi.
+- **Božská ruka:** *Zaútoč* funguje i na zvěř (hon na rozkaz).
+- **Upřesněno při implementaci (měřeno na 4 seedech, 30 min):** lovec na krátkou vzdálenost (14 polí) běží přímo za kořistí bez hledání cesty (jinak ho každé přeplánování zastavilo); prvních 15 s honu sprintuje (×1.3), kousne z o 0,5 pole větší vzdálenosti než bojovník (těla se nepřekrývají) a kousnutí dělá 3× víc než úder v boji, takže přepad zblízka vyjde a dlouhá honička ne. Vlk dává přednost kořisti v pořadí seznamu (jelen před lidem). Zvěř se ze zkažených mršin nenakazí (mrchožrouti). Vlci: život 25–33 min, vrh 2; zvěř snese širší rozsah teplot. Výsledek: jelenů 33–67, vlků 13–17, lid 13–41 (vlci ho znatelně tlačí). Horní lišta ukazuje „Zvěř“, panel zvířete roli a smečku / stádo, u zvěře chybí Požehnej.
+- **Save verze 7:** druh každé bytosti a každého stáda; starší save dostane zvěř rozmístěnou ze semínka.
+- **Testy:** zvěř rozmístěná podle dat, nevěří a nedává Víru, stáda jen jednoho druhu, vlk uloví kořist a sní mršinu, kořist utíká, vlci loví hlavně v noci, útočiště chrání spící, lid s Masožravcem loví, rozkaz útoku na zvěř, save → load identický.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.

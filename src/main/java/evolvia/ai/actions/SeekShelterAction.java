@@ -22,7 +22,8 @@ public final class SeekShelterAction implements Action {
 
     @Override
     public float score(ActionContext c) {
-        if (!c.clock.isShelterTime(c.tick) || Math.max(c.needs.hunger, c.needs.thirst) >= SleepAction.CRITICAL_NEED) {
+        if (!c.clock.isShelterTime(c.tick) || Math.max(c.needs.hunger, c.needs.thirst) >= SleepAction.CRITICAL_NEED
+                || (c.kind.isAnimal() && c.kind.animal().nocturnal())) {
             return 0f;
         }
         Refuges.Refuge refuge = c.shelter();

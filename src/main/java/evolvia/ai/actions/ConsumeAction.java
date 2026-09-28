@@ -49,8 +49,8 @@ public final class ConsumeAction implements Action {
 
     /** Spoiled food (an old carcass) may make the eater ill (phase 9e). */
     private static void spoiled(ActionContext c, ResourceNode food) {
-        if (c.nature == null || !food.type.decays()) {
-            return;
+        if (c.nature == null || !food.type.decays() || c.kind.isAnimal()) {
+            return; // wild game is used to carrion
         }
         Nature.Disease disease = c.nature.config().disease();
         if (food.ageTicks > SpeciesDefinition.secondsToTicks(disease.spoilSeconds())

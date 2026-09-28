@@ -29,8 +29,8 @@ public final class SleepAction implements Action {
             return 0f; // survival first: don't sleep (or keep sleeping) while starving or dying of thirst
         }
         float tiredness = 1f - c.needs.energy;
-        if (c.clock.isNight(c.tick)) {
-            Refuges.Refuge shelter = c.shelter();
+        if (c.restTime()) {
+            Refuges.Refuge shelter = c.kind.isAnimal() && c.kind.animal().nocturnal() ? null : c.shelter();
             boolean placed = shelter == null || shelter.contains(c.transform.position.x, c.transform.position.z);
             if (c.needs.sleeping || placed) {
                 return NIGHT_SCORE; // night: sleep (after reaching the refuge)
@@ -50,7 +50,7 @@ public final class SleepAction implements Action {
 
     @Override
     public Status update(ActionContext c) {
-        return c.needs.energy >= RESTED && !c.clock.isNight(c.tick) ? Status.DONE : Status.RUNNING;
+        return c.needs.energy >= RESTED && !c.restTime() ? Status.DONE : Status.RUNNING;
     }
 
     @Override

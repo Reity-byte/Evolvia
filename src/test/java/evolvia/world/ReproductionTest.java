@@ -110,7 +110,7 @@ class ReproductionTest {
             }
         }
         assertTrue(young > 0, "no young creatures after ten minutes");
-        assertEquals(world.creatureCount(), world.creatureGrid().size(), "creature grid out of sync");
+        assertEquals(world.creatureCount() + world.animalCount(), world.creatureGrid().size(), "creature grid out of sync");
     }
 
     @Test
@@ -129,8 +129,8 @@ class ReproductionTest {
             min = Math.min(min, world.creatureCount());
             max = Math.max(max, world.creatureCount());
         }
-        assertTrue(min > 30, "population collapsed: min " + min);
+        assertTrue(min > 20, "population collapsed: min " + min); // wolves hunt them too (phase 9f)
         assertTrue(max < 3 * min, "population not settled: " + min + " .. " + max);
-        assertEquals(world.creatureCount(), world.creatureGrid().size(), "creature grid out of sync");
+        assertEquals(world.creatureCount() + world.animalCount(), world.creatureGrid().size(), "creature grid out of sync");
     }
 }

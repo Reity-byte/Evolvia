@@ -1,8 +1,14 @@
 package evolvia.ai;
 
+import evolvia.world.Wildlife;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import evolvia.components.Age;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
+import evolvia.components.Genome;
 import evolvia.components.UnderAttack;
 import evolvia.core.Time;
 import evolvia.components.GroupMember;
@@ -55,6 +61,10 @@ public final class ActionContext {
     public final Refuges refuges;
     /** Seasons, weather, disease (phase 9e). */
     public final Nature nature;
+    /** Rules of hunting (phase 9f). */
+    public final Wildlife.Hunting hunting;
+    /** Living creatures of each species this tick (population caps). */
+    private final Map<Species, Integer> speciesCounts = new IdentityHashMap<>();
 
     public EcsWorld ecs;
     public ComponentStore<ResourceNode> resources;
@@ -91,10 +101,12 @@ public final class ActionContext {
     private int nearestMate;
     private int attackTarget;
     private float attackScore;
+    private int huntTarget;
 
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
-                         Random random, Groups groups, WorldClock clock, Refuges refuges, Nature nature) {
+                         Random random, Groups groups, WorldClock clock, Refuges refuges, Nature nature,
+                         Wildlife.Hunting hunting) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -107,6 +119,13 @@ public final class ActionContext {
         this.clock = clock;
         this.refuges = refuges;
         this.nature = nature;
+        this.hunting = hunting;
+    }
+
+    /** Time to sleep through: the night, or the day for night animals (phase 9f). */
+    public boolean restTime() {
+        boolean night = clock.isNight(tick);
+        return kind.isAnimal() && kind.animal().nocturnal() ? !night : night;
     }
 
     /** Where the creature should spend the night: its herd's refuge, or (alone) the nearest one it sees; or null. */
@@ -134,6 +153,10 @@ public final class ActionContext {
         this.underAttacks = ecs.store(UnderAttack.class);
         this.fears = ecs.store(Fear.class);
         this.believers = ecs.store(Believer.class);
+        speciesCounts.clear();
+        for (int i = 0; i < creatures.size(); i++) {
+            speciesCounts.merge(creatures.componentAt(i).species, 1, Integer::sum);
+        }
     }
 
     /** Points the context at one creature. */
@@ -152,11 +175,12 @@ public final class ActionContext {
         waterInReach = -2;
         nearestMate = -2;
         attackTarget = -2;
+        huntTarget = -2;
     }
 
     /** Makes the current creature a believer (it used something the god caused). */
     public void makeBeliever() {
-        if (ecs.get(entity, Believer.class) == null) {
+        if (!kind.isAnimal() && ecs.get(entity, Believer.class) == null) {
             ecs.add(entity, new Believer());
         }
     }
@@ -194,10 +218,110 @@ public final class ActionContext {
         }
         GroupMember mine = groupMembers.get(entity);
         GroupMember theirs = groupMembers.get(other);
-        if (mine == null || theirs == null) {
-            return false;
+        Groups.Group myGroup = mine != null ? groups.get(mine.group) : null;
+        Groups.Group theirGroup = theirs != null ? groups.get(theirs.group) : null;
+        if (myGroup != null && theirGroup != null && myGroup.attackOrdered(tick) && myGroup.attackGroup == theirGroup.id) {
+            return true; // the god ordered it (also a hunt)
         }
-        return Groups.enemies(groups.get(mine.group), groups.get(theirs.group));
+        Species theirKind = creatures.get(other).species;
+        if (theirKind != kind) {
+            return hunts(kind, theirKind) || hunts(theirKind, kind); // hunter and prey (phase 9f)
+        }
+        return Groups.enemies(myGroup, theirGroup);
+    }
+
+    /**
+     * True if {@code hunter} hunts {@code prey}: a predator its listed species; the player's species, once it eats
+     * meat, wild game that is prey.
+     */
+    public static boolean hunts(Species hunter, Species prey) {
+        if (hunter.isAnimal()) {
+            return hunter.animal().prey().contains(prey.id());
+        }
+        return hunter.stats().diet().meatNutrition() > 0f && prey.isAnimal() && prey.animal().isPrey();
+    }
+
+    // ---------------------------------------------------------------- hunting (phase 9f)
+
+    /** Nearest prey this creature would hunt now (seen, reachable, not asleep in a refuge), or -1. */
+    public int huntTarget() {
+        if (huntTarget != -2) {
+            return huntTarget;
+        }
+        huntTarget = -1;
+        if (species.diet().meatNutrition() <= 0f) {
+            return huntTarget;
+        }
+        float x = transform.position.x;
+        float z = transform.position.z;
+        int myRegion = pathfinder().regionAt(x, z);
+        if (kind.isAnimal()) { // a predator prefers its prey in the order of its list (deer before people)
+            for (String preferred : kind.animal().prey()) {
+                huntTarget = nearestPrey(x, z, myRegion, preferred);
+                if (huntTarget >= 0) {
+                    return huntTarget;
+                }
+            }
+            return huntTarget;
+        }
+        huntTarget = nearestPrey(x, z, myRegion, null);
+        return huntTarget;
+    }
+
+    private int nearestPrey(float x, float z, int myRegion, String speciesId) {
+        return creatureGrid.nearest(x, z, species.senseRadius(), other -> {
+            SpeciesRef theirs = creatures.get(other);
+            if (other == entity || theirs == null || theirs.species == kind || !hunts(kind, theirs.species)
+                    || (speciesId != null && !theirs.species.id().equals(speciesId))) {
+                return false;
+            }
+            Health h = healths.get(other);
+            if (h == null || h.hp <= 0f) {
+                return false;
+            }
+            Transform t = transforms.get(other);
+            Needs n = needsStore.get(other);
+            if (n != null && n.sleeping && refuges.at(t.position.x, t.position.z) != null) {
+                return false; // a refuge keeps its sleepers safe
+            }
+            return reachable(other, myRegion);
+        });
+    }
+
+    /** True if {@code other} may still be hunted by this creature. */
+    public boolean isPrey(int other) {
+        SpeciesRef theirs = creatures.get(other);
+        Health h = healths.get(other);
+        return theirs != null && h != null && h.hp > 0f && theirs.species != kind && hunts(kind, theirs.species);
+    }
+
+    /** The hunted and the prey around it (its own species) run from the hunter. */
+    public void scarePrey(int target) {
+        SpeciesRef prey = creatures.get(target);
+        if (prey == null) {
+            return;
+        }
+        float x = transform.position.x;
+        float z = transform.position.z;
+        int until = tick + SpeciesDefinition.secondsToTicks(hunting.scareSeconds());
+        List<Integer> near = new ArrayList<>();
+        creatureGrid.forEachWithin(x, z, hunting.scareRadius(), near::add);
+        near.sort(null);
+        for (int other : near) {
+            SpeciesRef ref = creatures.get(other);
+            if (ref == null || ref.species != prey.species) {
+                continue;
+            }
+            Fear fear = fears.get(other);
+            if (fear == null) {
+                fear = new Fear();
+                ecs.add(other, fear);
+            }
+            fear.fromX = x;
+            fear.fromZ = z;
+            fear.distance = hunting.fleeDistance();
+            fear.untilTick = Math.max(fear.untilTick, until);
+        }
     }
 
     /** Creature to attack now, or -1 (see {@link evolvia.ai.actions.AttackAction}). */
@@ -221,6 +345,9 @@ public final class ActionContext {
         Health health = healths.get(entity);
         Age age = ages.get(entity);
         Fear fear = fears.get(entity);
+        if (kind.isAnimal() && kind.animal().isPrey()) {
+            return; // prey runs, it does not fight
+        }
         if (health == null || age == null || health.hp < combat.fleeHealth() * health.maxHp
                 || age.ageTicks < SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds())
                 || (fear != null && fear.isActive(tick))) {
@@ -269,7 +396,8 @@ public final class ActionContext {
                 Transform t = transforms.get(other);
                 float dx = t.position.x - group.homeX;
                 float dz = t.position.z - group.homeZ;
-                return dx * dx + dz * dz <= territorySq && isEnemy(other) && reachable(other, myRegion);
+                return dx * dx + dz * dz <= territorySq && creatures.get(other).species == kind && isEnemy(other)
+                        && reachable(other, myRegion);
             });
             if (attackTarget >= 0) {
                 attackScore = combat.attackScore();
@@ -290,9 +418,14 @@ public final class ActionContext {
      * @return true when this fight is over (the target surrendered or died)
      */
     public boolean hit(int target) {
+        return hit(target, 1f);
+    }
+
+    /** Like {@link #hit(int)} with {@code factor} times the damage (a hunter's bite, phase 9f). */
+    public boolean hit(int target, float factor) {
         SpeciesDefinition.Combat combat = species.combat();
         Health health = healths.get(target);
-        health.hp -= SpeciesDefinition.perTick(combat.damagePerSecond());
+        health.hp -= SpeciesDefinition.perTick(combat.damagePerSecond()) * factor;
         UnderAttack attacked = underAttacks.get(target);
         if (attacked == null) {
             attacked = new UnderAttack();
@@ -301,14 +434,15 @@ public final class ActionContext {
         attacked.attacker = entity;
         attacked.untilTick = tick + 3 * Time.TICKS_PER_SECOND;
         Groups.Group mine = group();
+        boolean sameKind = creatures.get(target) != null && creatures.get(target).species == kind;
         if (health.hp <= 0f) {
-            if (mine != null && mine.player) {
+            if (mine != null && mine.player && sameKind) {
                 groups.recordPlayerVictory();
             }
             return true; // the aging system removes it this tick ("in a fight")
         }
         float share = health.hp / health.maxHp;
-        if (share <= combat.surrenderHealth() && mine != null) {
+        if (share <= combat.surrenderHealth() && mine != null && sameKind) {
             GroupMember member = groupMembers.get(target);
             if (member != null) {
                 member.group = mine.id;
@@ -460,7 +594,7 @@ public final class ActionContext {
                 && n.hunger < rules.maxNeed() && n.thirst < rules.maxNeed()
                 && !n.sleeping
                 && health.hp >= rules.minHealth() * health.maxHp
-                && creatures.size() < ref.species.stats().population().max();
+                && speciesCounts.getOrDefault(ref.species, 0) < ref.species.stats().population().max();
     }
 
     /**
@@ -522,6 +656,40 @@ public final class ActionContext {
         ai.pathStatus = AiState.PathStatus.PENDING;
         velocity.speed = 0;
         pathQueue.add(entity);
+    }
+
+    /**
+     * Runs straight at a point without a path (a chase over open ground, phase 9f): no waiting for the
+     * pathfinder while the target moves.
+     *
+     * @return false if the way was blocked last tick (then a path is needed)
+     */
+    public boolean steerTowards(float x, float z) {
+        return steerTowards(x, z, 1f);
+    }
+
+    /** Like {@link #steerTowards(float, float)} at {@code speedFactor} times the normal speed (a sprint). */
+    public boolean steerTowards(float x, float z, float speedFactor) {
+        if (velocity.blocked) {
+            velocity.blocked = false;
+            return false;
+        }
+        float dx = x - transform.position.x;
+        float dz = z - transform.position.z;
+        float dist = (float) Math.sqrt(dx * dx + dz * dz);
+        ai.path = null;
+        ai.pathStatus = AiState.PathStatus.NONE;
+        if (dist < 1e-4f) {
+            velocity.speed = 0;
+            return true;
+        }
+        Genome genome = ecs.get(entity, Genome.class);
+        float step = species.speedPerTick() * (genome != null ? genome.speed : 1f) * speedFactor;
+        velocity.dirX = dx / dist;
+        velocity.dirZ = dz / dist;
+        velocity.speed = Math.min(step, dist);
+        transform.yaw = (float) Math.atan2(velocity.dirX, velocity.dirZ);
+        return true;
     }
 
     /** Stops walking and forgets the path (a pending request is skipped when served). */

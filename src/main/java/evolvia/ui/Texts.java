@@ -40,6 +40,7 @@ public final class Texts {
             case FOLLOW_LEADER -> "Jde za vůdcem";
             case ATTACK -> "Bojuje";
             case SEEK_SHELTER -> "Jde do úkrytu";
+            case HUNT -> "Loví";
         };
     }
 

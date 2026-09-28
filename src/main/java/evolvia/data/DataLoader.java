@@ -1,5 +1,11 @@
 package evolvia.data;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import evolvia.evolution.Animal;
+import evolvia.evolution.Species;
+import evolvia.world.Wildlife;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import evolvia.evolution.Condition;
@@ -48,6 +54,7 @@ public final class DataLoader {
     public static final String MILESTONES = "data/milestones.json";
     public static final String REFUGES = "data/refuges.json";
     public static final String NATURE = "data/nature.json";
+    public static final String ANIMALS = "data/animals.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -165,6 +172,83 @@ public final class DataLoader {
 
     private record MilestoneJson(String id, String name, String description, String type, Integer value, Float rewardEp,
                                  Float rewardFaith) {
+    }
+
+    /**
+     * Loads and validates {@code data/animals.json}: every animal is {@code data/species.json} with the values
+     * its {@code "species"} object overrides (objects merge key by key).
+     */
+    public static Wildlife.Config loadAnimals() {
+        return parseAnimals(readResource(ANIMALS), readResource(SPECIES), ANIMALS);
+    }
+
+    public static Wildlife.Config parseAnimals(String json, String baseSpeciesJson, String source) {
+        JsonObject root;
+        JsonObject base;
+        try {
+            root = JsonParser.parseString(json).getAsJsonObject();
+            base = JsonParser.parseString(baseSpeciesJson).getAsJsonObject();
+        } catch (RuntimeException e) {
+            throw new IllegalStateException(source + ": invalid JSON: " + e.getMessage(), e);
+        }
+        require(root.has("hunting") && root.has("animals"), source, "missing \"hunting\" or \"animals\"");
+        Wildlife.Hunting hunting = fromJson(root.get("hunting").toString(), Wildlife.Hunting.class, source);
+        require(hunting.hungerThreshold() >= 0 && hunting.hungerThreshold() < 1 && hunting.chaseSeconds() > 0
+                        && hunting.score() > 0 && hunting.scareRadius() > 0 && hunting.scareSeconds() > 0
+                        && hunting.fleeDistance() > 0 && hunting.biteFactor() > 0,
+                source, "hunting: hungerThreshold in [0, 1), other values positive");
+        List<Species> species = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        ids.add(base.get("id").getAsString());
+        for (JsonElement element : root.getAsJsonArray("animals")) {
+            JsonObject a = element.getAsJsonObject();
+            String id = a.has("id") ? a.get("id").getAsString() : null;
+            require(id != null && ids.add(id), source, "missing or duplicate animal id " + id);
+            String where = source + " (" + id + ")";
+            AnimalJson traits = fromJson(a.toString(), AnimalJson.class, where);
+            require(Animal.PREY.equals(traits.role()) || Animal.PREDATOR.equals(traits.role()), where,
+                    "role must be \"prey\" or \"predator\"");
+            require(traits.herds() >= 0 && traits.herdSize() != null && traits.herdSize().length == 2
+                            && traits.herdSize()[0] >= 1 && traits.herdSize()[0] <= traits.herdSize()[1], where,
+                    "herds >= 0, herdSize [min, max] with 1 <= min <= max");
+            require(!traits.isPredatorWithoutPrey(), where, "a predator needs a \"prey\" list");
+            JsonObject merged = base.deepCopy();
+            merge(merged, a.getAsJsonObject("species"));
+            merged.addProperty("id", id);
+            SpeciesDefinition definition = parseSpecies(merged.toString(), where);
+            species.add(new Species(definition, new Animal(traits.role(),
+                    traits.prey() != null ? List.copyOf(traits.prey()) : List.of(), traits.nocturnal(), traits.herds(),
+                    traits.herdSize(), traits.biomes() != null ? List.copyOf(traits.biomes()) : List.of(),
+                    traits.visuals() != null ? Map.copyOf(traits.visuals()) : Map.of())));
+        }
+        for (Species s : species) {
+            for (String prey : s.animal().prey()) {
+                require(ids.contains(prey), source, s.id() + " hunts unknown species " + prey);
+            }
+        }
+        return new Wildlife.Config(hunting, List.copyOf(species));
+    }
+
+    private record AnimalJson(String role, List<String> prey, boolean nocturnal, int herds, int[] herdSize,
+                              List<String> biomes, Map<String, String> visuals) {
+        boolean isPredatorWithoutPrey() {
+            return Animal.PREDATOR.equals(role) && (prey == null || prey.isEmpty());
+        }
+    }
+
+    /** Copies {@code overrides} into {@code target}; nested objects merge key by key. */
+    private static void merge(JsonObject target, JsonObject overrides) {
+        if (overrides == null) {
+            return;
+        }
+        for (Map.Entry<String, JsonElement> entry : overrides.entrySet()) {
+            JsonElement existing = target.get(entry.getKey());
+            if (existing != null && existing.isJsonObject() && entry.getValue().isJsonObject()) {
+                merge(existing.getAsJsonObject(), entry.getValue().getAsJsonObject());
+            } else {
+                target.add(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     /** Loads and validates {@code data/species.json}. */

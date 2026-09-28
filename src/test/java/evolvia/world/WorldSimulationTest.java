@@ -195,8 +195,9 @@ class WorldSimulationTest {
         World world = create(11);
         run(world, 0, 100);
         ComponentStore<PrevTransform> previous = world.ecs().store(PrevTransform.class);
-        float maxStep = species.speedPerTick() * (1f + species.genome().variation()) + 1e-4f; // genome speed
         for (int i = 0; i < previous.size(); i++) {
+            SpeciesDefinition own = world.ecs().get(previous.entityAt(i), SpeciesRef.class).stats();
+            float maxStep = own.speedPerTick() * (1f + own.genome().variation()) + 1e-4f; // its species, genome speed
             PrevTransform prev = previous.componentAt(i);
             Transform current = world.ecs().get(previous.entityAt(i), Transform.class);
             float dx = current.position.x - prev.position.x;

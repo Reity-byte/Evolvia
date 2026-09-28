@@ -65,6 +65,7 @@ public final class Hud {
         x += ui.text(ui.bold, species.stats().name(), x, y, Ui.TEXT) + 18f;
         x += stat(ui, "Lid", Integer.toString(world.population()), x, y);
         x += stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), x, y);
+        x += stat(ui, "Zvěř", Integer.toString(world.animalCount()), x, y);
         x += stat(ui, "Gen.", Integer.toString(world.maxGeneration()), x, y);
         x += stat(ui, "EP", String.format(Locale.ROOT, "%.0f", species.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", world.evolutionSystem().pointsPerMinute()),

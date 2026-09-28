@@ -91,6 +91,8 @@ public final class World implements EvolutionConditions {
     private final Groups groups = new Groups();
     private final Milestones milestones = new Milestones(DataLoader.loadMilestones());
     private final Refuges refuges = new Refuges(DataLoader.loadRefuges());
+    /** Wild game and the rules of hunting (phase 9f). */
+    private final Wildlife.Config wildlife = DataLoader.loadAnimals();
     private final WorldClock clock;
     private final Nature nature;
     /** Tick being simulated (or last simulated), for the clock and milestones. */
@@ -122,7 +124,7 @@ public final class World implements EvolutionConditions {
         agingSystem.setNature(nature);
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
-                creatureGrid, births, random, groups, clock, refuges, nature);
+                creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting());
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
@@ -137,7 +139,7 @@ public final class World implements EvolutionConditions {
                 new ResourceRegrowthSystem(foodGrid, nature),
                 reproductionSystem,
                 agingSystem,
-                new GroupSystem(groups, creatureGrid, clock, refuges),
+                new GroupSystem(groups, creatureGrid, clock, refuges, species),
                 evolutionSystem,
                 new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
                         godConfig.sanctify().faithPerSleeperPerMinute()),
@@ -155,6 +157,7 @@ public final class World implements EvolutionConditions {
         world.spawnResources(random);
         world.placeRefuges(refugeRandom(seed));
         world.spawnPopulation(random);
+        world.spawnAnimals(animalRandom(seed));
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
     }
@@ -329,6 +332,86 @@ public final class World implements EvolutionConditions {
         placeRefuges(refugeRandom(seed));
     }
 
+    /** Places wild game in a world loaded from a save made before there was any: the same as in a new world. */
+    public void placeAnimalsAfterLoad(long seed) {
+        spawnAnimals(animalRandom(seed));
+    }
+
+    private static Random animalRandom(long seed) {
+        return new Random(seed ^ 0xa11a1L);
+    }
+
+    /**
+     * Wild game (phase 9f): the herds of every animal species in its biomes, away from the player's people
+     * and from each other.
+     */
+    private void spawnAnimals(Random random) {
+        List<float[]> homes = new ArrayList<>();
+        for (Groups.Group group : groups.all()) {
+            homes.add(new float[]{group.homeX, group.homeZ});
+        }
+        for (Species kind : wildlife.species()) {
+            evolvia.evolution.Animal animal = kind.animal();
+            float spacing = kind.stats().population().herdSpacing();
+            for (int h = 0; h < animal.herds(); h++) {
+                float[] home = null;
+                for (int attempt = 0; attempt < SPAWN_ATTEMPTS && home == null; attempt++) {
+                    int tx = random.nextInt(terrain.width());
+                    int tz = random.nextInt(terrain.depth());
+                    if (!terrain.isPassable(tx, tz) || navigation.land().regionAt(tx + 0.5f, tz + 0.5f) < 0
+                            || (!animal.biomes().isEmpty() && !animal.biomes().contains(terrain.biome(tx, tz).id()))) {
+                        continue;
+                    }
+                    boolean spaced = true;
+                    for (float[] other : homes) {
+                        spaced &= Math.hypot(other[0] - tx, other[1] - tz) >= spacing;
+                    }
+                    if (spaced) {
+                        home = new float[]{tx + 0.5f, tz + 0.5f};
+                    }
+                }
+                if (home == null) {
+                    break; // no room (small map)
+                }
+                homes.add(home);
+                int size = animal.herdSize()[0] + random.nextInt(animal.herdSize()[1] - animal.herdSize()[0] + 1);
+                spawnAnimalHerd(kind, random, home, size);
+            }
+        }
+    }
+
+    private void spawnAnimalHerd(Species kind, Random random, float[] home, int count) {
+        Groups.Group group = groups.create();
+        group.species = kind;
+        group.homeX = home[0];
+        group.homeZ = home[1];
+        int region = navigation.land().regionAt(home[0], home[1]);
+        float radius = Math.max(2f, kind.stats().population().spawnRadius());
+        int oldest = -1;
+        for (int n = 0; n < count; n++) {
+            float x = home[0];
+            float z = home[1];
+            for (int attempt = 0; attempt < 200; attempt++) {
+                float angle = random.nextFloat() * TWO_PI;
+                float distance = radius * (float) Math.sqrt(random.nextFloat());
+                float cx = home[0] + (float) Math.sin(angle) * distance;
+                float cz = home[1] + (float) Math.cos(angle) * distance;
+                if (navigation.land().regionAt(cx, cz) == region) {
+                    x = cx;
+                    z = cz;
+                    break;
+                }
+            }
+            int creature = spawnCreature(kind, random, x, z);
+            ecs.add(creature, new GroupMember(group.id));
+            if (oldest < 0 || ecs.get(creature, Age.class).ageTicks > ecs.get(oldest, Age.class).ageTicks) {
+                oldest = creature;
+            }
+        }
+        group.leader = oldest;
+        group.size = count;
+    }
+
     /** Refuges have their own generator (from the seed), so they do not change the rest of the world. */
     private static Random refugeRandom(long seed) {
         return new Random(seed ^ 0x5eedL);
@@ -491,10 +574,14 @@ public final class World implements EvolutionConditions {
     }
 
     private int spawnCreature(Random random, float x, float z) {
-        SpeciesDefinition stats = species.stats();
+        return spawnCreature(species, random, x, z);
+    }
+
+    private int spawnCreature(Species kind, Random random, float x, float z) {
+        SpeciesDefinition stats = kind.stats();
         int youngestLifespan = SpeciesDefinition.secondsToTicks(stats.lifespanMinSeconds());
         int cooldown = SpeciesDefinition.secondsToTicks(stats.reproduction().cooldownSeconds());
-        return creatureFactory.spawn(species, species.latestStage().index(), creatureFactory.randomGenome(stats), x, z,
+        return creatureFactory.spawn(kind, kind.latestStage().index(), creatureFactory.randomGenome(stats), x, z,
                 random.nextInt(youngestLifespan / 2 + 1),
                 0.3f * random.nextFloat(), 0.3f * random.nextFloat(), 0.7f + 0.3f * random.nextFloat(),
                 random.nextInt(cooldown + 1));
@@ -558,7 +645,7 @@ public final class World implements EvolutionConditions {
             fear.fromZ = z;
             fear.distance = fleeDistance;
             fear.untilTick = tick + scareTicks;
-            if (ecs.get(entity, Believer.class) == null) {
+            if (!ecs.get(entity, SpeciesRef.class).species.isAnimal() && ecs.get(entity, Believer.class) == null) {
                 ecs.add(entity, new Believer());
             }
         }
@@ -703,6 +790,7 @@ public final class World implements EvolutionConditions {
             return false;
         }
         boolean own = ecs.get(entity, Believer.class) != null;
+        boolean animal = ecs.get(entity, SpeciesRef.class).species.isAnimal();
         GroupMember member = ecs.get(entity, GroupMember.class);
         Groups.Group group = member != null ? groups.get(member.group) : null;
         boolean leader = group != null && group.player && group.leader == entity;
@@ -717,7 +805,7 @@ public final class World implements EvolutionConditions {
             case ATTACK -> {
                 GroupMember theirs = ecs.get(command.target(), GroupMember.class);
                 Groups.Group target = theirs != null ? groups.get(theirs.group) : null;
-                if (!leader || !Groups.enemies(group, target)) {
+                if (!leader || !Groups.canAttack(group, target)) {
                     return false;
                 }
                 group.attackGroup = target.id;
@@ -748,6 +836,8 @@ public final class World implements EvolutionConditions {
                     Needs needs = ecs.get(entity, Needs.class);
                     needs.hunger = Math.max(0f, needs.hunger - 0.3f);
                     needs.thirst = Math.max(0f, needs.thirst - 0.3f);
+                } else if (animal) {
+                    return false; // wild game does not believe
                 } else {
                     ecs.add(entity, new Believer());
                 }
@@ -808,12 +898,14 @@ public final class World implements EvolutionConditions {
         }
     }
 
-    /** Creatures per evolutionary stage (index = stage). */
+    /** Creatures of the player's species per evolutionary stage (index = stage). */
     public int[] stageCounts() {
         int[] counts = new int[species.latestStage().index() + 1];
         ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
         for (int i = 0; i < creatures.size(); i++) {
-            counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
+            if (creatures.componentAt(i).species == species) { // the player's species; wild game does not evolve
+                counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
+            }
         }
         return counts;
     }
@@ -967,8 +1059,43 @@ public final class World implements EvolutionConditions {
         return total;
     }
 
+    /** Creatures of the player's species (the people and wild ones); wild game is {@link #animalCount()}. */
     public int creatureCount() {
-        return ecs.store(SpeciesRef.class).size();
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        int count = 0;
+        for (int i = 0; i < creatures.size(); i++) {
+            if (creatures.componentAt(i).species == species) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Wild game (phase 9f). */
+    public int animalCount() {
+        return ecs.store(SpeciesRef.class).size() - creatureCount();
+    }
+
+    /** Creatures of one animal species. */
+    public int animalCount(String speciesId) {
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        int count = 0;
+        for (int i = 0; i < creatures.size(); i++) {
+            if (creatures.componentAt(i).species.id().equals(speciesId) && creatures.componentAt(i).species != species) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Wild game species and the rules of hunting (phase 9f). */
+    public Wildlife.Config wildlife() {
+        return wildlife;
+    }
+
+    /** The player's species or a wild game species by id, or null. */
+    public Species speciesById(String id) {
+        return species.id().equals(id) ? species : wildlife.byId(id);
     }
 
     public long seed() {

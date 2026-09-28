@@ -64,9 +64,10 @@ public final class WorldCodec {
      * attack orders, fights, milestones (phase 9c); 5: refuges (phase 9d). Older saves load without herds (they
      * form again; wild or not follows the believers), with every creature at the latest stage, no milestones
      * reached and freshly placed refuges; 6: weather, disasters, disease, carcass age (phase 9e), older saves start
-     * in clear weather without disasters.
+     * in clear weather without disasters; 7: the species of every creature and herd (wild game, phase 9f), older
+     * saves get the game of a new world with the same seed.
      */
-    public static final int SAVE_VERSION = 6;
+    public static final int SAVE_VERSION = 7;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
@@ -175,7 +176,16 @@ public final class WorldCodec {
                 list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)),
                 stages(ecs.store(SpeciesRef.class)),
                 list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)),
-                list(ecs.store(Sick.class), (e, s) -> new SickData(e, s.untilTick, s.immuneUntilTick)));
+                list(ecs.store(Sick.class), (e, s) -> new SickData(e, s.untilTick, s.immuneUntilTick)),
+                speciesIds(ecs.store(SpeciesRef.class)));
+    }
+
+    private static List<String> speciesIds(ComponentStore<SpeciesRef> creatures) {
+        List<String> ids = new ArrayList<>(creatures.size());
+        for (int i = 0; i < creatures.size(); i++) {
+            ids.add(creatures.componentAt(i).species.id());
+        }
+        return ids;
     }
 
     private static int[] stages(ComponentStore<SpeciesRef> creatures) {
@@ -190,7 +200,8 @@ public final class WorldCodec {
         List<GroupData> list = new ArrayList<>();
         for (Groups.Group g : groups.all()) {
             list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
-                    g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
+                    g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ,
+                    g.species != null ? g.species.id() : null));
         }
         return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
@@ -279,7 +290,10 @@ public final class WorldCodec {
             }
             restoreStats(world, save.stats());
             restoreGod(world.godPowers(), save.god());
-            restoreGroups(world.groups(), save.groups());
+            restoreGroups(world, save.groups());
+            if (save.ecs().creatureSpecies() == null) {
+                world.placeAnimalsAfterLoad(save.seed()); // a save from before wild game
+            }
             if (save.milestones() != null) {
                 world.milestones().restore(save.milestones());
             }
@@ -321,8 +335,16 @@ public final class WorldCodec {
             v.blocked = d.blocked();
         }
         for (int i = 0; i < data.creatures().length; i++) {
-            int stage = data.creatureStages() != null ? data.creatureStages()[i] : species.latestStage().index();
-            ecs.add(data.creatures()[i], new SpeciesRef(species, Math.min(stage, species.latestStage().index())));
+            Species kind = species;
+            if (data.creatureSpecies() != null) {
+                Species saved = world.speciesById(data.creatureSpecies().get(i));
+                if (saved == null) {
+                    throw new IllegalArgumentException("Unknown species '" + data.creatureSpecies().get(i) + "'");
+                }
+                kind = saved;
+            }
+            int stage = data.creatureStages() != null ? data.creatureStages()[i] : kind.latestStage().index();
+            ecs.add(data.creatures()[i], new SpeciesRef(kind, Math.min(stage, kind.latestStage().index())));
         }
         for (GenomeData d : data.genomes()) {
             Genome g = ecs.add(d.e(), new Genome());
@@ -442,13 +464,18 @@ public final class WorldCodec {
         }
     }
 
-    private static void restoreGroups(Groups groups, GroupsData data) {
+    private static void restoreGroups(World world, GroupsData data) {
+        Groups groups = world.groups();
         if (data == null) {
             return; // save version 1: herds form again
         }
         for (GroupData d : data.groups()) {
             Groups.Group g = new Groups.Group(d.id());
             g.player = d.player();
+            g.species = d.species() != null ? world.speciesById(d.species()) : null;
+            if (g.species == world.species()) {
+                g.species = null; // the player's species
+            }
             g.homeX = d.homeX();
             g.homeZ = d.homeZ();
             g.settled = d.settled();

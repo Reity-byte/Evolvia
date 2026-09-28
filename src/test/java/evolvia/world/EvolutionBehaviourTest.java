@@ -145,7 +145,8 @@ class EvolutionBehaviourTest {
         int carcass = world.placeResource("carcass", t.position.x, t.position.z);
         float before = world.ecs().get(carcass, ResourceNode.class).amount;
         run(world, 0, 10 * Time.TICKS_PER_SECOND);
-        assertTrue(world.ecs().get(carcass, ResourceNode.class).amount < before - 0.5f, "omnivore did not eat the carcass");
+        ResourceNode left = world.ecs().get(carcass, ResourceNode.class); // null: eaten up
+        assertTrue(left == null || left.amount < before - 0.5f, "omnivore did not eat the carcass");
     }
 
     @Test

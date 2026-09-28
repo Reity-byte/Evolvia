@@ -4,6 +4,7 @@ import evolvia.components.Believer;
 import evolvia.components.Fear;
 import evolvia.components.Needs;
 import evolvia.components.ResourceNode;
+import evolvia.components.SpeciesRef;
 import evolvia.core.Time;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
@@ -124,7 +125,8 @@ public final class GodPowerSystem implements GameSystem {
                 Needs needs = needsStore.get(entity);
                 if (needs != null && needs.thirst >= RAIN_THIRST) {
                     needs.thirst = Math.max(0f, needs.thirst - relief);
-                    if (ecs.get(entity, Believer.class) == null) {
+                    SpeciesRef ref = ecs.get(entity, SpeciesRef.class);
+                    if (ref != null && !ref.species.isAnimal() && ecs.get(entity, Believer.class) == null) {
                         ecs.add(entity, new Believer()); // drank the god's rain
                     }
                 }

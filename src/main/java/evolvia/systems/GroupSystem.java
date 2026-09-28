@@ -10,6 +10,7 @@ import evolvia.components.UnderAttack;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Groups;
 import evolvia.world.Refuges;
@@ -38,12 +39,29 @@ public final class GroupSystem implements GameSystem {
     private final SpatialGrid creatureGrid;
     private final WorldClock clock;
     private final Refuges refuges;
+    /** The player's species: herds without a species of their own (old saves) are of it. */
+    private final Species people;
 
-    public GroupSystem(Groups groups, SpatialGrid creatureGrid, WorldClock clock, Refuges refuges) {
+    public GroupSystem(Groups groups, SpatialGrid creatureGrid, WorldClock clock, Refuges refuges, Species people) {
         this.groups = groups;
         this.creatureGrid = creatureGrid;
         this.clock = clock;
         this.refuges = refuges;
+        this.people = people;
+    }
+
+    private Species kind(Groups.Group group) {
+        return group.species != null ? group.species : people;
+    }
+
+    /** Largest herd of a species: the {@code groups} ability makes herds half as big again. */
+    private static int maxSize(Species kind) {
+        SpeciesDefinition.Groups rules = kind.stats().groups();
+        return kind.hasAbility(Groups.ABILITY) ? rules.maxSize() * 3 / 2 : rules.maxSize();
+    }
+
+    private static int adultTicks(Species kind) {
+        return SpeciesDefinition.secondsToTicks(kind.stats().reproduction().adultAgeSeconds());
     }
 
     @Override
@@ -52,9 +70,7 @@ public final class GroupSystem implements GameSystem {
         if (creatures.size() == 0) {
             return;
         }
-        SpeciesDefinition species = creatures.componentAt(0).species.stats();
-        SpeciesDefinition.Groups rules = species.groups();
-        int interval = Math.max(1, SpeciesDefinition.secondsToTicks(rules.updateSeconds()));
+        int interval = Math.max(1, SpeciesDefinition.secondsToTicks(people.stats().groups().updateSeconds()));
         if (tick % interval != 0) {
             return;
         }
@@ -63,8 +79,6 @@ public final class GroupSystem implements GameSystem {
         ComponentStore<Age> ages = world.store(Age.class);
         ComponentStore<Believer> believers = world.store(Believer.class);
         ComponentStore<Needs> needs = world.store(Needs.class);
-        int adultTicks = SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
-        int maxSize = creatures.componentAt(0).species.hasAbility(Groups.ABILITY) ? rules.maxSize() * 3 / 2 : rules.maxSize();
         removeOldAttacks(world.store(UnderAttack.class), tick);
 
         // Current herds and their members (ID order).
@@ -94,6 +108,10 @@ public final class GroupSystem implements GameSystem {
             Groups.Group group = groups.get(entry.getKey());
             List<Integer> list = entry.getValue();
             list.sort(null);
+            Species kind = kind(group);
+            SpeciesDefinition.Groups rules = kind.stats().groups();
+            int adultTicks = adultTicks(kind);
+            int maxSize = maxSize(kind);
             if (list.size() < rules.minSize()) {
                 for (int entity : list) {
                     members.remove(entity);
@@ -124,10 +142,14 @@ public final class GroupSystem implements GameSystem {
             if (group.attackGroup != 0 && (!group.attackOrdered(tick) || groups.get(group.attackGroup) == null)) {
                 group.attackGroup = 0;
             }
-            chooseShelter(group, transforms.get(group.leader), tick);
+            if (kind.isAnimal() && kind.animal().nocturnal()) {
+                group.shelter = 0; // night hunters rest by day wherever they are
+            } else {
+                chooseShelter(group, transforms.get(group.leader), tick);
+            }
         }
 
-        joinOrFound(creatures, members, transforms, ages, believers, rules, maxSize, adultTicks);
+        joinOrFound(creatures, members, transforms, ages, believers);
     }
 
     /**
@@ -165,6 +187,9 @@ public final class GroupSystem implements GameSystem {
      * herds are believers (they are the player's people).
      */
     private static void allegiance(EcsWorld world, Groups.Group group, List<Integer> list, ComponentStore<Believer> believers) {
+        if (group.species != null && group.species.isAnimal()) {
+            return; // wild game has no faith
+        }
         if (!group.player) {
             int believing = 0;
             for (int entity : list) {
@@ -211,6 +236,7 @@ public final class GroupSystem implements GameSystem {
         split.leader = oldest(leaving, ages, adultTicks);
         split.size = leaving.size();
         split.player = group.player;
+        split.species = group.species;
         Transform splitLeader = transforms.get(split.leader);
         split.homeX = splitLeader.position.x;
         split.homeZ = splitLeader.position.z;
@@ -249,8 +275,7 @@ public final class GroupSystem implements GameSystem {
 
     private void joinOrFound(ComponentStore<SpeciesRef> creatures, ComponentStore<GroupMember> members,
                              ComponentStore<Transform> transforms, ComponentStore<Age> ages,
-                             ComponentStore<Believer> believers, SpeciesDefinition.Groups rules, int maxSize,
-                             int adultTicks) {
+                             ComponentStore<Believer> believers) {
         List<Integer> free = new ArrayList<>();
         for (int i = 0; i < creatures.size(); i++) {
             int entity = creatures.entityAt(i);
@@ -263,17 +288,20 @@ public final class GroupSystem implements GameSystem {
         }
         free.sort(null);
         Set<Integer> freeSet = new HashSet<>(free);
-        float joinSq = rules.joinRadius() * rules.joinRadius();
         for (int entity : free) {
             if (!freeSet.contains(entity)) {
                 continue; // became a founder of a herd this update
             }
+            Species kind = creatures.get(entity).species;
+            SpeciesDefinition.Groups rules = kind.stats().groups();
+            int maxSize = maxSize(kind);
+            float joinSq = rules.joinRadius() * rules.joinRadius();
             Transform t = transforms.get(entity);
             Groups.Group best = null;
             double bestSq = Double.MAX_VALUE;
             for (Groups.Group group : groups.all()) {
-                if (group.leader < 0 || group.size >= maxSize) {
-                    continue;
+                if (group.leader < 0 || group.size >= maxSize || kind(group) != kind) {
+                    continue; // herds are of one species
                 }
                 double d = distanceSq(transforms.get(group.leader), t.position.x, t.position.z);
                 if (d <= joinSq && d < bestSq) {
@@ -290,7 +318,8 @@ public final class GroupSystem implements GameSystem {
             // Found a new herd with the free creatures around.
             List<Integer> founders = new ArrayList<>();
             creatureGrid.forEachWithin(t.position.x, t.position.z, rules.joinRadius(), other -> {
-                if (freeSet.contains(other)) {
+                SpeciesRef ref = creatures.get(other);
+                if (freeSet.contains(other) && ref != null && ref.species == kind) {
                     founders.add(other);
                 }
             });
@@ -302,6 +331,7 @@ public final class GroupSystem implements GameSystem {
             List<Integer> herd = new ArrayList<>(founders.subList(0, Math.min(founders.size(), maxSize)));
             herd.sort(null);
             Groups.Group group = groups.create();
+            group.species = kind.isAnimal() ? kind : null; // null = the player's species
             int believing = 0;
             for (int founder : herd) {
                 members.put(founder, new GroupMember(group.id));
@@ -310,9 +340,9 @@ public final class GroupSystem implements GameSystem {
                     believing++;
                 }
             }
-            group.leader = oldest(herd, ages, adultTicks);
+            group.leader = oldest(herd, ages, adultTicks(kind));
             group.size = herd.size();
-            group.player = believing * 2 >= herd.size();
+            group.player = !kind.isAnimal() && believing * 2 >= herd.size();
             Transform leader = transforms.get(group.leader);
             group.homeX = leader.position.x;
             group.homeZ = leader.position.z;

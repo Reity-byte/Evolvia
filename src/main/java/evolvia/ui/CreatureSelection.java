@@ -119,7 +119,7 @@ public final class CreatureSelection {
             GroupMember mine = world.ecs().get(selected, GroupMember.class);
             GroupMember theirs = target >= 0 ? world.ecs().get(target, GroupMember.class) : null;
             if (theirs == null || mine == null
-                    || !Groups.enemies(world.groups().get(mine.group), world.groups().get(theirs.group))) {
+                    || !Groups.canAttack(world.groups().get(mine.group), world.groups().get(theirs.group))) {
                 notifications.error("Klikni na bytost cizího stáda");
                 return;
             }
@@ -184,10 +184,13 @@ public final class CreatureSelection {
             }
             hand.add(HandAction.HEAL);
         }
-        hand.add(HandAction.BLESS);
+        boolean animal = ref.species.isAnimal();
+        if (!animal) {
+            hand.add(HandAction.BLESS); // wild game does not believe
+        }
         int handRows = (hand.size() + 2) / 3;
         float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 6 * line + 10f
-                + ui.bold.lineHeight() + handRows * 30f + padding;
+                + (hand.isEmpty() ? 0f : ui.bold.lineHeight()) + handRows * 30f + padding;
         float x = ui.width() - PANEL_WIDTH - 10f;
         float y = top + 10f;
         ui.panel(x, y, PANEL_WIDTH, h);
@@ -220,14 +223,19 @@ public final class CreatureSelection {
         ui.text(ui.regular, String.format(Locale.ROOT, "Generace %d, potomků %d", genome.generation, reproduction.offspring),
                 x + padding, ty, Ui.TEXT);
         ty += line;
-        String herd = group == null ? (own ? "Tvůj lid, bez stáda" : "Divoký, bez stáda")
+        String herd = animal
+                ? (ref.species.animal().isPredator() ? "Zvěř, predátor" : "Zvěř, kořist")
+                        + (group != null ? String.format(Locale.ROOT, " · %s #%d (%d)",
+                        ref.species.animal().isPredator() ? "smečka" : "stádo", group.id, group.size) : "")
+                : group == null ? (own ? "Tvůj lid, bez stáda" : "Divoký, bez stáda")
                 : String.format(Locale.ROOT, "%s #%d (%d), %s", group.player ? "Tvůj lid, stádo" : "Divoké stádo", group.id,
                 group.size, group.leader == entity ? "vůdce" : "člen");
         ui.text(ui.regular, herd, x + padding, ty, group != null && !group.player ? 0xFFE08A7A
                 : group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
         ty += line;
         int latest = ref.species.latestStage().index();
-        ui.text(ui.regular, latest == 0 ? "Vývoj: původní druh"
+        ui.text(ui.regular, animal ? (ref.species.animal().nocturnal() ? "Loví v noci, ve dne spí" : "Vývoj: divoká zvěř")
+                        : latest == 0 ? "Vývoj: původní druh"
                         : String.format(Locale.ROOT, "Vývoj: %d z %d znaků%s", ref.stage, latest, ref.stage < latest ? " (starší generace)" : ""),
                 x + padding, ty, ref.stage < latest ? Ui.TEXT_DIM : Ui.TEXT);
         ty += line;
@@ -235,9 +243,11 @@ public final class CreatureSelection {
                 Texts.percent(genome.size - 1f), Texts.percent(genome.speed - 1f)), x + padding, ty, Ui.TEXT_DIM);
         ty += line + 10f;
 
-        // The god's hand
-        ui.text(ui.bold, "Božská ruka", x + padding, ty, Ui.TEXT);
-        ty += ui.bold.lineHeight() + 2f;
+        // The god's hand (nothing for wild game: it can only be the target of an attack order)
+        if (!hand.isEmpty()) {
+            ui.text(ui.bold, "Božská ruka", x + padding, ty, Ui.TEXT);
+            ty += ui.bold.lineHeight() + 2f;
+        }
         float bw = (PANEL_WIDTH - 2 * padding - 8f) / 3f;
         for (int i = 0; i < hand.size(); i++) {
             HandAction handAction = hand.get(i);

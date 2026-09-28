@@ -44,6 +44,7 @@ public final class CreatureMeshBuilder {
         VARIANTS.put("belly", List.of("normal", "round"));
         VARIANTS.put("hands", List.of("paws", "nimble"));
         VARIANTS.put("face", List.of("muzzle", "human"));
+        VARIANTS.put("horns", List.of("none", "antlers")); // wild game (phase 9f)
     }
 
     private static final float[] EYE = {0.07f, 0.06f, 0.05f};
@@ -52,6 +53,7 @@ public final class CreatureMeshBuilder {
     private static final float[] SAND = {0.87f, 0.75f, 0.52f};
     private static final float[] MOIST = {0.33f, 0.58f, 0.50f};
     private static final float[] BARE = {0.93f, 0.66f, 0.60f};
+    private static final float[] ANTLER = {0.86f, 0.78f, 0.62f};
     private static final float SEMI_TILT = (float) Math.toRadians(35);
     private static final float TAIL_DROOP = 0.45f;
 
@@ -101,7 +103,7 @@ public final class CreatureMeshBuilder {
     /** The chosen look: variants and colors. */
     private record Look(String posture, String legs, String body, String skinType, String fur, String feet,
                         String teeth, String eyes, String ears, String head, String belly, String hands, String face,
-                        float[] skin, float[] coat) {
+                        String horns, float[] skin, float[] coat) {
 
         static Look of(int bodyRgb, Map<String, String> visuals) {
             String skinType = variant(visuals, "skin");
@@ -110,7 +112,7 @@ public final class CreatureMeshBuilder {
             return new Look(variant(visuals, "posture"), variant(visuals, "legs"), variant(visuals, "body"), skinType, fur,
                     variant(visuals, "feet"), variant(visuals, "teeth"), variant(visuals, "eyes"), variant(visuals, "ears"),
                     variant(visuals, "head"), variant(visuals, "belly"), variant(visuals, "hands"), variant(visuals, "face"),
-                    skin, furColor(skin, fur));
+                    variant(visuals, "horns"), skin, furColor(skin, fur));
         }
 
         boolean furry() {
@@ -332,6 +334,9 @@ public final class CreatureMeshBuilder {
         } else {
             muzzle(b, look, headW, headH, headY, front);
             animalEars(b, look, headW, headH, headY, headZ);
+            if (look.horns().equals("antlers")) {
+                antlers(b, headW, headY + headH / 2f, headZ);
+            }
         }
         eyes(b, look, headW, headY + headH * (human ? 0.1f : 0.14f), front);
     }
@@ -373,6 +378,18 @@ public final class CreatureMeshBuilder {
         b.color(shade(skin, 0.92f));
         b.box(headW / 2f + 0.015f, headY + 0.01f + (alert ? 0.03f : 0f), headZ, 0.03f, earH, 0.07f);
         b.box(-headW / 2f - 0.015f, headY + 0.01f + (alert ? 0.03f : 0f), headZ, 0.03f, earH, 0.07f);
+    }
+
+    /** Branching antlers on top of the head (deer). */
+    private static void antlers(PartMeshBuilder b, float headW, float top, float headZ) {
+        b.color(ANTLER);
+        for (float side : new float[]{1f, -1f}) {
+            float x = side * headW * 0.22f;
+            b.tiltedBox(x, top + 0.14f, headZ - 0.02f, 0.035f, 0.28f, 0.035f, -0.2f);
+            b.box(x + side * 0.07f, top + 0.26f, headZ - 0.06f, 0.14f, 0.03f, 0.03f);
+            b.box(x + side * 0.12f, top + 0.33f, headZ - 0.06f, 0.03f, 0.14f, 0.03f);
+            b.box(x, top + 0.34f, headZ - 0.1f, 0.03f, 0.12f, 0.03f);
+        }
     }
 
     private static void animalEars(PartMeshBuilder b, Look look, float headW, float headH, float headY, float headZ) {

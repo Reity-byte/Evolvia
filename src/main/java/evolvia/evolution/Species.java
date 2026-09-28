@@ -38,6 +38,8 @@ public final class Species {
 
     private final SpeciesDefinition base;
     private final EvolutionTree tree;
+    /** Wild game (phase 9f), or null for the player's species. */
+    private final Animal animal;
     private final Set<String> unlocked = new LinkedHashSet<>();
     private final Set<String> abilities = new HashSet<>();
     private final Set<String> actions = new HashSet<>();
@@ -49,9 +51,34 @@ public final class Species {
     private int revision;
 
     public Species(SpeciesDefinition base, EvolutionTree tree) {
+        this(base, tree, null);
+    }
+
+    /** A species of wild game: no evolution, its look from {@code animal}. */
+    public Species(SpeciesDefinition base, Animal animal) {
+        this(base, new EvolutionTree(List.of(), "none"), animal);
+    }
+
+    private Species(SpeciesDefinition base, EvolutionTree tree, Animal animal) {
         this.base = base;
         this.tree = tree;
+        this.animal = animal;
         recompute();
+    }
+
+    /** Wild game (phase 9f): no faith, no evolution, hunts or is hunted. */
+    public boolean isAnimal() {
+        return animal != null;
+    }
+
+    /** The game traits, or null for the player's species. */
+    public Animal animal() {
+        return animal;
+    }
+
+    /** Species id (as in the data files). */
+    public String id() {
+        return base.id();
     }
 
     /** Stage {@code index} (clamped to the existing stages). */
@@ -220,6 +247,9 @@ public final class Species {
             List<EvolutionNode> first = nodes.subList(0, k);
             Set<String> stageAbilities = new HashSet<>();
             Map<String, String> stageVisuals = new LinkedHashMap<>();
+            if (animal != null) {
+                stageVisuals.putAll(animal.visuals());
+            }
             for (EvolutionNode node : first) {
                 for (Effect effect : node.effects()) {
                     if (effect instanceof Effect.UnlockAbility ability) {

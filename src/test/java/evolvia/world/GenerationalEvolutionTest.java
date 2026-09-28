@@ -65,6 +65,9 @@ class GenerationalEvolutionTest {
         world.unlock("body_strong_legs");
         ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
         for (int i = 0; i < creatures.size(); i++) {
+            if (creatures.componentAt(i).species != world.species()) {
+                continue; // wild game
+            }
             assertEquals(0, creatures.componentAt(i).stage);
             assertEquals(species.speed(), creatures.componentAt(i).stats().speed(), 1e-6f, "living creature changed");
         }
