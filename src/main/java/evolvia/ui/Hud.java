@@ -10,6 +10,7 @@ import evolvia.components.GroupMember;
 import evolvia.world.DeathStats;
 import evolvia.world.Groups;
 import evolvia.world.Nature;
+import evolvia.world.Settlement;
 import evolvia.world.World;
 
 import java.util.ArrayList;
@@ -161,8 +162,14 @@ public final class Hud {
         String day = "Den " + world.clock().day(tick) + " · " + dayPart(world.clock().timeOfDay(tick));
         String season = nature.season(tick).name() + ", rok " + nature.year(tick);
         String weather = weather(world, tick);
-        float width = Math.max(ui.bold.width(day), Math.max(ui.regular.width(season), ui.regular.width(weather))) + 20f;
-        float height = ui.bold.lineHeight() + 2 * ui.regular.lineHeight() + 14f;
+        String tribe = world.tribeGroup() != null
+                ? "Kmen " + world.tribeGroup().size + " · " + world.settlement().mood().label : null;
+        float width = Math.max(ui.bold.width(day), Math.max(ui.regular.width(season), ui.regular.width(weather)));
+        if (tribe != null) {
+            width = Math.max(width, ui.regular.width(tribe));
+        }
+        width += 20f;
+        float height = ui.bold.lineHeight() + (tribe != null ? 3 : 2) * ui.regular.lineHeight() + 14f;
         float x = ui.width() - width - 8f;
         float y = BAR_HEIGHT + 6f;
         ui.panel(x, y, width, height);
@@ -174,6 +181,12 @@ public final class Hud {
         ty += ui.regular.lineHeight();
         boolean danger = nature.blizzard(tick) || !nature.burningTiles().isEmpty() || nature.floodLevel(tick) > 0f;
         ui.text(ui.regular, weather, x + 10f, ty, danger ? 0xFFE08A7A : 0xFFB7C7DA);
+        if (tribe != null) {
+            ty += ui.regular.lineHeight();
+            Settlement.Mood mood = world.settlement().mood();
+            ui.text(ui.regular, tribe, x + 10f, ty, mood == Settlement.Mood.AFRAID ? 0xFFE08A7A
+                    : mood == Settlement.Mood.CONTENT ? 0xFF7FD68A : Ui.TEXT);
+        }
     }
 
     private static String weather(World world, int tick) {

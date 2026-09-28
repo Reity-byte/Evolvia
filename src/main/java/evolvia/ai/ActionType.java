@@ -15,7 +15,8 @@ public enum ActionType {
     SEEK_SHELTER("SeekShelter"),
     HUNT("Hunt"),
     GATHER("Gather"),
-    DELIVER("Deliver");
+    DELIVER("Deliver"),
+    BUILD("Build");
 
     private final String label;
 

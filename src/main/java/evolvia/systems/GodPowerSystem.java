@@ -57,6 +57,11 @@ public final class GodPowerSystem implements GameSystem {
         for (GodPowers.Command command : powers.takeQueued()) {
             apply(command, tick);
         }
+        for (GodPowers.PlanCommand plan : powers.takeQueuedPlans()) {
+            if (powers.faith().canAfford(plan.cost()) && world.planBuilding(plan.building(), plan.x(), plan.z())) {
+                powers.faith().spend(plan.cost());
+            }
+        }
         for (GodPowers.HandCommand command : powers.takeQueuedHand()) {
             float cost = powers.config().hand().cost(command.action());
             if (powers.faith().canAfford(cost) && world.applyHand(command, tick)) {

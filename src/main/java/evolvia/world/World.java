@@ -1,5 +1,6 @@
 package evolvia.world;
 
+import evolvia.systems.TribeSystem;
 import evolvia.ai.ActionContext;
 import evolvia.ai.Navigation;
 import evolvia.ai.PathQueue;
@@ -79,6 +80,9 @@ public final class World implements EvolutionConditions {
     private final SpatialGrid materialGrid;
     /** Rules of the tribe's work (phase 9g). */
     private final Tribe.Config tribe = DataLoader.loadTribe();
+    /** The tribe's buildings and mood (phase 9h). */
+    private final Settlement settlement;
+    private final TribeSystem tribeSystem;
     private final SpatialGrid creatureGrid;
     private final Navigation navigation;
     private final PathQueue pathQueue = new PathQueue();
@@ -113,6 +117,7 @@ public final class World implements EvolutionConditions {
         this.nature = new Nature(DataLoader.loadNature(), clock, terrain);
         this.random = random;
         this.godPowers = new GodPowers(godConfig);
+        this.settlement = new Settlement(tribe, godPowers.faith());
         this.terrain = terrain;
         this.species = species;
         this.resourceTable = resourceTable;
@@ -130,13 +135,16 @@ public final class World implements EvolutionConditions {
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
                 creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting(), materialGrid, tribe.gathering(),
-                resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList());
+                resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList(), settlement);
+        this.tribeSystem = new TribeSystem(groups, species, settlement, refuges, terrain, random);
+        NeedsSystem needsSystem = new NeedsSystem(terrain, clock, refuges, nature);
+        needsSystem.setSettlement(settlement);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
                 godPowerSystem,
                 new NatureSystem(this, nature, random),
-                new NeedsSystem(terrain, clock, refuges, nature),
+                needsSystem,
                 new AiSystem(actionContext),
                 pathfindingSystem,
                 new PathFollowingSystem(pathQueue),
@@ -148,7 +156,8 @@ public final class World implements EvolutionConditions {
                 new GroupSystem(groups, creatureGrid, clock, refuges, species),
                 evolutionSystem,
                 new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
-                        godConfig.sanctify().faithPerSleeperPerMinute()),
+                        godConfig.sanctify().faithPerSleeperPerMinute(), this::shrineFaithPerMinute),
+                tribeSystem,
                 new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
     }
@@ -380,6 +389,47 @@ public final class World implements EvolutionConditions {
     /** Rules of the tribe's work (phase 9g). */
     public Tribe.Config tribe() {
         return tribe;
+    }
+
+    /** The tribe's buildings and mood (phase 9h). */
+    public Settlement settlement() {
+        return settlement;
+    }
+
+    /** The tribe's herd, or null before the Tribe node. */
+    public Groups.Group tribeGroup() {
+        return tribeSystem.tribe();
+    }
+
+    public TribeSystem tribeSystem() {
+        return tribeSystem;
+    }
+
+    /** Extra faith from the shrine: a share of what the tribe's believers give. */
+    private double shrineFaithPerMinute() {
+        Groups.Group group = tribeSystem.tribe();
+        float bonus = settlement.faithBonus();
+        if (group == null || bonus <= 0f) {
+            return 0;
+        }
+        return bonus * godPowers.config().faith().perBelieverPerMinute() * group.size;
+    }
+
+    /**
+     * The god's building plan (phase 9h): a site of the given type at (x, z), near the tribe's camp; the
+     * tribe builds it first once it has the materials.
+     *
+     * @return false if there is no tribe, the type is unknown or the spot is not free land near the camp
+     */
+    public boolean planBuilding(String typeId, float x, float z) {
+        Groups.Group group = tribeSystem.tribe();
+        Tribe.BuildingType type = tribe.building(typeId);
+        if (group == null || type == null || !tribeSystem.free(x, z)
+                || Math.hypot(x - group.campX, z - group.campZ) > tribe.tribe().siteRadius()[1] * 2f) {
+            return false;
+        }
+        settlement.add(type, x, z, true);
+        return true;
     }
 
     private static Random animalRandom(long seed) {

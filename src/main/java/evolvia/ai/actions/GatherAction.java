@@ -49,7 +49,7 @@ public final class GatherAction implements Action {
             if (c.distanceTo(node) <= WORK_REACH || c.ai.pathStatus == AiState.PathStatus.ARRIVED) {
                 c.stopMoving();
                 c.face(t.position.x, t.position.z);
-                c.ai.waitTicks = SpeciesDefinition.secondsToTicks(c.gathering.workSeconds());
+                c.ai.waitTicks = Math.max(1, Math.round(SpeciesDefinition.secondsToTicks(c.gathering.workSeconds()) / c.workFactor()));
                 return Status.RUNNING;
             }
             return c.ai.pathStatus == AiState.PathStatus.FAILED ? Status.FAILED : Status.RUNNING;

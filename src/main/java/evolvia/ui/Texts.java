@@ -43,6 +43,7 @@ public final class Texts {
             case HUNT -> "Loví";
             case GATHER -> "Sbírá suroviny";
             case DELIVER -> "Nese do tábora";
+            case BUILD -> "Staví";
         };
     }
 
@@ -72,6 +73,8 @@ public final class Texts {
             case "groups" -> "stáda";
             case "hands" -> "šikovné ruce";
             case "tools" -> "nástroje (sběr dřeva a kamene)";
+            case "speech" -> "řeč (poplach ve stádě)";
+            case "tribe" -> "kmen";
             default -> ability;
         };
     }

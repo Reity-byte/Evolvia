@@ -59,7 +59,7 @@ class SaveLoadTest {
         SaveData timeless = new SaveData(save.saveVersion(),
                 new SaveData.Meta(meta.name(), "", meta.speciesName(), meta.population(), meta.generation(), meta.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(),
-                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings());
         return SaveManager.toJson(timeless);
     }
 
@@ -203,7 +203,7 @@ class SaveLoadTest {
         SaveData save = WorldCodec.snapshot(world, "x", 0, Time.Speed.NORMAL, VIEW);
         SaveData newer = new SaveData(WorldCodec.SAVE_VERSION + 1, save.meta(), save.seed(), save.tick(), save.speed(),
                 save.view(), save.random(), save.terrain(), save.species(), save.god(), save.stats(), save.ecs(), save.pathQueue(),
-                save.groups(), save.milestones(), save.refuges(), save.nature());
+                save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings());
         SaveException e = assertThrows(SaveException.class, () -> WorldCodec.restore(newer, data));
         assertTrue(e.getMessage().contains("novější"), e.getMessage());
     }
@@ -215,11 +215,11 @@ class SaveLoadTest {
         SaveData.EcsData e = save.ecs();
         SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
                 e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
-                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null, null, null);
+                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null, null, null, null);
         SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
-                save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null, null);
+                save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null, null, null);
         World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();
-        assertEquals(world.population(), loaded.population());
+        assertEquals(loaded.creatureCount(), loaded.population(), "before phase 9c everyone was the player's people");
         assertTrue(loaded.groups().all().stream().noneMatch(g -> g.species == null), "herds of the people form again");
         assertTrue(loaded.animalCount() > 0, "an old save gets wild game");
     }
@@ -234,7 +234,7 @@ class SaveLoadTest {
         SaveData changed = new SaveData(save.saveVersion(), save.meta(), save.seed(), save.tick(), save.speed(),
                 save.view(), save.random(), save.terrain(),
                 new SaveData.SpeciesData(s.id(), s.points(), s.pointsEarned(), List.of("body_strong_legs", "removed_node")),
-                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings());
         WorldCodec.Loaded loaded = WorldCodec.restore(changed, data);
         assertEquals(List.of("removed_node"), loaded.skippedNodes());
         assertTrue(loaded.world().species().isUnlocked("body_strong_legs"));

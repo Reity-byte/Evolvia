@@ -40,6 +40,8 @@ public final class Groups {
         /** Refuge the herd spends the night at (0 = none chosen, phase 9d). */
         public int shelter;
         /** The herd's camp (phase 9g): where gatherers bring materials; set by the first delivery. */
+        /** The tribe (phase 9h): the one herd of the people that builds. */
+        public boolean tribe;
         public boolean hasCamp;
         public float campX;
         public float campZ;

@@ -264,6 +264,20 @@ public final class DataLoader {
         require(g != null && g.ability() != null && g.stockCap() > 0 && g.workSeconds() > 0 && g.radius() > 0
                         && g.score() > 0 && g.deliverScore() > 0 && g.maxNeed() > 0 && g.maxNeed() <= 1, source,
                 "gathering: ability, positive stockCap, workSeconds, radius, score, deliverScore, maxNeed in (0, 1]");
+        Tribe.Rules t = config.tribe();
+        require(t != null && t.ability() != null && t.speechAbility() != null && t.joinRadius() > 0 && t.roleSeconds() > 0
+                        && t.builderShare() > 0 && t.builderShare() <= 1 && t.maxBuilders() >= 1 && t.buildScore() > 0
+                        && t.siteRadius() != null && t.siteRadius().length == 2 && t.siteRadius()[0] > 0
+                        && t.siteRadius()[0] <= t.siteRadius()[1] && t.moralityThreshold() >= 0 && t.goodBirthFactor() > 0
+                        && t.evilBirthFactor() > 0 && t.evilWorkFactor() > 0 && t.desertionPerMinute() >= 0, source,
+                "tribe: invalid rules");
+        require(config.buildings() != null && !config.buildings().isEmpty(), source, "missing \"buildings\"");
+        Set<String> ids = new HashSet<>();
+        for (Tribe.BuildingType b : config.buildings()) {
+            require(b.id() != null && ids.add(b.id()) && b.name() != null && b.cost() != null && b.buildSeconds() > 0
+                            && b.planFaith() > 0 && Set.of("warmth", "refuge", "storage", "faith").contains(b.effect()),
+                    source, "building " + b.id() + ": id, name, cost, buildSeconds > 0, planFaith > 0, effect warmth / refuge / storage / faith");
+        }
         return config;
     }
 

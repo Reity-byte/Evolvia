@@ -28,6 +28,8 @@ public final class EvolutionTreeView {
 
     private boolean visible;
     private float scroll;
+    /** Nothing of the scrolled tree is drawn above this (it would cover the top bar; the header hides the rest). */
+    private static float clipTop;
     private String message = "";
     private boolean messageGood;
     private long messageTime;
@@ -68,6 +70,7 @@ public final class EvolutionTreeView {
         scroll = Math.clamp(scroll - (float) scrollY * SCROLL_STEP, 0f, maxScroll);
         float originX = Math.max(MARGIN, (width - layout.width()) / 2f);
         float originY = contentTop + 10f - scroll;
+        clipTop = top;
         drawBranches(ui, species, layout, originX, originY);
         drawLines(ui, world, layout, originX, originY);
         EvolutionNode hovered = drawNodes(ui, world, layout, originX, originY, contentTop);
@@ -139,6 +142,9 @@ public final class EvolutionTreeView {
                 }
             }
             String name = Texts.branch(entry.getKey()).toUpperCase(Locale.ROOT);
+            if (oy + box.y() < clipTop) {
+                continue;
+            }
             ui.text(ui.bold, name, ox + box.x(), oy + box.y() + 2f, 0xFFC9CED6);
             ui.text(ui.small, unlocked + " / " + total, ox + box.x() + ui.bold.width(name) + 10f, oy + box.y() + 4f, Ui.TEXT_DIM);
             ui.draw().rect(ox + box.x(), oy + box.y() + 22f, box.w(), 1f, 0xFF3A3F4A);
@@ -164,9 +170,14 @@ public final class EvolutionTreeView {
                 float x2 = ox + child.centerX();
                 float y2 = oy + child.y();
                 float midY = (y1 + y2) / 2f;
-                ui.draw().line(x1, y1, x1, midY, 2f, color);
-                ui.draw().line(x1 - 1f, midY, x2 + 1f, midY, 2f, color);
-                ui.draw().line(x2, midY, x2, y2, 2f, color);
+                if (y2 <= clipTop) {
+                    continue;
+                }
+                if (midY > clipTop) {
+                    ui.draw().line(x1, Math.max(y1, clipTop), x1, midY, 2f, color);
+                    ui.draw().line(x1 - 1f, midY, x2 + 1f, midY, 2f, color);
+                }
+                ui.draw().line(x2, Math.max(midY, clipTop), x2, y2, 2f, color);
             }
         }
     }
@@ -181,6 +192,9 @@ public final class EvolutionTreeView {
             TreeLayout.Box box = layout.node(node.id());
             float x = ox + box.x();
             float y = oy + box.y();
+            if (y < clipTop) {
+                continue; // scrolled up out of view
+            }
             boolean hover = ui.hovered(x, y, box.w(), box.h()) && ui.mouseY() >= visibleTop;
             if (hover) {
                 hovered = node;

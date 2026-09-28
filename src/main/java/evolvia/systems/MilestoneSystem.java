@@ -42,6 +42,8 @@ public final class MilestoneSystem implements GameSystem {
             case SHELTERED -> world.shelteredSleepers(false);
             case DAYS -> world.clock().day(world.tick()) - 1;
             case SACRED -> world.refuges().sacredCount();
+            case TRIBE -> world.tribeGroup() != null ? 1 : 0;
+            case BUILDINGS -> world.settlement().doneTypes().size();
             case STOCK -> (int) world.groups().all().stream().filter(g -> g.player)
                     .mapToDouble(Groups.Group::stockTotal).max().orElse(0);
         };

@@ -8,6 +8,8 @@
     { "id": "first_night", "name": "Přečkej noc", "description": "Tvůj lid přežije první noc.", "type": "days", "value": 1, "rewardEp": 20, "rewardFaith": 20 },
     { "id": "sacred_place", "name": "Posvátné místo", "description": "Posvěť útočiště svého lidu.", "type": "sacred", "value": 1, "rewardEp": 30, "rewardFaith": 20 },
     { "id": "first_stock", "name": "Zásoby", "description": "V táboře tvého lidu leží 20 kusů dřeva a kamene.", "type": "stock", "value": 20, "rewardEp": 40, "rewardFaith": 30 },
+    { "id": "tribe", "name": "Kmen", "description": "Tvůj lid založí kmen.", "type": "tribe", "value": 1, "rewardEp": 40, "rewardFaith": 40 },
+    { "id": "builders", "name": "Stavitelé", "description": "Kmen postaví tři různé druhy staveb.", "type": "buildings", "value": 3, "rewardEp": 60, "rewardFaith": 50 },
     { "id": "people_40", "name": "Silný lid", "description": "Tvůj lid má 40 bytostí.", "type": "people", "value": 40, "rewardEp": 60, "rewardFaith": 40 }
   ]
 }

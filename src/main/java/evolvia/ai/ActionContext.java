@@ -1,5 +1,6 @@
 package evolvia.ai;
 
+import evolvia.world.Settlement;
 import evolvia.components.Carrying;
 import evolvia.world.Tribe;
 import evolvia.world.Wildlife;
@@ -71,6 +72,10 @@ public final class ActionContext {
     public final Tribe.Gathering gathering;
     /** The materials there are (wood, stone...), in name order. */
     public final java.util.List<String> materials;
+    /** The tribe's buildings and mood (phase 9h). */
+    public final Settlement settlement;
+    /** Rules of the tribe (phase 9h). */
+    public final Tribe.Rules tribeRules;
     /** Living creatures of each species this tick (population caps). */
     private final Map<Species, Integer> speciesCounts = new IdentityHashMap<>();
 
@@ -115,7 +120,7 @@ public final class ActionContext {
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
                          Random random, Groups groups, WorldClock clock, Refuges refuges, Nature nature,
                          Wildlife.Hunting hunting, SpatialGrid materialGrid, Tribe.Gathering gathering,
-                         java.util.List<String> materials) {
+                         java.util.List<String> materials, Settlement settlement) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -132,6 +137,8 @@ public final class ActionContext {
         this.materialGrid = materialGrid;
         this.gathering = gathering;
         this.materials = java.util.List.copyOf(materials);
+        this.settlement = settlement;
+        this.tribeRules = settlement.config().tribe();
     }
 
     // ---------------------------------------------------------------- gathering (phase 9g)
@@ -153,6 +160,22 @@ public final class ActionContext {
         return group() != null && Math.max(needs.hunger, needs.thirst) < gathering.maxNeed() && needs.energy > 0.25f;
     }
 
+    /** How much of each material the herd's camp stores (more in the tribe's with a store). */
+    public float stockCap(Groups.Group group) {
+        return gathering.stockCap() * (group.tribe ? settlement.storageFactor() : 1f);
+    }
+
+    /** True if the current creature belongs to the tribe (phase 9h). */
+    public boolean inTribe() {
+        Groups.Group group = group();
+        return group != null && group.tribe;
+    }
+
+    /** Speed of the current creature's work: the tribe works harder under an evil god. */
+    public float workFactor() {
+        return inTribe() ? settlement.workFactor() : 1f;
+    }
+
     /** Where the herd's materials go: its camp, or its home before the first delivery. */
     public float[] campSpot(Groups.Group group) {
         return group.hasCamp ? new float[]{group.campX, group.campZ} : new float[]{group.homeX, group.homeZ};
@@ -170,7 +193,7 @@ public final class ActionContext {
         float[] camp = campSpot(group);
         int myRegion = pathfinder().regionAt(transform.position.x, transform.position.z);
         java.util.List<String> wanted = new ArrayList<>(materials);
-        wanted.removeIf(m -> group.stock(m) >= gathering.stockCap());
+        wanted.removeIf(m -> group.stock(m) >= stockCap(group));
         wanted.sort(java.util.Comparator.<String>comparingDouble(group::stock).thenComparing(m -> m));
         for (String material : wanted) {
             int node = materialGrid.nearest(camp[0], camp[1], gathering.radius(), n -> {
@@ -370,13 +393,23 @@ public final class ActionContext {
         float x = transform.position.x;
         float z = transform.position.z;
         int until = tick + SpeciesDefinition.secondsToTicks(hunting.scareSeconds());
+        // With speech (phase 9h) the whole herd around is warned, not only those who see the hunter.
+        GroupMember preyHerd = groupMembers.get(target);
+        boolean alarm = prey.hasAbility(tribeRules.speechAbility()) && preyHerd != null;
         List<Integer> near = new ArrayList<>();
-        creatureGrid.forEachWithin(x, z, hunting.scareRadius(), near::add);
+        creatureGrid.forEachWithin(x, z, alarm ? Math.max(hunting.scareRadius(), tribeRules.alarmRadius()) : hunting.scareRadius(),
+                near::add);
         near.sort(null);
         for (int other : near) {
             SpeciesRef ref = creatures.get(other);
             if (ref == null || ref.species != prey.species) {
                 continue;
+            }
+            if (alarm && distanceTo(other) > hunting.scareRadius()) {
+                GroupMember m = groupMembers.get(other);
+                if (m == null || m.group != preyHerd.group) {
+                    continue; // only herd mates hear the alarm
+                }
             }
             Fear fear = fears.get(other);
             if (fear == null) {
@@ -708,7 +741,10 @@ public final class ActionContext {
         Needs n = needsStore.get(parent);
         n.hunger = Math.min(1f, n.hunger + rules.hungerCost());
         Reproduction reproduction = reproductions.get(parent);
-        reproduction.readyAtTick = tick + SpeciesDefinition.secondsToTicks(rules.cooldownSeconds());
+        GroupMember member = groupMembers.get(parent);
+        Groups.Group herd = member != null ? groups.get(member.group) : null;
+        float factor = herd != null && herd.tribe ? settlement.birthFactor() : 1f; // the tribe's mood (phase 9h)
+        reproduction.readyAtTick = tick + Math.round(SpeciesDefinition.secondsToTicks(rules.cooldownSeconds()) * factor);
         reproduction.offspring += rules.litterSize();
     }
 

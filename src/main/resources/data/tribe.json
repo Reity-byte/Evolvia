@@ -7,5 +7,67 @@
     "score": 0.22,
     "deliverScore": 0.5,
     "maxNeed": 0.5
-  }
+  },
+  "tribe": {
+    "ability": "tribe",
+    "speechAbility": "speech",
+    "alarmRadius": 22,
+    "joinRadius": 40,
+    "roleSeconds": 5,
+    "builderShare": 0.3,
+    "maxBuilders": 6,
+    "buildScore": 0.3,
+    "siteRadius": [5, 11],
+    "moralityThreshold": 0.3,
+    "goodBirthFactor": 0.8,
+    "evilBirthFactor": 1.3,
+    "evilWorkFactor": 1.3,
+    "desertionPerMinute": 0.03
+  },
+  "buildings": [
+    {
+      "id": "fire",
+      "name": "Ohniště",
+      "description": "Kdo je u ohně, nemrzne: ani v noci, v zimě či ve vánici.",
+      "cost": { "wood": 10 },
+      "buildSeconds": 20,
+      "planFaith": 20,
+      "effect": "warmth",
+      "radius": 9,
+      "value": 0.25
+    },
+    {
+      "id": "shelter",
+      "name": "Přístřešek",
+      "description": "Nové útočiště u tábora: spí se v něm jako v jeskyni a predátoři tam spící neloví.",
+      "cost": { "wood": 15, "stone": 5 },
+      "buildSeconds": 40,
+      "planFaith": 30,
+      "effect": "refuge",
+      "radius": 4,
+      "value": 10
+    },
+    {
+      "id": "storage",
+      "name": "Sklad",
+      "description": "Do tábora se vejde víc dřeva a kamene.",
+      "cost": { "wood": 20, "stone": 10 },
+      "buildSeconds": 50,
+      "planFaith": 30,
+      "effect": "storage",
+      "radius": 0,
+      "value": 2.5
+    },
+    {
+      "id": "shrine",
+      "name": "Svatyně",
+      "description": "Místo modliteb: věřící kmene ti dávají víc Víry.",
+      "cost": { "stone": 20, "wood": 10 },
+      "buildSeconds": 60,
+      "planFaith": 40,
+      "effect": "faith",
+      "radius": 0,
+      "value": 0.25
+    }
+  ]
 }

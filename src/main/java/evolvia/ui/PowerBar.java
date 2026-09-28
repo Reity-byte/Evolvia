@@ -5,6 +5,7 @@ import evolvia.god.DivinePower;
 import evolvia.god.GodConfig;
 import evolvia.god.GodPowers;
 import evolvia.render.GodEffectsRenderer;
+import evolvia.world.Tribe;
 import evolvia.world.World;
 import org.joml.Vector3f;
 
@@ -17,7 +18,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 /**
  * God powers bar at the bottom of the screen (DESIGN.md §9): one button per power with its faith cost
  * and a tooltip. A selected power shows its area on the ground; left click uses it (terrain powers
- * repeat while the button is held), right click or ESC puts it away.
+ * repeat while the button is held), right click or ESC puts it away. Once there is a tribe (phase 9h) a second
+ * row offers the god's building plans: the selected building is placed near the camp for faith.
  */
 public final class PowerBar {
 
@@ -29,6 +31,8 @@ public final class PowerBar {
     private static final long MESSAGE_NANOS = 2_500_000_000L;
 
     private DivinePower armed;
+    /** Building type of an armed plan, or null. */
+    private String armedPlan;
     private float repeatTimer;
     private String message = "";
     private long messageTime;
@@ -40,6 +44,12 @@ public final class PowerBar {
 
     public void disarm() {
         armed = null;
+        armedPlan = null;
+    }
+
+    /** A power or a building plan is selected. */
+    public boolean isArmed() {
+        return armed != null || armedPlan != null;
     }
 
     /** Lays out, draws and handles clicks of the bar (call during input handling). */
@@ -74,7 +84,11 @@ public final class PowerBar {
             }
             if (ui.clicked(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)) {
                 armed = armed == power ? null : power;
+                armedPlan = null;
             }
+        }
+        if (world.tribeGroup() != null) {
+            buildPlans(ui, world, y0);
         }
         if (!message.isEmpty() && System.nanoTime() - messageTime < MESSAGE_NANOS) {
             float mw = ui.bold.width(message);
@@ -82,6 +96,10 @@ public final class PowerBar {
             float my = y0 - 30f;
             ui.draw().rect(mx - 10f, my - 4f, mw + 20f, ui.bold.lineHeight() + 8f, 0xE0181B20);
             ui.text(ui.bold, message, mx, my, 0xFFE08A7A);
+        } else if (armedPlan != null && hovered == null) {
+            String hint = world.tribe().building(armedPlan).name() + ": klikni poblíž tábora kmene, pravé tlačítko zruší";
+            float hw = ui.small.width(hint);
+            ui.text(ui.small, hint, (ui.width() - hw) / 2f, y0 - PLAN_HEIGHT - 3 * GAP - 22f, Ui.TEXT);
         } else if (armed != null && hovered == null) {
             String hint = powers.config().of(armed).name() + ": klikni do krajiny"
                     + (armed.repeats() ? " (podrž pro opakování)" : "") + ", pravé tlačítko zruší";
@@ -91,6 +109,59 @@ public final class PowerBar {
         if (hovered != null) {
             tooltip(ui, powers, hovered, hoveredX, y0);
         }
+    }
+
+    private static final float PLAN_HEIGHT = 30f;
+
+    /** A row of building plans above the powers (phase 9h). */
+    private void buildPlans(Ui ui, World world, float barTop) {
+        List<Tribe.BuildingType> types = world.tribe().buildings();
+        float width = types.size() * BUTTON_WIDTH + (types.size() - 1) * GAP + 2 * GAP;
+        float x0 = (ui.width() - width) / 2f;
+        float y0 = barTop - PLAN_HEIGHT - 3 * GAP;
+        ui.panel(x0, y0, width, PLAN_HEIGHT + 2 * GAP);
+        for (int i = 0; i < types.size(); i++) {
+            Tribe.BuildingType type = types.get(i);
+            float x = x0 + GAP + i * (BUTTON_WIDTH + GAP);
+            float y = y0 + GAP;
+            boolean affordable = world.godPowers().faith().canAfford(type.planFaith());
+            if (ui.button(String.format(Locale.ROOT, "%s %.0f", type.name(), type.planFaith()), x, y, BUTTON_WIDTH, PLAN_HEIGHT,
+                    type.id().equals(armedPlan))) {
+                armedPlan = type.id().equals(armedPlan) ? null : type.id();
+                armed = null;
+            }
+            if (!affordable) {
+                ui.draw().rect(x, y, BUTTON_WIDTH, PLAN_HEIGHT, 0x60101010);
+            }
+            if (ui.hovered(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)) {
+                planTooltip(ui, world, type, x, y0);
+            }
+        }
+    }
+
+    private static void planTooltip(Ui ui, World world, Tribe.BuildingType type, float buttonX, float top) {
+        float padding = 10f;
+        List<String> description = Ui.wrap(ui.regular, type.description(), TOOLTIP_WIDTH - 2 * padding);
+        StringBuilder cost = new StringBuilder("Kmen zaplatí:");
+        type.cost().forEach((material, amount) -> cost.append(String.format(Locale.ROOT, " %s %.0f", Texts.material(material), amount)));
+        String plan = String.format(Locale.ROOT, "Plán stojí %.0f Víry, kmen ho postaví přednostně", type.planFaith());
+        float h = padding + ui.bold.lineHeight() + 2f + description.size() * ui.regular.lineHeight() + 6f
+                + 2 * ui.small.lineHeight() + padding;
+        float x = Math.clamp(buttonX, 4f, ui.width() - TOOLTIP_WIDTH - 4f);
+        float y = top - h - 8f;
+        ui.draw().rect(x, y, TOOLTIP_WIDTH, h, 0xF5181B20);
+        ui.draw().outline(x, y, TOOLTIP_WIDTH, h, 1f, 0xFF60656F);
+        float ty = y + padding;
+        ui.text(ui.bold, type.name(), x + padding, ty, Ui.TEXT);
+        ty += ui.bold.lineHeight() + 2f;
+        for (String line : description) {
+            ui.text(ui.regular, line, x + padding, ty, 0xFFD5D9DF);
+            ty += ui.regular.lineHeight();
+        }
+        ty += 6f;
+        ui.text(ui.small, cost.toString(), x + padding, ty, 0xFFB7C7DA);
+        ty += ui.small.lineHeight();
+        ui.text(ui.small, plan, x + padding, ty, Ui.TEXT_ACCENT);
     }
 
     private static void tooltip(Ui ui, GodPowers powers, DivinePower power, float buttonX, float barTop) {
@@ -134,6 +205,9 @@ public final class PowerBar {
      * @return the ring to draw for the selected power, or null
      */
     public GodEffectsRenderer.Brush handleWorld(Input input, World world, Vector3f ground, float frameSeconds) {
+        if (armedPlan != null) {
+            return handlePlan(input, world, ground);
+        }
         if (armed == null) {
             return null;
         }
@@ -156,6 +230,30 @@ public final class PowerBar {
             }
         }
         return GodEffectsRenderer.brush(armed, ground.x, ground.z, powers.config().of(armed).radius(), powers.canAfford(armed));
+    }
+
+    private GodEffectsRenderer.Brush handlePlan(Input input, World world, Vector3f ground) {
+        if (input.isButtonPressed(GLFW_MOUSE_BUTTON_RIGHT) || world.tribeGroup() == null) {
+            armedPlan = null;
+            return null;
+        }
+        if (ground == null) {
+            return null;
+        }
+        Tribe.BuildingType type = world.tribe().building(armedPlan);
+        boolean free = world.tribeSystem().free(ground.x, ground.z);
+        if (input.isButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+            if (!free) {
+                message = "Tady stavět nejde (voda nebo jiná stavba)";
+                messageTime = System.nanoTime();
+            } else if (world.godPowers().request(new GodPowers.PlanCommand(type.id(), ground.x, ground.z, type.planFaith()))) {
+                armedPlan = null;
+            } else {
+                message = String.format(Locale.ROOT, "Nedostatek Víry – plán stojí %.0f", type.planFaith());
+                messageTime = System.nanoTime();
+            }
+        }
+        return new GodEffectsRenderer.Brush(ground.x, ground.z, 2f, free ? 1.4f : 1.6f, free ? 1.2f : 0.5f, free ? 0.6f : 0.4f);
     }
 
     private float repeatSeconds(GodPowers powers) {

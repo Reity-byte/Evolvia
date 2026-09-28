@@ -451,6 +451,23 @@ Rozhodnutí k fázi 9 (celé):
 - **Save verze 8:** nesené suroviny, tábory a zásoby; starší save dostane suroviny rozmístěné ze semínka.
 - **Testy:** suroviny podle biomů, bez Nástrojů se nesbírá, s nimi zásoby rostou a je vidět nošení, první donáška založí tábor, strop zásob, požár spálí stromy, save → load identický.
 
+#### 9h Řeč a kmen (detail)
+- **Uzly** (větev Mysl): *Řeč* `mind_speech` (vyžaduje Sociální skupiny, ~60 EP): schopnost `speech`, stádo si dává poplach: když jeden člen utíká před lovcem, utíká celé stádo v okolí. *Kmen* `mind_tribe` (vyžaduje Řeč a Nástroje, podmínka lid ≥ 25, ~100 EP): schopnost `tribe`.
+- **Kmen:** po odemčení se největší stádo tvého lidu stane kmenem (jeden kmen v celé fázi 9). Kmen nemá strop velikosti stáda; jiná stáda tvého lidu, jejichž vůdce přijde do okruhu `tribe.joinRadius` tábora, se ke kmeni přidají. Kmen má tábor (jako v 9g), zásoby a stavby. Horní lišta ukazuje kmen a jeho náladu.
+- **Role:** každých pár sekund kmen rozdělí dospělé: *stavitelé* (když je rozestavěná stavba, `builderShare` dospělých, nejvýš `maxBuilders`), ostatní *sběrači*. Stavitel jde ke stavbě a staví (`Build`), sběrač sbírá (9g). Role je v panelu bytosti.
+- **Stavby** (`data/buildings.json`: cena v surovinách, doba stavby, efekt, cena plánu ve Víře):
+  - *Ohniště*: bytosti v okruhu nemrznou (noc, zima, vánice) a necítí chlad.
+  - *Přístřešek*: nové útočiště u tábora (spánek v něm jako v jeskyni, predátoři tam spící neloví).
+  - *Sklad*: strop zásob tábora ×2,5.
+  - *Svatyně*: věřící kmene dávají o `faithBonus` víc Víry.
+  - Kmen si sám vybírá stavbu podle potřeby (bez ohniště nejdřív ohniště, pak přístřešek na každých ~10 lidí, sklad při plných zásobách, svatyně), stavbu založí na volném místě kolem tábora, když má suroviny (odečtou se hned).
+- **Božský plán:** tlačítka staveb nad lištou zásahů (jen když kmen existuje); hráč za Víru umístí plán do okruhu tábora, kmen ho staví přednostně (suroviny platí kmen, čeká na ně).
+- **Morálka** (sklon víry): dobrý bůh (> 0.3) = spokojený kmen, pauza mezi mláďaty ×0.8; zlý bůh (< −0.3) = strach: práce (sběr, stavba) ×1.3 rychleji, pauza mezi mláďaty ×1.3 a občas někdo z kmene uteče (opustí kmen i víru). Mezi tím neutrální.
+- **Milníky:** Kmen (založen), Stavitelé (3 různé druhy staveb).
+- **Upřesněno při implementaci:** pravidla kmene a stavby jsou v `data/tribe.json`. Pořadí vlastních staveb: ohniště, první přístřešek, sklad (až jsou zásoby skoro plné), svatyně, pak další přístřešky (1 na 10 lidí); jinak kmen stavěl jen přístřešky. Přístřešek je útočiště typu `hut` v `refuges.json`. Uprchlík z kmene (zlý bůh) ztratí víru a na 20 s utíká od tábora. Plán musí být na volné zemi do 2× `siteRadius` od tábora, jinak se nic nestane a Víra se nevrací ani nebere. Údaj o kmeni a jeho náladě je v panelu hodin. Opraveno: posunutý evoluční strom přetékal přes horní lištu; savy starší než verze 4 se načtou s celým hráčovým druhem jako lidem (dřív hlásily hned „Tvůj lid zanikl“).
+- **Save verze 9:** kmen, role, stavby (rozestavěné i hotové, plány), fronta plánů.
+- **Testy:** kmen vznikne z největšího stáda jen s uzlem, stáda se přidávají, role, kmen sám postaví ≥ 3 druhy staveb, efekt každé stavby (ohniště: chlad, přístřešek: útočiště, sklad: strop, svatyně: Víra), plán má přednost a stojí Víru, poplach s Řečí, morálka (dobrý: rychlejší mláďata, zlý: rychlejší práce a útěky), save → load identický.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.

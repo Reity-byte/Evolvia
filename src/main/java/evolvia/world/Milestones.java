@@ -31,7 +31,11 @@ public final class Milestones {
         /** Sacred places. */
         SACRED,
         /** Materials stored in the best camp of the player's people (phase 9g). */
-        STOCK
+        STOCK,
+        /** The tribe exists (phase 9h). */
+        TRIBE,
+        /** Kinds of finished buildings (phase 9h). */
+        BUILDINGS
     }
 
     public record Milestone(String id, String name, String description, Type type, int value, float rewardEp,

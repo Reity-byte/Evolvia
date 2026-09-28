@@ -28,7 +28,8 @@ public record SaveData(
         GroupsData groups,
         List<String> milestones,
         List<RefugeData> refuges,
-        Nature.State nature) {
+        Nature.State nature,
+        List<BuildingData> buildings) {
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {
@@ -52,7 +53,8 @@ public record SaveData(
     }
 
     public record GodData(FaithData faith, List<GodPowers.RainArea> rains, List<GodPowers.Strike> strikes,
-                          List<GodPowers.Command> queue, List<GodPowers.HandCommand> handQueue) {
+                          List<GodPowers.Command> queue, List<GodPowers.HandCommand> handQueue,
+                          List<GodPowers.PlanCommand> planQueue) {
     }
 
     public record StatsData(Map<String, Integer> deaths, int births, int maxGeneration, int lastGeneration,
@@ -70,7 +72,7 @@ public record SaveData(
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
                           List<ResourceData> resources, int[] believers, List<FearData> fears,
                           List<GroupMemberData> groupMembers, int[] creatureStages, List<UnderAttackData> underAttacks,
-                          List<SickData> sick, List<String> creatureSpecies, List<CarryingData> carrying) {
+                          List<SickData> sick, List<String> creatureSpecies, List<CarryingData> carrying, List<RoleData> roles) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {
@@ -128,12 +130,18 @@ public record SaveData(
     public record CarryingData(int e, String material, float amount) {
     }
 
+    public record RoleData(int e, boolean builder) {
+    }
+
+    public record BuildingData(int id, String type, float x, float z, float progress, boolean paid, boolean planned, int refuge) {
+    }
+
     public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {
     }
 
     public record GroupData(int id, int leader, int size, boolean player, float homeX, float homeZ, boolean settled,
                             float hunger, int attackGroup, int attackUntilTick, int shelter, boolean knowsWater, float waterX, float waterZ,
                             boolean knowsFood, float foodX, float foodZ, String species, boolean hasCamp, float campX,
-                            float campZ, Map<String, Float> stock) {
+                            float campZ, Map<String, Float> stock, boolean tribe) {
     }
 }

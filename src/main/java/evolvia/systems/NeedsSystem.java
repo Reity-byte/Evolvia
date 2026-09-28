@@ -1,5 +1,6 @@
 package evolvia.systems;
 
+import evolvia.world.Settlement;
 import evolvia.components.Genome;
 import evolvia.components.Health;
 import evolvia.components.Needs;
@@ -29,6 +30,7 @@ public final class NeedsSystem implements GameSystem {
     private final WorldClock clock;
     private final Refuges refuges;
     private final Nature nature;
+    private Settlement settlement;
 
     /** Without day and night (tests). */
     public NeedsSystem(Terrain terrain) {
@@ -49,6 +51,11 @@ public final class NeedsSystem implements GameSystem {
         this.clock = clock;
         this.refuges = refuges;
         this.nature = nature;
+    }
+
+    /** Fires keep the cold away (phase 9h). */
+    public void setSettlement(Settlement settlement) {
+        this.settlement = settlement;
     }
 
     @Override
@@ -78,11 +85,17 @@ public final class NeedsSystem implements GameSystem {
             Climate climate = stats.climate();
             boolean sheltered = refuges != null && transform != null && refuges.at(transform.position.x, transform.position.z) != null;
             float temperature = transform != null ? temperatureAt(transform) : 0.5f;
-            if (clock != null && !sheltered) {
+            float warmth = settlement != null && transform != null
+                    ? settlement.warmthAt(transform.position.x, transform.position.z) : 0f;
+            if (clock != null && !sheltered && warmth <= 0f) {
                 temperature -= clock.settings().nightCooling() * clock.nightness(tick);
             }
             if (nature != null) {
-                temperature += nature.temperatureOffset(tick, sheltered);
+                float offset = nature.temperatureOffset(tick, sheltered);
+                temperature += warmth > 0f ? Math.max(0f, offset) : offset; // by the fire nobody freezes
+            }
+            if (warmth > 0f) {
+                temperature = Math.max(temperature, Math.min(temperature + warmth, 0.55f));
             }
             Sick sick = sickStore.get(entity);
             boolean ill = sick != null && sick.isActive(tick);

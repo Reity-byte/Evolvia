@@ -42,6 +42,27 @@
       "effects": [
         { "type": "unlock_ability", "ability": "tools" }
       ]
+    },
+    {
+      "id": "mind_speech",
+      "name": "Řeč",
+      "description": "První slova a výkřiky: když jeden uvidí lovce, varuje celé stádo a utíkají všichni.",
+      "cost": 60,
+      "requires": ["mind_social_groups"],
+      "effects": [
+        { "type": "unlock_ability", "ability": "speech" }
+      ]
+    },
+    {
+      "id": "mind_tribe",
+      "name": "Kmen",
+      "description": "Největší stádo tvého lidu se stane kmenem: usadí se, rozdělí si práci a samo staví ohniště, přístřešky, sklad a svatyni.",
+      "cost": 100,
+      "requires": ["mind_speech", "mind_tools"],
+      "requiresCondition": { "type": "population_min", "value": 25 },
+      "effects": [
+        { "type": "unlock_ability", "ability": "tribe" }
+      ]
     }
   ]
 }

@@ -25,6 +25,10 @@ public final class GodPowers {
     public record HandCommand(HandAction action, int entity, int target, float x, float z) {
     }
 
+    /** The god's building plan (phase 9h). */
+    public record PlanCommand(String building, float x, float z, float cost) {
+    }
+
     /** A hand action that was applied (for visual effects). */
     public record HandEffect(HandAction action, float x, float z, int tick) {
     }
@@ -39,6 +43,7 @@ public final class GodPowers {
     private final Faith faith;
     private final List<Command> queue = new ArrayList<>();
     private final List<HandCommand> handQueue = new ArrayList<>();
+    private final List<PlanCommand> planQueue = new ArrayList<>();
     private final List<RainArea> rains = new ArrayList<>();
     private final Deque<Strike> strikes = new ArrayDeque<>();
     private final Deque<HandEffect> handEffects = new ArrayDeque<>();
@@ -93,6 +98,41 @@ public final class GodPowers {
         handQueue.add(command);
         queuedCost += config.hand().cost(command.action());
         return true;
+    }
+
+    /**
+     * Queues a building plan; it takes effect at the start of the next tick (or at once while paused).
+     *
+     * @return false if there is not enough faith
+     */
+    public boolean request(PlanCommand command) {
+        if (!faith.canAfford(queuedCost + command.cost())) {
+            return false;
+        }
+        planQueue.add(command);
+        queuedCost += command.cost();
+        return true;
+    }
+
+    /** Removes and returns the queued plans (called by the simulation). */
+    public List<PlanCommand> takeQueuedPlans() {
+        List<PlanCommand> taken = new ArrayList<>(planQueue);
+        planQueue.clear();
+        for (PlanCommand command : taken) {
+            queuedCost -= command.cost();
+        }
+        return taken;
+    }
+
+    /** Plans waiting for the next tick (save games). */
+    public List<PlanCommand> queuedPlans() {
+        return Collections.unmodifiableList(planQueue);
+    }
+
+    /** Restores a queued plan from a save game. */
+    public void restoreQueuedPlan(PlanCommand command) {
+        planQueue.add(command);
+        queuedCost += command.cost();
     }
 
     /** Removes and returns the queued hand actions (called by the simulation). */

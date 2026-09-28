@@ -122,7 +122,7 @@ public final class GroupSystem implements GameSystem {
             if (group.leader < 0 || !list.contains(group.leader)) {
                 group.leader = oldest(list, ages, adultTicks);
             }
-            if (list.size() > maxSize) {
+            if (list.size() > maxSize && !group.tribe) { // the tribe has no size limit
                 split(group, list, members, transforms, ages, adultTicks);
             }
             leave(group, list, members, transforms, rules, interval);
@@ -300,7 +300,7 @@ public final class GroupSystem implements GameSystem {
             Groups.Group best = null;
             double bestSq = Double.MAX_VALUE;
             for (Groups.Group group : groups.all()) {
-                if (group.leader < 0 || group.size >= maxSize || kind(group) != kind) {
+                if (group.leader < 0 || (group.size >= maxSize && !group.tribe) || kind(group) != kind) {
                     continue; // herds are of one species
                 }
                 double d = distanceSq(transforms.get(group.leader), t.position.x, t.position.z);

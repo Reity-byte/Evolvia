@@ -15,6 +15,7 @@ import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
 import evolvia.components.Reproduction;
 import evolvia.components.ResourceNode;
+import evolvia.components.Role;
 import evolvia.components.Sick;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -40,6 +41,7 @@ import evolvia.world.ResourceDefinition;
 import evolvia.world.ResourceTable;
 import evolvia.world.SimRandom;
 import evolvia.world.Terrain;
+import evolvia.world.Tribe;
 import evolvia.world.World;
 
 import java.nio.ByteBuffer;
@@ -68,14 +70,15 @@ public final class WorldCodec {
      * reached and freshly placed refuges; 6: weather, disasters, disease, carcass age (phase 9e), older saves start
      * in clear weather without disasters; 7: the species of every creature and herd (wild game, phase 9f), older
      * saves get the game of a new world with the same seed; 8: carried materials, camps and their stock (phase 9g),
-     * older saves get the trees and rocks of a new world with the same seed.
+     * older saves get the trees and rocks of a new world with the same seed; 9: the tribe, roles, buildings and
+     * the god's building plans (phase 9h).
      */
-    public static final int SAVE_VERSION = 8;
+    public static final int SAVE_VERSION = 9;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
             SpeciesRef.class, Genome.class, Needs.class, Health.class, Age.class, Reproduction.class, AiState.class,
-            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class, Sick.class, Carrying.class);
+            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class, Sick.class, Carrying.class, Role.class);
 
     /** Game data a save is loaded against (the current definitions). */
     public record GameData(float shallowDepth, WorldConfig.TimeSettings time, BiomeTable biomes, SpeciesDefinition species,
@@ -112,7 +115,8 @@ public final class WorldCodec {
                 new FaithData(faith.points(), faith.earned(), faith.perMinute(), faith.believers(), faith.alignment(),
                         faith.kindActs(), faith.cruelActs()),
                 new ArrayList<>(world.godPowers().rains()), world.godPowers().recentStrikes(),
-                new ArrayList<>(world.godPowers().queued()), new ArrayList<>(world.godPowers().queuedHand()));
+                new ArrayList<>(world.godPowers().queued()), new ArrayList<>(world.godPowers().queuedHand()),
+                new ArrayList<>(world.godPowers().queuedPlans()));
 
         Map<String, Integer> deaths = new LinkedHashMap<>();
         for (DeathStats.Cause cause : DeathStats.Cause.values()) {
@@ -135,7 +139,9 @@ public final class WorldCodec {
                 god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()),
                 List.copyOf(world.milestones().completed()),
                 world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList(),
-                world.nature().state((int) tick));
+                world.nature().state((int) tick),
+                world.settlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress, b.paid,
+                        b.planned, b.refuge)).toList());
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -181,7 +187,8 @@ public final class WorldCodec {
                 list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)),
                 list(ecs.store(Sick.class), (e, s) -> new SickData(e, s.untilTick, s.immuneUntilTick)),
                 speciesIds(ecs.store(SpeciesRef.class)),
-                list(ecs.store(Carrying.class), (e, c) -> new CarryingData(e, c.material, c.amount)));
+                list(ecs.store(Carrying.class), (e, c) -> new CarryingData(e, c.material, c.amount)),
+                list(ecs.store(Role.class), (e, r) -> new RoleData(e, r.builder)));
     }
 
     private static List<String> speciesIds(ComponentStore<SpeciesRef> creatures) {
@@ -205,7 +212,7 @@ public final class WorldCodec {
         for (Groups.Group g : groups.all()) {
             list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
                     g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ,
-                    g.species != null ? g.species.id() : null, g.hasCamp, g.campX, g.campZ, new TreeMap<>(g.stock)));
+                    g.species != null ? g.species.id() : null, g.hasCamp, g.campX, g.campZ, new TreeMap<>(g.stock), g.tribe));
         }
         return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
@@ -297,6 +304,25 @@ public final class WorldCodec {
             restoreGroups(world, save.groups());
             if (save.ecs().creatureSpecies() == null) {
                 world.placeAnimalsAfterLoad(save.seed()); // a save from before wild game
+            }
+            if (save.buildings() != null) {
+                for (BuildingData d : save.buildings()) {
+                    Tribe.BuildingType type = world.tribe().building(d.type());
+                    if (type == null) {
+                        throw new IllegalArgumentException("Unknown building '" + d.type() + "'");
+                    }
+                    world.settlement().restore(d.id(), type, d.x(), d.z(), d.planned(), d.progress(), d.paid(), d.refuge());
+                }
+            }
+            if (save.saveVersion() < 4) {
+                // Before phase 9c the whole population was the player's species: they are the player's people.
+                ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
+                for (int i = 0; i < creatures.size(); i++) {
+                    if (creatures.componentAt(i).species == world.species()
+                            && world.ecs().get(creatures.entityAt(i), Believer.class) == null) {
+                        world.ecs().add(creatures.entityAt(i), new Believer());
+                    }
+                }
             }
             if (save.saveVersion() < 8) {
                 world.placeMaterialsAfterLoad(save.seed()); // a save from before trees and rocks
@@ -419,6 +445,11 @@ public final class WorldCodec {
                 a.untilTick = d.untilTick();
             }
         }
+        if (data.roles() != null) {
+            for (RoleData d : data.roles()) {
+                ecs.add(d.e(), new Role(d.builder()));
+            }
+        }
         if (data.carrying() != null) {
             for (CarryingData d : data.carrying()) {
                 ecs.add(d.e(), new Carrying(d.material(), d.amount()));
@@ -496,6 +527,7 @@ public final class WorldCodec {
             g.attackUntilTick = d.attackUntilTick();
             g.shelter = d.shelter();
             g.hasCamp = d.hasCamp();
+            g.tribe = d.tribe();
             g.campX = d.campX();
             g.campZ = d.campZ();
             if (d.stock() != null) {
@@ -525,6 +557,9 @@ public final class WorldCodec {
         god.queue().forEach(powers::restoreQueued);
         if (god.handQueue() != null) {
             god.handQueue().forEach(powers::request);
+        }
+        if (god.planQueue() != null) {
+            god.planQueue().forEach(powers::restoreQueuedPlan);
         }
     }
 

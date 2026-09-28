@@ -210,7 +210,7 @@ public final class Evolvia implements GameLoop.Handler {
                 gameMenu.close();
             } else if (selection.hasPendingHand()) {
                 selection.cancelHand();
-            } else if (powerBar.armed() != null) {
+            } else if (powerBar.isArmed()) {
                 powerBar.disarm();
             } else if (treeView.isVisible()) {
                 treeView.close();
@@ -316,6 +316,9 @@ public final class Evolvia implements GameLoop.Handler {
         for (Milestones.Milestone m : world.milestones().takeAnnouncements()) {
             notifications.info(String.format(Locale.ROOT, "Cíl splněn: %s (+%.0f EP, +%.0f Víry)", m.name(), m.rewardEp(), m.rewardFaith()));
         }
+        for (String text : world.tribeSystem().takeAnnouncements()) {
+            notifications.info(text);
+        }
         for (String text : world.nature().takeAnnouncements()) {
             notifications.error(text); // disasters: red, like a warning
         }
@@ -331,7 +334,7 @@ public final class Evolvia implements GameLoop.Handler {
         }
 
         brush = null;
-        if (!treeView.isVisible() && !gameMenu.isVisible() && !mouseOnUi && powerBar.armed() != null) {
+        if (!treeView.isVisible() && !gameMenu.isVisible() && !mouseOnUi && powerBar.isArmed()) {
             Vector3f ground = groundPicker.pick(input, window, camera, world.terrain());
             brush = powerBar.handleWorld(input, world, ground, frameSeconds);
         }
@@ -348,7 +351,7 @@ public final class Evolvia implements GameLoop.Handler {
         cameraController.update(input, window, frameSeconds, !mouseOnUi, !treeView.isVisible());
         if (!mouseOnUi && selection.hasPendingHand()) {
             selection.handleHand(input, window, camera, world, notifications);
-        } else if (!mouseOnUi && powerBar.armed() == null) {
+        } else if (!mouseOnUi && !powerBar.isArmed()) {
             selection.handleInput(input, window, camera, world);
         }
     }

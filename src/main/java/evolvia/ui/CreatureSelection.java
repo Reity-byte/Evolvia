@@ -229,7 +229,7 @@ public final class CreatureSelection {
                         + (group != null ? String.format(Locale.ROOT, " · %s #%d (%d)",
                         ref.species.animal().isPredator() ? "smečka" : "stádo", group.id, group.size) : "")
                 : group == null ? (own ? "Tvůj lid, bez stáda" : "Divoký, bez stáda")
-                : String.format(Locale.ROOT, "%s #%d (%d), %s", group.player ? "Tvůj lid, stádo" : "Divoké stádo", group.id,
+                : String.format(Locale.ROOT, "%s #%d (%d), %s", group.tribe ? "Kmen" : group.player ? "Tvůj lid, stádo" : "Divoké stádo", group.id,
                 group.size, group.leader == entity ? "vůdce" : "člen");
         ui.text(ui.regular, herd, x + padding, ty, group != null && !group.player ? 0xFFE08A7A
                 : group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
@@ -249,6 +249,10 @@ public final class CreatureSelection {
                 : "Tábor: zatím žádný";
         if (load != null) {
             work = "Nese " + Texts.material(load.material) + " · " + work;
+        }
+        evolvia.components.Role role = world.ecs().get(entity, evolvia.components.Role.class);
+        if (role != null) {
+            work = (role.builder ? "Stavitel" : "Sběrač") + " · " + work;
         }
         ui.text(ui.regular, animal ? "" : work, x + padding, ty, Ui.TEXT_DIM);
         ty += line + 10f;

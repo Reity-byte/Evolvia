@@ -2,7 +2,8 @@
   "types": [
     { "id": "cave", "name": "Jeskyně", "count": 5, "radius": 5, "minAltitude": 0.3, "biomes": [] },
     { "id": "grove", "name": "Hustý háj", "count": 6, "radius": 6, "minAltitude": 0, "biomes": ["forest"] },
-    { "id": "overhang", "name": "Skalní převis", "count": 6, "radius": 4, "minAltitude": 0, "biomes": ["grass", "desert", "tundra"] }
+    { "id": "overhang", "name": "Skalní převis", "count": 6, "radius": 4, "minAltitude": 0, "biomes": ["grass", "desert", "tundra"] },
+    { "id": "hut", "name": "Přístřešek", "count": 0, "radius": 4, "minAltitude": 0, "biomes": [] }
   ],
   "searchRadius": 60,
   "minSpacing": 18,
