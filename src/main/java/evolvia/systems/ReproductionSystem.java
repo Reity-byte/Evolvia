@@ -43,7 +43,11 @@ public final class ReproductionSystem implements GameSystem {
                 continue; // a parent vanished; should not happen within one tick
             }
             Species kind = ref.species;
-            SpeciesDefinition species = kind.stats();
+            SpeciesRef refB = world.get(births.parentB(i), SpeciesRef.class);
+            // Generational evolution: a newborn is at most traitStepsPerBirth stages ahead of its more evolved parent.
+            int parentStage = Math.max(ref.stage, refB != null ? refB.stage : ref.stage);
+            int stage = Math.min(kind.latestStage().index(), parentStage + kind.stats().evolution().traitStepsPerBirth());
+            SpeciesDefinition species = kind.stage(stage).stats();
             int readyAt = tick + SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
             GroupMember herd = world.get(births.parentA(i), GroupMember.class);
             if (herd == null) {
@@ -60,7 +64,7 @@ public final class ReproductionSystem implements GameSystem {
                 }
                 Genome genome = factory.inherit(species, a, b);
                 maxGeneration = Math.max(maxGeneration, genome.generation);
-                int child = factory.spawn(kind, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
+                int child = factory.spawn(kind, stage, genome, x, z, 0, NEWBORN_NEED, NEWBORN_NEED, 1f, readyAt);
                 if (believer) {
                     world.add(child, new Believer());
                 }

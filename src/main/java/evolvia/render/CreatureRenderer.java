@@ -16,10 +16,11 @@ import org.joml.Matrix4f;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
- * Draws all creatures instanced, one draw call per species. Each species has a procedural mesh
- * from {@link CreatureMeshBuilder}, rebuilt when its unlocked nodes change. Position and heading
+ * Draws all creatures instanced, one draw call per species and evolutionary stage. Each stage has a
+ * procedural mesh from {@link CreatureMeshBuilder}; creatures look like the stage they were born with. Position and heading
  * are interpolated between the last two ticks. Size and shade come from the genome, young creatures
  * are smaller and grow; walking creatures swing their legs and bob, sleeping ones are darker,
  * the selected creature is highlighted. Only reads simulation data.
@@ -41,13 +42,26 @@ public final class CreatureRenderer implements AutoCloseable {
     private final Map<Species, SpeciesMesh> meshes = new IdentityHashMap<>();
     private final Matrix4f model = new Matrix4f();
 
+    /** Meshes of one species, one per evolutionary stage alive; all rebuilt when the species evolves. */
     private static final class SpeciesMesh {
-        final InstanceBatch batch;
+        final Map<Integer, InstanceBatch> stages = new TreeMap<>();
         final int revision;
 
         SpeciesMesh(Species species) {
-            batch = new InstanceBatch(CreatureMeshBuilder.build(species.stats().rgb(), species.visuals()).toMesh());
             revision = species.revision();
+        }
+
+        InstanceBatch batch(Species species, int stage) {
+            return stages.computeIfAbsent(stage, s -> {
+                Species.Stage data = species.stage(s);
+                InstanceBatch batch = new InstanceBatch(CreatureMeshBuilder.build(data.stats().rgb(), data.visuals()).toMesh());
+                batch.begin();
+                return batch;
+            });
+        }
+
+        void close() {
+            stages.values().forEach(InstanceBatch::close);
         }
     }
 
@@ -70,21 +84,16 @@ public final class CreatureRenderer implements AutoCloseable {
         ComponentStore<Velocity> velocities = ecs.store(Velocity.class);
 
         for (SpeciesMesh mesh : meshes.values()) {
-            mesh.batch.begin();
+            mesh.stages.values().forEach(InstanceBatch::begin);
         }
-        Species lastKind = null;
-        InstanceBatch batch = null;
         for (int i = 0; i < creatures.size(); i++) {
             int entity = creatures.entityAt(i);
             Transform current = transforms.get(entity);
             if (current == null) {
                 continue;
             }
-            Species kind = creatures.componentAt(i).species;
-            if (kind != lastKind) {
-                batch = batchFor(kind);
-                lastKind = kind;
-            }
+            SpeciesRef ref = creatures.componentAt(i);
+            InstanceBatch batch = batchFor(ref); // each creature looks like the stage it was born with
             PrevTransform prev = previous.get(entity);
             float x = current.position.x;
             float y = current.position.y;
@@ -96,7 +105,7 @@ public final class CreatureRenderer implements AutoCloseable {
                 z = prev.position.z + (z - prev.position.z) * alpha;
                 yaw = lerpAngle(prev.yaw, yaw, alpha);
             }
-            SpeciesDefinition species = kind.stats();
+            SpeciesDefinition species = ref.stats();
             Genome genome = genomes.get(entity);
             float size = species.bodySize() * (genome != null ? genome.size : 1f) * growth(ages.get(entity), species);
 
@@ -134,22 +143,21 @@ public final class CreatureRenderer implements AutoCloseable {
         shader.setUniform("uView", camera.view());
         lighting.apply(shader, camera);
         for (SpeciesMesh mesh : meshes.values()) {
-            mesh.batch.draw();
+            mesh.stages.values().forEach(InstanceBatch::draw);
         }
     }
 
-    /** The species' batch, (re)building its mesh when the species has evolved since. */
-    private InstanceBatch batchFor(Species kind) {
-        SpeciesMesh mesh = meshes.get(kind);
-        if (mesh == null || mesh.revision != kind.revision()) {
+    /** The batch for a creature's species and stage, (re)building meshes when the species has evolved since. */
+    private InstanceBatch batchFor(SpeciesRef ref) {
+        SpeciesMesh mesh = meshes.get(ref.species);
+        if (mesh == null || mesh.revision != ref.species.revision()) {
             if (mesh != null) {
-                mesh.batch.close();
+                mesh.close();
             }
-            mesh = new SpeciesMesh(kind);
-            mesh.batch.begin();
-            meshes.put(kind, mesh);
+            mesh = new SpeciesMesh(ref.species);
+            meshes.put(ref.species, mesh);
         }
-        return mesh.batch;
+        return mesh.batch(ref.species, ref.stage);
     }
 
     /** Interpolates angles along the shorter way around the circle. */
@@ -176,9 +184,7 @@ public final class CreatureRenderer implements AutoCloseable {
 
     @Override
     public void close() {
-        for (SpeciesMesh mesh : meshes.values()) {
-            mesh.batch.close();
-        }
+        meshes.values().forEach(SpeciesMesh::close);
         meshes.clear();
         shader.close();
     }

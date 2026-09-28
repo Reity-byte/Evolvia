@@ -42,7 +42,7 @@ public final class NeedsSystem implements GameSystem {
                 continue;
             }
             Needs needs = needsStore.componentAt(i);
-            SpeciesDefinition stats = ref.species.stats();
+            SpeciesDefinition stats = ref.stats();
             NeedRates rates = stats.needs();
 
             Transform transform = transforms.get(entity);

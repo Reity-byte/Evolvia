@@ -20,6 +20,18 @@ public final class Species {
     /** State of a node for this species (as shown in the evolution UI). */
     public enum NodeStatus { UNLOCKED, AVAILABLE, LOCKED, EXCLUDED }
 
+    /**
+     * An evolutionary stage: the traits of the first {@code index} unlocked nodes (stage 0 = the starting
+     * species). Creatures keep the stage they were born with; unlocking a node only makes a new stage
+     * that newborns can reach (DESIGN.md §7.3, generational evolution).
+     */
+    public record Stage(int index, SpeciesDefinition stats, Set<String> abilities, Map<String, String> visuals) {
+
+        public boolean hasAbility(String ability) {
+            return abilities.contains(ability);
+        }
+    }
+
     /** Status plus the reason when a node cannot be unlocked (null when it can). */
     public record Availability(NodeStatus status, String reason) {
     }
@@ -30,6 +42,7 @@ public final class Species {
     private final Set<String> abilities = new HashSet<>();
     private final Set<String> actions = new HashSet<>();
     private final Map<String, String> visuals = new LinkedHashMap<>();
+    private final List<Stage> stages = new ArrayList<>();
     private SpeciesDefinition stats;
     private float points;
     private float pointsEarned;
@@ -41,7 +54,29 @@ public final class Species {
         recompute();
     }
 
-    /** Current stats: base definition with the effects of all unlocked nodes. */
+    /** Stage {@code index} (clamped to the existing stages). */
+    public Stage stage(int index) {
+        return stages.get(Math.clamp(index, 0, stages.size() - 1));
+    }
+
+    /** The most evolved stage (all unlocked nodes). */
+    public Stage latestStage() {
+        return stages.getLast();
+    }
+
+    /** Stage at which a node's traits appear (its position in the unlock order + 1), or -1 if not unlocked. */
+    public int stageOf(String nodeId) {
+        int index = 1;
+        for (String id : unlocked) {
+            if (id.equals(nodeId)) {
+                return index;
+            }
+            index++;
+        }
+        return -1;
+    }
+
+    /** Stats of the most evolved stage: base definition with the effects of all unlocked nodes. */
     public SpeciesDefinition stats() {
         return stats;
     }
@@ -174,26 +209,41 @@ public final class Species {
         recompute();
     }
 
+    /** Rebuilds all stages (stage k = the first k unlocked nodes); the latest one is the species' current state. */
     private void recompute() {
         List<EvolutionNode> nodes = new ArrayList<>();
         for (String id : unlocked) {
             nodes.add(tree.node(id));
         }
-        stats = SpeciesStats.compute(base, nodes);
+        stages.clear();
+        for (int k = 0; k <= nodes.size(); k++) {
+            List<EvolutionNode> first = nodes.subList(0, k);
+            Set<String> stageAbilities = new HashSet<>();
+            Map<String, String> stageVisuals = new LinkedHashMap<>();
+            for (EvolutionNode node : first) {
+                for (Effect effect : node.effects()) {
+                    if (effect instanceof Effect.UnlockAbility ability) {
+                        stageAbilities.add(ability.ability());
+                    } else if (effect instanceof Effect.Visual visual) {
+                        stageVisuals.put(visual.part(), visual.variant());
+                    }
+                }
+            }
+            stages.add(new Stage(k, SpeciesStats.compute(base, first), Collections.unmodifiableSet(stageAbilities),
+                    Collections.unmodifiableMap(stageVisuals)));
+        }
+        Stage latest = stages.getLast();
+        stats = latest.stats();
         revision++;
         abilities.clear();
-        actions.clear();
+        abilities.addAll(latest.abilities());
         visuals.clear();
+        visuals.putAll(latest.visuals());
+        actions.clear();
         for (EvolutionNode node : nodes) {
             for (Effect effect : node.effects()) {
-                switch (effect) {
-                    case Effect.UnlockAbility ability -> abilities.add(ability.ability());
-                    case Effect.UnlockAction action -> actions.add(action.action());
-                    case Effect.Visual visual -> visuals.put(visual.part(), visual.variant());
-                    case Effect.StatAdd ignored -> {
-                    }
-                    case Effect.StatMul ignored -> {
-                    }
+                if (effect instanceof Effect.UnlockAction action) {
+                    actions.add(action.action());
                 }
             }
         }

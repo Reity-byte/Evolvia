@@ -145,7 +145,8 @@ public final class DataLoader {
                 "climate: comfortMin <= comfortMax, other values must not be negative");
         SpeciesDefinition.EvolutionRates evolution = s.evolution();
         require(evolution != null && evolution.populationPointsPerMinute() >= 0 && evolution.pointsPerGeneration() >= 0
-                        && evolution.harshPointsPerCreatureMinute() >= 0, source, "evolution: rates must not be negative");
+                        && evolution.harshPointsPerCreatureMinute() >= 0 && evolution.traitStepsPerBirth() >= 1, source,
+                "evolution: rates must not be negative, traitStepsPerBirth >= 1");
 
         SpeciesDefinition.Groups groups = s.groups();
         require(groups != null && groups.updateSeconds() > 0 && groups.joinRadius() > 0 && groups.minSize() >= 2

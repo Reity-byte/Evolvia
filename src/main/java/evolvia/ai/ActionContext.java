@@ -66,8 +66,10 @@ public final class ActionContext {
     public AiState ai;
     /** Current (evolved) stats of the creature's species. */
     public SpeciesDefinition species;
-    /** The creature's species (abilities, evolution state). */
+    /** The creature's species (evolution state). */
     public Species kind;
+    /** The creature's species and evolutionary stage (its own abilities). */
+    public SpeciesRef ref;
 
     // Per-creature query caches (reset by bind); -2 = not computed yet.
     private int nearestFood;
@@ -106,14 +108,15 @@ public final class ActionContext {
     }
 
     /** Points the context at one creature. */
-    public void bind(int entity, Transform transform, Velocity velocity, Needs needs, AiState ai, Species kind) {
+    public void bind(int entity, Transform transform, Velocity velocity, Needs needs, AiState ai, SpeciesRef ref) {
         this.entity = entity;
         this.transform = transform;
         this.velocity = velocity;
         this.needs = needs;
         this.ai = ai;
-        this.kind = kind;
-        this.species = kind.stats();
+        this.ref = ref;
+        this.kind = ref.species;
+        this.species = ref.stats();
         nearestFood = -2;
         nearestWater = -2;
         foodInReach = -2;
@@ -150,12 +153,12 @@ public final class ActionContext {
 
     /** Pathfinder for the current creature's way of moving (walking, or also swimming). */
     public Pathfinder pathfinder() {
-        return navigation.forSpecies(kind);
+        return navigation.forCreature(ref);
     }
 
     /** The current creature's memory, or null if its species has no memory ability. */
     public Memory memory() {
-        return kind.hasAbility(MEMORY) ? memories.get(entity) : null;
+        return ref.hasAbility(MEMORY) ? memories.get(entity) : null;
     }
 
     // ---------------------------------------------------------------- resource queries
@@ -259,7 +262,7 @@ public final class ActionContext {
         if (ref == null || age == null || reproduction == null || n == null || health == null) {
             return false;
         }
-        SpeciesDefinition.Reproduction rules = ref.species.stats().reproduction();
+        SpeciesDefinition.Reproduction rules = ref.stats().reproduction();
         return age.ageTicks >= SpeciesDefinition.secondsToTicks(rules.adultAgeSeconds())
                 && reproduction.readyAtTick <= tick
                 && n.hunger < rules.maxNeed() && n.thirst < rules.maxNeed()
@@ -309,7 +312,7 @@ public final class ActionContext {
     }
 
     private void payForOffspring(int parent) {
-        SpeciesDefinition.Reproduction rules = creatures.get(parent).species.stats().reproduction();
+        SpeciesDefinition.Reproduction rules = creatures.get(parent).stats().reproduction();
         Needs n = needsStore.get(parent);
         n.hunger = Math.min(1f, n.hunger + rules.hungerCost());
         Reproduction reproduction = reproductions.get(parent);

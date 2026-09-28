@@ -62,7 +62,7 @@ public final class PathFollowingSystem implements GameSystem {
 
             Path path = ai.path;
             Genome genome = genomes.get(entity);
-            float step = ref.species.stats().speedPerTick() * (genome != null ? genome.speed : 1f);
+            float step = ref.stats().speedPerTick() * (genome != null ? genome.speed : 1f);
             float x = transform.position.x;
             float z = transform.position.z;
             // Skip intermediate waypoints that are already (almost) reached.

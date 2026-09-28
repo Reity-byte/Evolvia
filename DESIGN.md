@@ -108,7 +108,7 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
 - Klávesy: F4 evoluční strom (jinak tlačítko Evoluce), ESC zavře otevřené okno / zruší výběr, bez otevřeného okna ukončí hru.
 - Ukládání: F5 rychlé uložení, F9 rychlé načtení, menu *Hra* (uložit, načíst, smazat, nový svět, ukončit).
-- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry.
+- Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry, F10 všichni hned vyvinutí.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
 
@@ -230,6 +230,8 @@ Při načítání validovat: neexistující ID v `requires`, cykly, duplicitní 
 - **Klima jako tlak prostředí:** druh má teplotní rozsah pohodlí (`climate` v `species.json`). Mimo něj rychleji roste hlad (chlad) nebo žízeň (horko) a při velkém rozdílu ubývá zdraví. Adaptace na chlad/horko rozsah rozšiřují. Jedinci mimo rozsah dávají EP za „náročné podmínky“.
 - **Plavání:** schopnost `swim` zpřístupní mělkou vodu (vlastní navigace, pro plavce spojuje ostrovy).
 - **Mysl ve fázi 5:** jen první uzly, hlavně **Paměť** (bytost si pamatuje poslední místo s vodou a jídlem a vrátí se tam, když nic nevidí). Zbytek větve ve fázi 9+.
+
+**Generační evoluce (rozhodnutí Lucase, po fázi 9b):** odemčení uzlu nezmění žijící bytosti, jen druh. Každá bytost má *vývojový stupeň* z narození (`SpeciesRef.stage`, stupeň k = prvních k odemčených uzlů) a celý život má jeho statistiky, schopnosti i vzhled. Mládě dostane stupeň vyspělejšího rodiče + `evolution.traitStepsPerBirth` (výchozí 1, strop = všechny odemčené), takže při odemčení několika uzlů naráz se znaky projevují postupně po generacích a populace se mění plynule, jak staří umírají a rodí se noví. Panel druhu ukazuje hodnoty nejnovější generace a podíl populace s nejnovějšími znaky, strom u odemčeného uzlu podíl populace, která znak nese, panel bytosti její stupeň. Ladicí F10 vyvine všechny hned. Save verze 3 ukládá stupeň každé bytosti (starší savy: všichni nejnovější stupeň).
 
 ### 7.3 Individuální genom (drobná variace)
 

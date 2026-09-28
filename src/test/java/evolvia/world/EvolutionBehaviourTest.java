@@ -64,6 +64,7 @@ class EvolutionBehaviourTest {
         for (String node : nodes) {
             world.unlock(node);
         }
+        world.evolveEveryone(); // these tests look at fully evolved creatures, not at the generations in between
     }
 
     /** Average distance moved per tick by creatures that moved in that tick. */

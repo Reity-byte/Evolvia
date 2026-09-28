@@ -71,8 +71,13 @@ class SaveLoadTest {
                 world.unlock("mind_instincts");
                 world.unlock("mind_memory");
                 world.unlock("mind_social_groups"); // herds are part of the saved state
+                world.evolveEveryone();
             }
             case 150 -> world.godPowers().request(DivinePower.RAIN, x, z);
+            case 200 -> {
+                world.species().addPoints(30f);
+                world.unlock("body_keen_eyes"); // only newborns get it: mixed stages are saved
+            }
             case 300 -> world.godPowers().request(DivinePower.ABUNDANCE, x + 6f, z);
             case 700 -> { // at a creature's current position (herds move away from the start)
                 Transform t = world.ecs().get(world.ecs().store(SpeciesRef.class).entityAt(0), Transform.class);
@@ -175,7 +180,7 @@ class SaveLoadTest {
         SaveData.EcsData e = save.ecs();
         SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
                 e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
-                e.memories(), e.resources(), e.believers(), e.fears(), null);
+                e.memories(), e.resources(), e.believers(), e.fears(), null, null);
         SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
                 save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null);
         World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();

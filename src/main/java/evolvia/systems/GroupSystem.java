@@ -59,7 +59,7 @@ public final class GroupSystem implements GameSystem {
             int entity = members.entityAt(i);
             int group = members.componentAt(i).group;
             SpeciesRef ref = creatures.get(entity);
-            if (groups.get(group) == null || ref == null || !ref.species.hasAbility(Groups.ABILITY)) {
+            if (groups.get(group) == null || ref == null || !ref.hasAbility(Groups.ABILITY)) {
                 orphans.add(entity);
             } else {
                 byGroup.computeIfAbsent(group, g -> new ArrayList<>()).add(entity);
@@ -155,7 +155,7 @@ public final class GroupSystem implements GameSystem {
         List<Integer> free = new ArrayList<>();
         for (int i = 0; i < creatures.size(); i++) {
             int entity = creatures.entityAt(i);
-            if (!members.has(entity) && creatures.componentAt(i).species.hasAbility(Groups.ABILITY)) {
+            if (!members.has(entity) && creatures.componentAt(i).hasAbility(Groups.ABILITY)) {
                 free.add(entity);
             }
         }

@@ -193,6 +193,12 @@ public final class Hud {
             abilities.add(Texts.ability(ability));
         }
         rows.add(row("Schopnosti", abilities.isEmpty() ? "–" : String.join(", ", abilities), 1f));
+        int[] stages = world.stageCounts();
+        if (stages.length > 1) {
+            int newest = stages[stages.length - 1];
+            rows.add(row("Nejnovější znaky", String.format(Locale.ROOT, "%.0f %% populace",
+                    100f * newest / Math.max(1, world.population())), 1f));
+        }
         if (species.hasAbility(Groups.ABILITY)) {
             int herds = world.groups().count();
             int members = world.ecs().store(GroupMember.class).size();
@@ -232,7 +238,7 @@ public final class Hud {
         ty += ui.small.lineHeight();
         ui.text(ui.small, "Evoluce: " + evolution, x + padding, ty, Ui.TEXT_DIM);
         ty += ui.small.lineHeight() * 1.4f;
-        ui.text(ui.small, "Vlastnosti měníš v evolučním stromu (Evoluce / F4).", x + padding, ty, Ui.TEXT_DIM);
+        ui.text(ui.small, "Hodnoty nejnovější generace. Změny v Evoluci (F4).", x + padding, ty, Ui.TEXT_DIM);
     }
 
     /** Label, value and the change against the starting species (null if unchanged). */

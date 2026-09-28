@@ -46,7 +46,7 @@ public final class PathfindingSystem implements GameSystem {
                 continue; // cancelled meanwhile
             }
             SpeciesRef ref = world.get(entity, SpeciesRef.class);
-            Pathfinder pathfinder = ref != null ? navigation.forSpecies(ref.species) : navigation.land();
+            Pathfinder pathfinder = ref != null ? navigation.forCreature(ref) : navigation.land();
             Path path = pathfinder.find(transform.position.x, transform.position.z, ai.targetX, ai.targetZ);
             expansions += pathfinder.lastExpansions();
             searches++;

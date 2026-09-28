@@ -65,7 +65,7 @@ public record SaveData(
                           List<NeedsData> needs, List<HealthData> healths, List<AgeData> ages,
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
                           List<ResourceData> resources, int[] believers, List<FearData> fears,
-                          List<GroupMemberData> groupMembers) {
+                          List<GroupMemberData> groupMembers, int[] creatureStages) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {

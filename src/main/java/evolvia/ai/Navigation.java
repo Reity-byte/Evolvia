@@ -1,6 +1,6 @@
 package evolvia.ai;
 
-import evolvia.evolution.Species;
+import evolvia.components.SpeciesRef;
 import evolvia.world.Terrain;
 
 /**
@@ -35,9 +35,9 @@ public final class Navigation {
         swim.labelRegions();
     }
 
-    /** Pathfinder for the way a species moves. */
-    public Pathfinder forSpecies(Species species) {
-        return species.hasAbility(SWIM) ? swim : land;
+    /** Pathfinder for the way a creature moves (its evolutionary stage decides whether it swims). */
+    public Pathfinder forCreature(SpeciesRef creature) {
+        return creature.hasAbility(SWIM) ? swim : land;
     }
 
     public Pathfinder land() {

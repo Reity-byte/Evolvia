@@ -92,9 +92,10 @@ public record SpeciesDefinition(
      * @param populationPointsPerMinute   EP per minute times ln(1 + population)
      * @param pointsPerGeneration         EP for every new generation born
      * @param harshPointsPerCreatureMinute EP per minute for each creature living outside its comfort range
+     * @param traitStepsPerBirth          a newborn is at most this many stages ahead of its more evolved parent
      */
     public record EvolutionRates(float populationPointsPerMinute, float pointsPerGeneration,
-                                 float harshPointsPerCreatureMinute) {
+                                 float harshPointsPerCreatureMinute, int traitStepsPerBirth) {
     }
 
     /**

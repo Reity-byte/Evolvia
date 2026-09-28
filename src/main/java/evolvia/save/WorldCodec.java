@@ -55,8 +55,11 @@ import java.util.Set;
  */
 public final class WorldCodec {
 
-    /** 2: herds (phase 9a). Version 1 saves load without herds (they form again). */
-    public static final int SAVE_VERSION = 2;
+    /**
+     * 2: herds (phase 9a); 3: evolutionary stage per creature (generational evolution). Older saves load
+     * without herds (they form again) and with every creature at the latest stage.
+     */
+    public static final int SAVE_VERSION = 3;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
@@ -159,7 +162,16 @@ public final class WorldCodec {
                 list(ecs.store(ResourceNode.class), (e, r) -> new ResourceData(e, r.type.id(), r.amount, r.regrowPerTick, r.divine)),
                 entities(ecs.store(Believer.class)),
                 list(ecs.store(Fear.class), (e, f) -> new FearData(e, f.fromX, f.fromZ, f.distance, f.untilTick)),
-                list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)));
+                list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)),
+                stages(ecs.store(SpeciesRef.class)));
+    }
+
+    private static int[] stages(ComponentStore<SpeciesRef> creatures) {
+        int[] stages = new int[creatures.size()];
+        for (int i = 0; i < stages.length; i++) {
+            stages[i] = creatures.componentAt(i).stage;
+        }
+        return stages;
     }
 
     private static GroupsData groups(Groups groups) {
@@ -277,8 +289,9 @@ public final class WorldCodec {
             v.speed = d.speed();
             v.blocked = d.blocked();
         }
-        for (int e : data.creatures()) {
-            ecs.add(e, new SpeciesRef(species));
+        for (int i = 0; i < data.creatures().length; i++) {
+            int stage = data.creatureStages() != null ? data.creatureStages()[i] : species.latestStage().index();
+            ecs.add(data.creatures()[i], new SpeciesRef(species, Math.min(stage, species.latestStage().index())));
         }
         for (GenomeData d : data.genomes()) {
             Genome g = ecs.add(d.e(), new Genome());

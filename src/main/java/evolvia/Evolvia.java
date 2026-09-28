@@ -63,6 +63,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_F6;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F9;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F10;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_G;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
@@ -228,6 +229,9 @@ public final class Evolvia implements GameLoop.Handler {
         }
         if (input.isKeyPressed(GLFW_KEY_G)) {
             hud.toggleGroups();
+        }
+        if (input.isKeyPressed(GLFW_KEY_F10)) {
+            world.evolveEveryone(); // debug: skip waiting for generations
         }
         if (input.isKeyPressed(GLFW_KEY_F8)) {
             world.godPowers().faith().add(100f); // debug
@@ -517,7 +521,7 @@ public final class Evolvia implements GameLoop.Handler {
         sb.append(contextInfo).append("\n\n");
         sb.append("WASD / screen edge: pan | wheel: zoom | MMB drag, Q/E: rotate\n");
         sb.append("LMB: select creature | Space: pause | 1/2/3: speed 1x/3x/10x\n");
-        sb.append("F4: evolution tree | F5/F9: quick save/load | F6: empty all food | F7: +100 EP, F8: +100 faith (debug) | F3: overlay | ESC: close / quit");
+        sb.append("F4: evolution tree | F5/F9: quick save/load | F6: empty all food | F7: +100 EP, F8: +100 faith, F10: evolve all (debug) | F3: overlay | ESC: close / quit");
         return sb.toString();
     }
 }

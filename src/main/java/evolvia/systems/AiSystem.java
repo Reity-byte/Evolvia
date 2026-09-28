@@ -78,9 +78,9 @@ public final class AiSystem implements GameSystem {
             if (transform == null || velocity == null || needs == null || species == null) {
                 continue;
             }
-            context.bind(entity, transform, velocity, needs, ai, species.species);
+            context.bind(entity, transform, velocity, needs, ai, species);
 
-            int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.species.stats().ai().evaluateEverySeconds()));
+            int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.stats().ai().evaluateEverySeconds()));
             boolean evaluate = ai.action == null || (tick + entity) % interval == 0
                     || (ai.action != ActionType.FLEE && fears.has(entity) && fears.get(entity).isActive(tick)); // react at once
 
@@ -94,12 +94,12 @@ public final class AiSystem implements GameSystem {
                     }
                     current.stop(context);
                     clearAction(ai);
-                    context.bind(entity, transform, velocity, needs, ai, species.species); // fresh query caches
+                    context.bind(entity, transform, velocity, needs, ai, species); // fresh query caches
                     evaluate = true;
                 }
             }
             if (evaluate) {
-                choose(ai, tick, species.species.stats().ai().switchMargin());
+                choose(ai, tick, species.stats().ai().switchMargin());
             }
         }
     }

@@ -38,6 +38,7 @@ public final class CreatureSelection {
     private final GroundPicker picker = new GroundPicker();
     private Species heightSpecies;
     private int heightRevision = -1;
+    private int heightStage = -1;
     private float heightFactor = 1f;
     private final Vector3f screen = new Vector3f();
     private int selected = -1;
@@ -45,12 +46,14 @@ public final class CreatureSelection {
 
     private static final float PANEL_WIDTH = 290f;
 
-    /** Height of the species' model in body sizes (an upright creature is taller); cached per evolution state. */
-    private float modelHeight(Species kind) {
-        if (kind != heightSpecies || kind.revision() != heightRevision) {
-            heightSpecies = kind;
-            heightRevision = kind.revision();
-            heightFactor = CreatureMeshBuilder.height(CreatureMeshBuilder.build(kind.stats().rgb(), kind.visuals()));
+    /** Height of the creature's model in body sizes (an upright creature is taller); cached per stage. */
+    private float modelHeight(SpeciesRef ref) {
+        if (ref.species != heightSpecies || ref.species.revision() != heightRevision || ref.stage != heightStage) {
+            heightSpecies = ref.species;
+            heightRevision = ref.species.revision();
+            heightStage = ref.stage;
+            Species.Stage stage = ref.stageData();
+            heightFactor = CreatureMeshBuilder.height(CreatureMeshBuilder.build(stage.stats().rgb(), stage.visuals()));
         }
         return heightFactor;
     }
@@ -100,13 +103,14 @@ public final class CreatureSelection {
         Age age = world.ecs().get(entity, Age.class);
         Genome genome = world.ecs().get(entity, Genome.class);
         Reproduction reproduction = world.ecs().get(entity, Reproduction.class);
-        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).species.stats();
+        SpeciesRef ref = world.ecs().get(entity, SpeciesRef.class);
+        SpeciesDefinition species = ref.stats();
         boolean adult = age.ageTicks >= SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
         float minutesPerTick = 1f / Time.TICKS_PER_SECOND / 60f;
 
         float padding = 12f;
         float line = ui.regular.lineHeight() + 2f;
-        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 5 * line + padding;
+        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 6 * line + padding;
         float x = ui.width() - PANEL_WIDTH - 10f;
         float y = top + 10f;
         ui.panel(x, y, PANEL_WIDTH, h);
@@ -144,6 +148,11 @@ public final class CreatureSelection {
         String herd = group == null ? "Bez stáda"
                 : String.format(Locale.ROOT, "Stádo #%d (%d bytostí), %s", group.id, group.size, group.leader == entity ? "vůdce" : "člen");
         ui.text(ui.regular, herd, x + padding, ty, group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
+        ty += line;
+        int latest = ref.species.latestStage().index();
+        ui.text(ui.regular, latest == 0 ? "Vývoj: původní druh"
+                        : String.format(Locale.ROOT, "Vývoj: %d z %d znaků%s", ref.stage, latest, ref.stage < latest ? " (starší generace)" : ""),
+                x + padding, ty, ref.stage < latest ? Ui.TEXT_DIM : Ui.TEXT);
         ty += line;
         ui.text(ui.regular, String.format(Locale.ROOT, "Geny: velikost %s, rychlost %s",
                 Texts.percent(genome.size - 1f), Texts.percent(genome.speed - 1f)), x + padding, ty, Ui.TEXT_DIM);
@@ -184,8 +193,8 @@ public final class CreatureSelection {
             y = p.position.y + (y - p.position.y) * alpha;
             z = p.position.z + (z - p.position.z) * alpha;
         }
-        Species kind = world.ecs().get(entity, SpeciesRef.class).species;
-        float headHeight = kind.stats().bodySize() * modelHeight(kind) + 0.1f + extra;
+        SpeciesRef ref = world.ecs().get(entity, SpeciesRef.class);
+        float headHeight = ref.stats().bodySize() * modelHeight(ref) + 0.1f + extra;
         return camera.project(x, y + headHeight, z, framebufferWidth, framebufferHeight, screen);
     }
 
@@ -208,7 +217,7 @@ public final class CreatureSelection {
         Age age = world.ecs().get(entity, Age.class);
         Genome genome = world.ecs().get(entity, Genome.class);
         Reproduction reproduction = world.ecs().get(entity, Reproduction.class);
-        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).species.stats();
+        SpeciesDefinition species = world.ecs().get(entity, SpeciesRef.class).stats();
         boolean adult = age.ageTicks >= SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
         String action = ai != null && ai.action != null ? ai.action.label() : "-";
         String path = ai != null && ai.pathStatus != AiState.PathStatus.NONE ? " (" + ai.pathStatus.name().toLowerCase(Locale.ROOT) + ")" : "";

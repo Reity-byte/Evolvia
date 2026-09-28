@@ -41,12 +41,13 @@ public final class CreatureFactory {
     /**
      * Spawns a creature at (x, z) on the ground.
      *
+     * @param stage       evolutionary stage the creature is born with
      * @param ageTicks    starting age
      * @param readyAtTick first tick at which it may reproduce
      */
-    public int spawn(Species kind, Genome genome, float x, float z, int ageTicks,
+    public int spawn(Species kind, int stage, Genome genome, float x, float z, int ageTicks,
                      float hunger, float thirst, float energy, int readyAtTick) {
-        SpeciesDefinition species = kind.stats();
+        SpeciesDefinition species = kind.stage(stage).stats();
         int entity = ecs.createEntity();
         Transform transform = ecs.add(entity, new Transform());
         transform.position.set(x, Navigation.groundHeight(terrain, x, z), z);
@@ -55,7 +56,7 @@ public final class CreatureFactory {
         prev.position.set(transform.position);
         prev.yaw = transform.yaw;
         ecs.add(entity, new Velocity());
-        ecs.add(entity, new SpeciesRef(kind));
+        ecs.add(entity, new SpeciesRef(kind, stage));
         ecs.add(entity, genome);
 
         Needs needs = ecs.add(entity, new Needs());

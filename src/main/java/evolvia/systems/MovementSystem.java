@@ -39,7 +39,7 @@ public final class MovementSystem implements GameSystem {
             if (transform == null) {
                 continue;
             }
-            Pathfinder space = ref != null ? navigation.forSpecies(ref.species) : navigation.land();
+            Pathfinder space = ref != null ? navigation.forCreature(ref) : navigation.land();
             float x = transform.position.x + velocity.dirX * velocity.speed;
             float z = transform.position.z + velocity.dirZ * velocity.speed;
             if (!space.isWalkable((int) Math.floor(x), (int) Math.floor(z))) {

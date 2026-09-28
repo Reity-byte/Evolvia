@@ -175,6 +175,8 @@ public final class EvolutionTreeView {
     private static EvolutionNode drawNodes(Ui ui, World world, TreeLayout layout, float ox, float oy, float visibleTop) {
         Species species = world.species();
         EvolutionNode hovered = null;
+        int[] stageCounts = world.stageCounts();
+        int population = Math.max(1, world.population());
         for (EvolutionNode node : species.tree().nodes()) {
             TreeLayout.Box box = layout.node(node.id());
             float x = ox + box.x();
@@ -195,7 +197,7 @@ public final class EvolutionTreeView {
                     border = 0xFF7FD68A;
                     text = Ui.TEXT;
                     subText = 0xFFBFE8C6;
-                    sub = "odemčeno";
+                    sub = "odemčeno · " + carrying(stageCounts, species.stageOf(node.id()), population) + " % populace";
                 }
                 case AVAILABLE -> {
                     fill = hover ? 0xFF3E3726 : 0xFF2E2A20;
@@ -228,6 +230,15 @@ public final class EvolutionTreeView {
         return hovered;
     }
 
+    /** Share (percent) of the population born with this stage or a later one, i.e. carrying the node's traits. */
+    private static int carrying(int[] stageCounts, int stage, int population) {
+        int count = 0;
+        for (int s = Math.max(0, stage); s < stageCounts.length; s++) {
+            count += stageCounts[s];
+        }
+        return Math.round(100f * count / population);
+    }
+
     private static void drawLegend(Ui ui, float x, float y) {
         int[][] items = {{0xFF2F6B3A, 0xFF7FD68A}, {0xFF2E2A20, 0xFFE0B040}, {0xFF24262B, 0xFF555A63}, {0xFF2B2224, 0xFF7A3A3A}};
         String[] labels = {"odemčeno", "dostupné", "zamčeno", "vyloučeno"};
@@ -237,7 +248,7 @@ public final class EvolutionTreeView {
             x += 20f;
             x += ui.text(ui.small, labels[i], x, y + 1f, Ui.TEXT_DIM) + 18f;
         }
-        ui.text(ui.small, "Najeď myší na uzel pro detail, kliknutím odemkneš.", x + 10f, y + 1f, Ui.TEXT_DIM);
+        ui.text(ui.small, "Najeď myší na uzel pro detail, kliknutím odemkneš. Nové znaky se objeví u mláďat.", x + 10f, y + 1f, Ui.TEXT_DIM);
     }
 
     private static void drawTooltip(Ui ui, EvolutionNode node, Species.Availability availability) {

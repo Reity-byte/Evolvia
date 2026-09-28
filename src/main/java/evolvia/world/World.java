@@ -368,7 +368,7 @@ public final class World implements EvolutionConditions {
                 x = centerX;
                 z = centerZ;
             }
-            creatureFactory.spawn(species, creatureFactory.randomGenome(stats), x, z,
+            creatureFactory.spawn(species, species.latestStage().index(), creatureFactory.randomGenome(stats), x, z,
                     random.nextInt(youngestLifespan / 2 + 1),
                     0.3f * random.nextFloat(), 0.3f * random.nextFloat(), 0.7f + 0.3f * random.nextFloat(),
                     random.nextInt(cooldown + 1));
@@ -514,7 +514,7 @@ public final class World implements EvolutionConditions {
         for (int entity : creatures) {
             Transform t = transforms.get(entity);
             SpeciesRef ref = ecs.get(entity, SpeciesRef.class);
-            Pathfinder space = ref != null ? navigation.forSpecies(ref.species) : navigation.land();
+            Pathfinder space = ref != null ? navigation.forCreature(ref) : navigation.land();
             if (!space.isWalkable((int) Math.floor(t.position.x), (int) Math.floor(t.position.z))) {
                 int[] tile = nearestWalkable(space, (int) Math.floor(t.position.x), (int) Math.floor(t.position.z));
                 if (tile != null) {
@@ -569,6 +569,24 @@ public final class World implements EvolutionConditions {
     public void applyGodPowersNow(int nextTick) {
         godPowerSystem.applyQueued(nextTick);
         ecs.flushDestroyed();
+    }
+
+    /** Debug / tests: every creature gets the latest evolutionary stage at once (no waiting for generations). */
+    public void evolveEveryone() {
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        for (int i = 0; i < creatures.size(); i++) {
+            creatures.componentAt(i).stage = creatures.componentAt(i).species.latestStage().index();
+        }
+    }
+
+    /** Creatures per evolutionary stage (index = stage). */
+    public int[] stageCounts() {
+        int[] counts = new int[species.latestStage().index() + 1];
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        for (int i = 0; i < creatures.size(); i++) {
+            counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
+        }
+        return counts;
     }
 
     /** The herds (phase 9a). */

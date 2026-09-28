@@ -78,6 +78,7 @@
   "evolution": {
     "populationPointsPerMinute": 1.0,
     "pointsPerGeneration": 2.0,
-    "harshPointsPerCreatureMinute": 0.02
+    "harshPointsPerCreatureMinute": 0.02,
+    "traitStepsPerBirth": 1
   }
 }

@@ -46,6 +46,7 @@ class GroupsTest {
             world.unlock("mind_instincts");
             world.unlock("mind_memory");
             world.unlock("mind_social_groups");
+            world.evolveEveryone();
         }
         return world;
     }
