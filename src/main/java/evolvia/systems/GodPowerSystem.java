@@ -106,6 +106,7 @@ public final class GodPowerSystem implements GameSystem {
                 it.remove();
                 continue;
             }
+            world.nature().extinguish(area.x(), area.z(), area.radius(), tick); // the god's rain puts out fires
             world.resourceGrid(ResourceKind.FOOD).forEachWithin(area.x(), area.z(), area.radius(), entity -> {
                 ResourceNode node = nodes.get(entity);
                 if (node == null || node.type.decays()) {

@@ -12,6 +12,8 @@ public final class ResourceNode {
     public final float regrowPerTick;
     /** Caused by the god (Abundance, rain): whoever eats from it starts believing. Cleared when emptied. */
     public boolean divine;
+    /** Ticks since a decaying node (carcass) appeared; it spoils with age (phase 9e). */
+    public int ageTicks;
 
     public ResourceNode(ResourceDefinition type, float amount, float regrowPerTick) {
         this.type = type;

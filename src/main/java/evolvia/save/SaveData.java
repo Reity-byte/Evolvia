@@ -1,6 +1,7 @@
 package evolvia.save;
 
 import evolvia.god.GodPowers;
+import evolvia.world.Nature;
 import evolvia.world.SimRandom;
 
 import java.util.List;
@@ -26,7 +27,8 @@ public record SaveData(
         int[] pathQueue,
         GroupsData groups,
         List<String> milestones,
-        List<RefugeData> refuges) {
+        List<RefugeData> refuges,
+        Nature.State nature) {
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {
@@ -67,7 +69,8 @@ public record SaveData(
                           List<NeedsData> needs, List<HealthData> healths, List<AgeData> ages,
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
                           List<ResourceData> resources, int[] believers, List<FearData> fears,
-                          List<GroupMemberData> groupMembers, int[] creatureStages, List<UnderAttackData> underAttacks) {
+                          List<GroupMemberData> groupMembers, int[] creatureStages, List<UnderAttackData> underAttacks,
+                          List<SickData> sick) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {
@@ -103,7 +106,7 @@ public record SaveData(
                              float foodX, float foodZ) {
     }
 
-    public record ResourceData(int e, String type, float amount, float regrowPerTick, boolean divine) {
+    public record ResourceData(int e, String type, float amount, float regrowPerTick, boolean divine, int age) {
     }
 
     public record FearData(int e, float fromX, float fromZ, float distance, int untilTick) {
@@ -117,6 +120,9 @@ public record SaveData(
     }
 
     public record RefugeData(String type, float x, float z, boolean sacred) {
+    }
+
+    public record SickData(int e, int untilTick, int immuneUntilTick) {
     }
 
     public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {

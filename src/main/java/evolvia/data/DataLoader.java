@@ -10,6 +10,7 @@ import evolvia.evolution.SpeciesDefinition;
 import evolvia.evolution.Stat;
 import evolvia.god.GodConfig;
 import evolvia.world.Milestones;
+import evolvia.world.Nature;
 import evolvia.world.Refuges;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
@@ -46,6 +47,7 @@ public final class DataLoader {
     public static final String POWERS = "data/powers.json";
     public static final String MILESTONES = "data/milestones.json";
     public static final String REFUGES = "data/refuges.json";
+    public static final String NATURE = "data/nature.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -98,6 +100,37 @@ public final class DataLoader {
         }
         require(config.searchRadius() > 0 && config.minSpacing() >= 0 && config.sleepEnergyFactor() >= 1
                 && config.sleepHealFactor() >= 1, source, "searchRadius > 0, minSpacing >= 0, sleep factors >= 1");
+        return config;
+    }
+
+    /** Loads and validates {@code data/nature.json} (seasons, weather, disease, disasters). */
+    public static Nature.Config loadNature() {
+        return parseNature(readResource(NATURE), NATURE);
+    }
+
+    public static Nature.Config parseNature(String json, String source) {
+        Nature.Config config = fromJson(json, Nature.Config.class, source);
+        require(config.seasonDays() > 0 && config.seasons() != null && config.seasons().size() == 4, source,
+                "seasonDays > 0 and exactly 4 seasons (spring, summer, autumn, winter)");
+        for (Nature.Season season : config.seasons()) {
+            require(season.id() != null && season.name() != null && season.regrow() >= 0 && season.thirst() > 0
+                    && season.weather() != null && season.disasters() != null, source,
+                    "season " + season.id() + ": id, name, regrow >= 0, thirst > 0, weather and disasters");
+            require(season.weather().values().stream().mapToDouble(Float::doubleValue).sum() > 0, source,
+                    "season " + season.id() + ": some weather must have a weight");
+        }
+        Nature.WeatherConfig w = config.weather();
+        require(w != null && w.minSeconds() > 0 && w.maxSeconds() >= w.minSeconds() && w.rain() != null
+                && w.storm() != null && w.snow() != null && w.storm().strikeSeconds() > 0, source,
+                "weather: minSeconds > 0, maxSeconds >= minSeconds, rain, storm (strikeSeconds > 0), snow");
+        Nature.Disease d = config.disease();
+        require(d != null && d.spoilSeconds() > 0 && d.durationSeconds() > 0 && d.immuneSeconds() >= 0
+                && d.infectChance() >= 0 && d.infectChance() <= 1, source, "disease: invalid values");
+        Nature.Disasters n = config.disasters();
+        require(n != null && n.graceDays() >= 0 && n.fire() != null && n.flood() != null && n.blizzard() != null
+                && n.fire().flammable() != null && n.fire().burnSeconds() > 0 && n.fire().maxTiles() > 0
+                && n.flood().riseSeconds() > 0 && n.blizzard().maxSeconds() >= n.blizzard().minSeconds(), source,
+                "disasters: graceDays, fire (flammable, burnSeconds, maxTiles), flood (riseSeconds), blizzard");
         return config;
     }
 

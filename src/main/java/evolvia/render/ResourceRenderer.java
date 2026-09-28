@@ -36,7 +36,7 @@ public final class ResourceRenderer implements AutoCloseable {
                 .build());
     }
 
-    public void render(Camera camera, Lighting lighting, EcsWorld ecs) {
+    public void render(Camera camera, Lighting lighting, EcsWorld ecs, int spoilTicks) {
         ComponentStore<ResourceNode> nodes = ecs.store(ResourceNode.class);
         ComponentStore<Transform> transforms = ecs.store(Transform.class);
 
@@ -55,10 +55,15 @@ public final class ResourceRenderer implements AutoCloseable {
                     .rotateY(nodes.entityAt(i) * 1.7f)
                     .scale(type.size());
             InstanceBatch batch = "meat".equals(type.foodType()) ? carcasses : bushes;
-            batch.add(model,
-                    mix(type.emptyRgb() >> 16, type.rgb() >> 16, fill),
-                    mix(type.emptyRgb() >> 8, type.rgb() >> 8, fill),
-                    mix(type.emptyRgb(), type.rgb(), fill));
+            float r = mix(type.emptyRgb() >> 16, type.rgb() >> 16, fill);
+            float g = mix(type.emptyRgb() >> 8, type.rgb() >> 8, fill);
+            float bl = mix(type.emptyRgb(), type.rgb(), fill);
+            if (type.decays() && node.ageTicks > spoilTicks) { // spoiled: greenish (phase 9e)
+                r = r * 0.5f + 0.2f;
+                g = g * 0.5f + 0.3f;
+                bl = bl * 0.5f + 0.08f;
+            }
+            batch.add(model, r, g, bl);
         }
 
         shader.bind();

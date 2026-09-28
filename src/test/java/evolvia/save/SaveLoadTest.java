@@ -59,7 +59,7 @@ class SaveLoadTest {
         SaveData timeless = new SaveData(save.saveVersion(),
                 new SaveData.Meta(meta.name(), "", meta.speciesName(), meta.population(), meta.generation(), meta.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(),
-                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature());
         return SaveManager.toJson(timeless);
     }
 
@@ -89,6 +89,19 @@ class SaveLoadTest {
                 world.godPowers().request(DivinePower.LOWER, x + 10f, z + 10f);
             }
             case 1700 -> world.godPowers().request(DivinePower.RAISE, x + 10f, z + 10f);
+            case 2100 -> { // phase 9e: a storm, a fire and an illness are saved
+                world.nature().setWeather(evolvia.world.Nature.Weather.STORM, 4600);
+                world.nature().setNextStrike(2200);
+                for (int dz = -30; dz <= 30; dz += 3) {
+                    for (int dx = -30; dx <= 30; dx += 3) {
+                        if (world.nature().burningTiles().isEmpty()) {
+                            world.nature().ignite((int) x + dx, (int) z + dz, tick);
+                        }
+                    }
+                }
+                int patient = world.ecs().store(SpeciesRef.class).entityAt(1);
+                evolvia.components.Sick.infect(world.ecs(), patient, tick, 3000, 3000);
+            }
             case 2000 -> { // phase 9d: a sacred place (saved with the refuges)
                 world.godPowers().faith().add(100f);
                 Refuges.Refuge refuge = world.refuges().nearest(x, z, 1e6f, false);
@@ -133,6 +146,9 @@ class SaveLoadTest {
         assertTrue(original.deaths().total() > 0, "a lively world was tested");
         assertTrue(original.groups().count() > 3, "herds were saved and restored");
         assertTrue(copy.refuges().sacredCount() > 0, "the sacred place was saved");
+        assertTrue(copy.nature().hasBurntGround(), "the fire was saved");
+        assertEquals(original.nature().weather(), copy.nature().weather());
+        assertTrue(copy.ecs().store(evolvia.components.Sick.class).size() > 0, "the illness was saved");
         assertTrue(copy.groups().all().stream().anyMatch(g -> g.shelter != 0), "the refuges of herds were saved");
     }
 
@@ -177,7 +193,7 @@ class SaveLoadTest {
         SaveData save = WorldCodec.snapshot(world, "x", 0, Time.Speed.NORMAL, VIEW);
         SaveData newer = new SaveData(WorldCodec.SAVE_VERSION + 1, save.meta(), save.seed(), save.tick(), save.speed(),
                 save.view(), save.random(), save.terrain(), save.species(), save.god(), save.stats(), save.ecs(), save.pathQueue(),
-                save.groups(), save.milestones(), save.refuges());
+                save.groups(), save.milestones(), save.refuges(), save.nature());
         SaveException e = assertThrows(SaveException.class, () -> WorldCodec.restore(newer, data));
         assertTrue(e.getMessage().contains("novější"), e.getMessage());
     }
@@ -189,9 +205,9 @@ class SaveLoadTest {
         SaveData.EcsData e = save.ecs();
         SaveData.EcsData oldEcs = new SaveData.EcsData(e.nextId(), e.alive(), e.free(), e.transforms(), e.prevTransforms(),
                 e.velocities(), e.creatures(), e.genomes(), e.needs(), e.healths(), e.ages(), e.reproductions(), e.ai(),
-                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null);
+                e.memories(), e.resources(), e.believers(), e.fears(), null, null, null, null);
         SaveData v1 = new SaveData(1, save.meta(), save.seed(), save.tick(), save.speed(), save.view(), save.random(),
-                save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null);
+                save.terrain(), save.species(), save.god(), save.stats(), oldEcs, save.pathQueue(), null, null, null, null);
         World loaded = WorldCodec.restore(SaveManager.fromJson(SaveManager.toJson(v1)), data).world();
         assertEquals(world.population(), loaded.population());
         assertEquals(0, loaded.groups().count());
@@ -207,7 +223,7 @@ class SaveLoadTest {
         SaveData changed = new SaveData(save.saveVersion(), save.meta(), save.seed(), save.tick(), save.speed(),
                 save.view(), save.random(), save.terrain(),
                 new SaveData.SpeciesData(s.id(), s.points(), s.pointsEarned(), List.of("body_strong_legs", "removed_node")),
-                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature());
         WorldCodec.Loaded loaded = WorldCodec.restore(changed, data);
         assertEquals(List.of("removed_node"), loaded.skippedNodes());
         assertTrue(loaded.world().species().isUnlocked("body_strong_legs"));

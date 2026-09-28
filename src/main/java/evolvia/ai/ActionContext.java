@@ -21,6 +21,7 @@ import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Births;
 import evolvia.world.Groups;
+import evolvia.world.Nature;
 import evolvia.world.Refuges;
 import evolvia.world.WorldClock;
 import evolvia.world.ResourceKind;
@@ -52,6 +53,8 @@ public final class ActionContext {
     public final Groups groups;
     public final WorldClock clock;
     public final Refuges refuges;
+    /** Seasons, weather, disease (phase 9e). */
+    public final Nature nature;
 
     public EcsWorld ecs;
     public ComponentStore<ResourceNode> resources;
@@ -91,7 +94,7 @@ public final class ActionContext {
 
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
-                         Random random, Groups groups, WorldClock clock, Refuges refuges) {
+                         Random random, Groups groups, WorldClock clock, Refuges refuges, Nature nature) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -103,6 +106,7 @@ public final class ActionContext {
         this.groups = groups;
         this.clock = clock;
         this.refuges = refuges;
+        this.nature = nature;
     }
 
     /** Where the creature should spend the night: its herd's refuge, or (alone) the nearest one it sees; or null. */

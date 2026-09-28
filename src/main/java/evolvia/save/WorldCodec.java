@@ -14,6 +14,7 @@ import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
 import evolvia.components.Reproduction;
 import evolvia.components.ResourceNode;
+import evolvia.components.Sick;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.components.UnderAttack;
@@ -62,14 +63,15 @@ public final class WorldCodec {
      * 2: herds (phase 9a); 3: evolutionary stage per creature (generational evolution); 4: herd owner, home,
      * attack orders, fights, milestones (phase 9c); 5: refuges (phase 9d). Older saves load without herds (they
      * form again; wild or not follows the believers), with every creature at the latest stage, no milestones
-     * reached and freshly placed refuges.
+     * reached and freshly placed refuges; 6: weather, disasters, disease, carcass age (phase 9e), older saves start
+     * in clear weather without disasters.
      */
-    public static final int SAVE_VERSION = 5;
+    public static final int SAVE_VERSION = 6;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
             SpeciesRef.class, Genome.class, Needs.class, Health.class, Age.class, Reproduction.class, AiState.class,
-            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class);
+            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class, Sick.class);
 
     /** Game data a save is loaded against (the current definitions). */
     public record GameData(float shallowDepth, WorldConfig.TimeSettings time, BiomeTable biomes, SpeciesDefinition species,
@@ -128,7 +130,8 @@ public final class WorldCodec {
                 new SpeciesData(species.base().id(), species.points(), species.pointsEarned(), List.copyOf(species.unlockedNodes())),
                 god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()),
                 List.copyOf(world.milestones().completed()),
-                world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList());
+                world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList(),
+                world.nature().state((int) tick));
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -166,12 +169,13 @@ public final class WorldCodec {
                 list(ecs.store(Reproduction.class), (e, r) -> new ReproductionData(e, r.readyAtTick, r.offspring)),
                 list(ecs.store(AiState.class), WorldCodec::ai),
                 list(ecs.store(Memory.class), (e, m) -> new MemoryData(e, m.knowsWater, m.waterX, m.waterZ, m.knowsFood, m.foodX, m.foodZ)),
-                list(ecs.store(ResourceNode.class), (e, r) -> new ResourceData(e, r.type.id(), r.amount, r.regrowPerTick, r.divine)),
+                list(ecs.store(ResourceNode.class), (e, r) -> new ResourceData(e, r.type.id(), r.amount, r.regrowPerTick, r.divine, r.ageTicks)),
                 entities(ecs.store(Believer.class)),
                 list(ecs.store(Fear.class), (e, f) -> new FearData(e, f.fromX, f.fromZ, f.distance, f.untilTick)),
                 list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)),
                 stages(ecs.store(SpeciesRef.class)),
-                list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)));
+                list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)),
+                list(ecs.store(Sick.class), (e, s) -> new SickData(e, s.untilTick, s.immuneUntilTick)));
     }
 
     private static int[] stages(ComponentStore<SpeciesRef> creatures) {
@@ -254,6 +258,9 @@ public final class WorldCodec {
             World world = World.restore(save.seed(), terrain, species, data.resources(), data.shallowDepth(), data.time(),
                     data.god(), SimRandom.restore(save.random()));
             world.restoreTick((int) save.tick());
+            if (save.nature() != null) {
+                world.nature().restore(save.nature());
+            }
             if (save.refuges() != null) {
                 world.refuges().clear();
                 for (RefugeData d : save.refuges()) {
@@ -365,6 +372,7 @@ public final class WorldCodec {
             }
             ResourceNode node = ecs.add(d.e(), new ResourceNode(type, d.amount(), d.regrowPerTick()));
             node.divine = d.divine();
+            node.ageTicks = d.age();
         }
         for (int e : data.believers()) {
             ecs.add(e, new Believer());
@@ -380,6 +388,13 @@ public final class WorldCodec {
                 UnderAttack a = ecs.add(d.e(), new UnderAttack());
                 a.attacker = d.attacker();
                 a.untilTick = d.untilTick();
+            }
+        }
+        if (data.sick() != null) {
+            for (SickData d : data.sick()) {
+                Sick s = ecs.add(d.e(), new Sick());
+                s.untilTick = d.untilTick();
+                s.immuneUntilTick = d.immuneUntilTick();
             }
         }
         for (FearData d : data.fears()) {

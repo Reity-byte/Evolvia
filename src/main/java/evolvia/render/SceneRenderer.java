@@ -22,6 +22,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final GodEffectsRenderer effectsRenderer;
     private final GroupOverlayRenderer groupRenderer;
     private final RefugeRenderer refugeRenderer;
+    private final WeatherRenderer weatherRenderer;
     private boolean showGroups;
     private int selectedGroup;
 
@@ -34,6 +35,7 @@ public final class SceneRenderer implements AutoCloseable {
         effectsRenderer = new GodEffectsRenderer();
         groupRenderer = new GroupOverlayRenderer();
         refugeRenderer = new RefugeRenderer();
+        weatherRenderer = new WeatherRenderer();
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -65,19 +67,22 @@ public final class SceneRenderer implements AutoCloseable {
      */
     public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, double simSeconds, int selected,
                        GodEffectsRenderer.Brush brush) {
-        lighting.update(world.clock().timeOfDay(simSeconds * Time.TICKS_PER_SECOND));
+        double simTicks = simSeconds * Time.TICKS_PER_SECOND;
+        lighting.update(world.clock().timeOfDay(simTicks), world.nature().overcast(simTicks), world.nature().snowCover(simTicks));
         Vector3fc sky = lighting.skyColor();
         glClearColor(sky.x(), sky.y(), sky.z(), 1f);
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        terrainRenderer.render(camera, lighting);
-        resourceRenderer.render(camera, lighting, world.ecs());
+        terrainRenderer.render(camera, lighting, world.nature(), (int) simTicks);
+        resourceRenderer.render(camera, lighting, world.ecs(),
+                Math.round(world.nature().config().disease().spoilSeconds() * Time.TICKS_PER_SECOND));
         refugeRenderer.render(camera, lighting, world.terrain(), world.refuges());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
+        weatherRenderer.render(camera, lighting, world.terrain(), world.nature(), simSeconds);
         effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
         groupRenderer.render(camera, lighting, world.terrain(), world.ecs(), world.groups(), alpha, showGroups, selectedGroup,
                 world.species().stats().combat().territoryRadius());
-        waterRenderer.render(camera, lighting);
+        waterRenderer.render(camera, lighting, world.nature().floodLevel(simTicks));
         effectsRenderer.renderTranslucent(camera, lighting);
     }
 
@@ -90,5 +95,6 @@ public final class SceneRenderer implements AutoCloseable {
         effectsRenderer.close();
         groupRenderer.close();
         refugeRenderer.close();
+        weatherRenderer.close();
     }
 }

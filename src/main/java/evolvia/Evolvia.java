@@ -46,6 +46,7 @@ import evolvia.world.BiomeTable;
 import evolvia.world.DeathStats;
 import evolvia.world.ResourceTable;
 import evolvia.world.Terrain;
+import evolvia.world.Nature;
 import evolvia.world.World;
 import evolvia.world.WorldConfig;
 import org.joml.Vector3f;
@@ -69,6 +70,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_F7;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F9;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F10;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F11;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F12;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_G;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 
@@ -90,6 +93,7 @@ public final class Evolvia implements GameLoop.Handler {
     private final PowerBar powerBar = new PowerBar();
     private final GameMenu gameMenu = new GameMenu();
     private final Notifications notifications = new Notifications();
+    private int debugDisaster;
     private final MilestonePanel milestonePanel = new MilestonePanel();
     private final GameOverView gameOverView = new GameOverView();
     /** Autosave every 5 minutes of real time while the game runs (not while paused). */
@@ -245,6 +249,16 @@ public final class Evolvia implements GameLoop.Handler {
         if (input.isKeyPressed(GLFW_KEY_F8)) {
             world.godPowers().faith().add(100f); // debug
         }
+        if (input.isKeyPressed(GLFW_KEY_F11)) { // debug: next weather
+            Nature.Weather[] all = Nature.Weather.values();
+            int tick = (int) time.tickCount();
+            world.nature().setWeather(all[(world.nature().weather().ordinal() + 1) % all.length], tick + 120 * Time.TICKS_PER_SECOND);
+            world.nature().setNextStrike(tick + Time.TICKS_PER_SECOND);
+        }
+        if (input.isKeyPressed(GLFW_KEY_F12)) { // debug: the next disaster now (fire, flood, blizzard in turn)
+            Nature.Disaster[] all = Nature.Disaster.values();
+            world.nature().schedule(all[debugDisaster++ % all.length], (int) time.tickCount());
+        }
         if (input.isKeyPressed(GLFW_KEY_SPACE)) {
             time.togglePause();
         }
@@ -301,6 +315,9 @@ public final class Evolvia implements GameLoop.Handler {
         }
         for (Milestones.Milestone m : world.milestones().takeAnnouncements()) {
             notifications.info(String.format(Locale.ROOT, "Cíl splněn: %s (+%.0f EP, +%.0f Víry)", m.name(), m.rewardEp(), m.rewardFaith()));
+        }
+        for (String text : world.nature().takeAnnouncements()) {
+            notifications.error(text); // disasters: red, like a warning
         }
         notifications.build(ui, Hud.BAR_HEIGHT);
         boolean mouseOnUi = ui.wantsMouse();

@@ -5,9 +5,11 @@ import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.components.Memory;
 import evolvia.components.ResourceNode;
+import evolvia.components.Sick;
 import evolvia.components.Transform;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Groups;
+import evolvia.world.Nature;
 import evolvia.world.ResourceKind;
 
 /**
@@ -45,6 +47,19 @@ public final class ConsumeAction implements Action {
         c.ai.targetEntity = c.inReach(kind);
     }
 
+    /** Spoiled food (an old carcass) may make the eater ill (phase 9e). */
+    private static void spoiled(ActionContext c, ResourceNode food) {
+        if (c.nature == null || !food.type.decays()) {
+            return;
+        }
+        Nature.Disease disease = c.nature.config().disease();
+        if (food.ageTicks > SpeciesDefinition.secondsToTicks(disease.spoilSeconds())
+                && c.random.nextFloat() < disease.infectChance()) {
+            Sick.infect(c.ecs, c.entity, c.tick, SpeciesDefinition.secondsToTicks(disease.durationSeconds()),
+                    SpeciesDefinition.secondsToTicks(disease.immuneSeconds()));
+        }
+    }
+
     @Override
     public Status update(ActionContext c) {
         int node = c.ai.targetEntity;
@@ -61,6 +76,7 @@ public final class ConsumeAction implements Action {
                 ResourceNode food = c.resources.get(node);
                 food.amount -= 1f;
                 c.needs.hunger = Math.max(0f, c.needs.hunger - eating.hungerPerUnit() * c.nutrition(food));
+                spoiled(c, food);
                 if (food.divine) {
                     c.makeBeliever(); // ate what the god gave
                     if (food.amount < 1f) {

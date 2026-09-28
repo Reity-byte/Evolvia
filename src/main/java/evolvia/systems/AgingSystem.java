@@ -3,12 +3,14 @@ package evolvia.systems;
 import evolvia.components.Age;
 import evolvia.components.Health;
 import evolvia.components.Needs;
+import evolvia.components.Sick;
 import evolvia.components.UnderAttack;
 import evolvia.components.Transform;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.world.DeathStats;
+import evolvia.world.Nature;
 import evolvia.world.SpatialGrid;
 
 /**
@@ -27,11 +29,17 @@ public final class AgingSystem implements GameSystem {
     private final DeathStats deaths;
     private final SpatialGrid creatureGrid;
     private final DeathListener listener;
+    private Nature nature;
 
     public AgingSystem(DeathStats deaths, SpatialGrid creatureGrid, DeathListener listener) {
         this.deaths = deaths;
         this.creatureGrid = creatureGrid;
         this.listener = listener;
+    }
+
+    /** Deaths in fire, flood and of disease are told apart (phase 9e). */
+    public void setNature(Nature nature) {
+        this.nature = nature;
     }
 
     @Override
@@ -58,12 +66,22 @@ public final class AgingSystem implements GameSystem {
             Needs needs = world.get(entity, Needs.class);
             UnderAttack attacked = world.get(entity, UnderAttack.class);
             DeathStats.Cause cause;
+            Transform t = world.get(entity, Transform.class);
+            int tx = t != null ? (int) Math.floor(t.position.x) : -1;
+            int tz = t != null ? (int) Math.floor(t.position.z) : -1;
+            Sick sick = world.get(entity, Sick.class);
             if (attacked != null && attacked.isActive(tick)) {
                 cause = DeathStats.Cause.FIGHT;
+            } else if (nature != null && t != null && nature.isBurning(tx, tz)) {
+                cause = DeathStats.Cause.FIRE;
+            } else if (nature != null && t != null && nature.isFlooded(tx, tz, tick)) {
+                cause = DeathStats.Cause.DROWNING;
             } else if (needs == null || (needs.hunger >= 1f && needs.hunger >= needs.thirst)) {
                 cause = DeathStats.Cause.STARVATION;
             } else if (needs.thirst >= 1f) {
                 cause = DeathStats.Cause.THIRST;
+            } else if (sick != null && sick.isActive(tick)) {
+                cause = DeathStats.Cause.DISEASE;
             } else {
                 cause = DeathStats.Cause.EXPOSURE; // health lost to a climate the species is not adapted to
             }

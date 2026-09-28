@@ -28,9 +28,10 @@ public final class GameOverView {
         DeathStats d = world.deaths();
         String[] lines = {
                 "Žádná bytost už v tebe nevěří. Divoká stáda žijí dál.",
-                String.format(Locale.ROOT, "Úmrtí: v boji %d, hlad %d, žízeň %d, stáří %d, blesk %d",
+                String.format(Locale.ROOT, "Úmrtí: v boji %d, hlad %d, žízeň %d, stáří %d, blesk %d, nemoc %d, oheň %d, voda %d",
                         d.count(DeathStats.Cause.FIGHT), d.count(DeathStats.Cause.STARVATION), d.count(DeathStats.Cause.THIRST),
-                        d.count(DeathStats.Cause.OLD_AGE), d.count(DeathStats.Cause.LIGHTNING)),
+                        d.count(DeathStats.Cause.OLD_AGE), d.count(DeathStats.Cause.LIGHTNING), d.count(DeathStats.Cause.DISEASE),
+                        d.count(DeathStats.Cause.FIRE), d.count(DeathStats.Cause.DROWNING)),
         };
         for (String line : lines) {
             ui.text(ui.small, line, x + (WIDTH - ui.small.width(line)) / 2f, ty, Ui.TEXT_DIM);

@@ -97,6 +97,15 @@ public final class Shader implements AutoCloseable {
         glUniform3f(location(uniform), value.x(), value.y(), value.z());
     }
 
+    public void setUniform(String uniform, float x, float y) {
+        glUniform2f(location(uniform), x, y);
+    }
+
+    /** Integer uniform (texture unit of a sampler). */
+    public void setUniform(String uniform, int value) {
+        glUniform1i(location(uniform), value);
+    }
+
     public void setUniform(String uniform, float x, float y, float z, float w) {
         glUniform4f(location(uniform), x, y, z, w);
     }

@@ -16,13 +16,16 @@ public final class Lighting {
     private static final Vector3fc DUSK_SKY = new Vector3f(0.85f, 0.55f, 0.38f);
     private static final Vector3fc NIGHT_TINT = new Vector3f(0.32f, 0.38f, 0.62f);
     private static final Vector3fc DUSK_TINT = new Vector3f(1.1f, 0.78f, 0.6f);
+    private static final Vector3fc STORM_SKY = new Vector3f(0.38f, 0.42f, 0.48f);
+    private static final Vector3fc OVERCAST_TINT = new Vector3f(0.62f, 0.66f, 0.72f);
 
     private final Vector3f sunDirection = new Vector3f(-0.45f, 0.8f, -0.35f).normalize();
     private final Vector3f skyColor = new Vector3f(DAY_SKY);
     private final Vector3f tint = new Vector3f(1f, 1f, 1f);
     private final float ambient = 0.4f;
-    private final float fogStart = 320f;
-    private final float fogEnd = 900f;
+    private float fogStart = 320f;
+    private float fogEnd = 900f;
+    private float snow;
 
     public Vector3fc skyColor() {
         return skyColor;
@@ -30,6 +33,15 @@ public final class Lighting {
 
     /** Sets sun, tint and sky for a time of day (0 = midnight, 0.5 = noon). */
     public void update(float timeOfDay) {
+        update(timeOfDay, 0f, 0f);
+    }
+
+    /**
+     * Also clouds ({@code overcast} 0..1 dims the light, greys the sky, brings the fog closer) and snow on the
+     * ground ({@code snow} 0..1, phase 9e).
+     */
+    public void update(float timeOfDay, float overcast, float snow) {
+        this.snow = snow;
         float elevation = WorldClock.sunElevation(timeOfDay);
         float daylight = smoothstep(-0.15f, 0.3f, elevation);
         float dusk = Math.max(0f, 1f - Math.abs(elevation) / 0.3f) * 0.8f; // strongest at sunrise / sunset
@@ -39,6 +51,12 @@ public final class Lighting {
         sunDirection.set((float) Math.cos(angle), height, -0.35f).normalize();
         tint.set(NIGHT_TINT).lerp(new Vector3f(1f, 1f, 1f), daylight).lerp(DUSK_TINT, dusk * daylight);
         skyColor.set(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(DUSK_SKY, dusk * Math.min(1f, daylight + 0.3f));
+        if (overcast > 0f) {
+            tint.lerp(new Vector3f(tint).mul(OVERCAST_TINT), overcast);
+            skyColor.lerp(new Vector3f(STORM_SKY).mul(0.3f + 0.7f * daylight), overcast * 0.85f);
+        }
+        fogStart = 320f - 200f * overcast;
+        fogEnd = 900f - 450f * overcast;
     }
 
     private static float smoothstep(float edge0, float edge1, float x) {
@@ -51,6 +69,7 @@ public final class Lighting {
         shader.setUniform("uSunDirection", sunDirection);
         shader.setUniform("uAmbient", ambient);
         shader.setUniform("uLightTint", tint);
+        shader.setUniform("uSnow", snow);
         shader.setUniform("uFogColor", skyColor);
         shader.setUniform("uFogStart", fogStart);
         shader.setUniform("uFogEnd", fogEnd);

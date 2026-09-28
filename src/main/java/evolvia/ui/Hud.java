@@ -9,6 +9,7 @@ import evolvia.god.Faith;
 import evolvia.components.GroupMember;
 import evolvia.world.DeathStats;
 import evolvia.world.Groups;
+import evolvia.world.Nature;
 import evolvia.world.World;
 
 import java.util.ArrayList;
@@ -65,7 +66,6 @@ public final class Hud {
         x += stat(ui, "Lid", Integer.toString(world.population()), x, y);
         x += stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), x, y);
         x += stat(ui, "Gen.", Integer.toString(world.maxGeneration()), x, y);
-        x += stat(ui, "Den", world.clock().day(time.tickCount()) + " · " + dayPart(world.clock().timeOfDay(time.tickCount())), x, y);
         x += stat(ui, "EP", String.format(Locale.ROOT, "%.0f", species.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", world.evolutionSystem().pointsPerMinute()),
                 x - 12f, y + 2f, Ui.TEXT_DIM) + 8f;
@@ -117,6 +117,7 @@ public final class Hud {
             sx -= 4f;
         }
         ui.text(ui.small, "Rychlost", sx - ui.small.width("Rychlost") - 6f, y + 2f, Ui.TEXT_DIM);
+        clock(ui, world, (int) time.tickCount());
 
         if (speciesPanel && !tree.isVisible() && !menuOpen) {
             speciesPanel(ui, world);
@@ -151,6 +152,43 @@ public final class Hud {
             ui.draw().rect(tx, BAR_HEIGHT + 4f, w, ui.small.lineHeight() + 10f, 0xF5181B20);
             ui.text(ui.small, text, tx + 8f, BAR_HEIGHT + 9f, Ui.TEXT);
         }
+    }
+
+    /** Day, time of day, season and weather: a small panel at the top right, under the bar. */
+    private static void clock(Ui ui, World world, int tick) {
+        Nature nature = world.nature();
+        String day = "Den " + world.clock().day(tick) + " · " + dayPart(world.clock().timeOfDay(tick));
+        String season = nature.season(tick).name() + ", rok " + nature.year(tick);
+        String weather = weather(world, tick);
+        float width = Math.max(ui.bold.width(day), Math.max(ui.regular.width(season), ui.regular.width(weather))) + 20f;
+        float height = ui.bold.lineHeight() + 2 * ui.regular.lineHeight() + 14f;
+        float x = ui.width() - width - 8f;
+        float y = BAR_HEIGHT + 6f;
+        ui.panel(x, y, width, height);
+        ui.block(x, y, width, height);
+        float ty = y + 6f;
+        ui.text(ui.bold, day, x + 10f, ty, Ui.TEXT);
+        ty += ui.bold.lineHeight();
+        ui.text(ui.regular, season, x + 10f, ty, Ui.TEXT_ACCENT);
+        ty += ui.regular.lineHeight();
+        boolean danger = nature.blizzard(tick) || !nature.burningTiles().isEmpty() || nature.floodLevel(tick) > 0f;
+        ui.text(ui.regular, weather, x + 10f, ty, danger ? 0xFFE08A7A : 0xFFB7C7DA);
+    }
+
+    private static String weather(World world, int tick) {
+        Nature nature = world.nature();
+        String text = nature.blizzard(tick) ? "Vánice" : capitalize(nature.weather().label);
+        if (!nature.burningTiles().isEmpty()) {
+            text += ", požár";
+        }
+        if (nature.floodLevel(tick) > 0f) {
+            text += ", záplava";
+        }
+        return text;
+    }
+
+    private static String capitalize(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private static String dayPart(float timeOfDay) {
@@ -221,10 +259,11 @@ public final class Hud {
         }
 
         DeathStats deaths = world.deaths();
-        String deathText = String.format(Locale.ROOT, "boj %d, hlad %d, žízeň %d, klima %d, stáří %d, blesk %d",
+        String deathText = String.format(Locale.ROOT, "boj %d, hlad %d, žízeň %d, klima %d, stáří %d, blesk %d, nemoc %d, oheň %d, voda %d",
                 deaths.count(DeathStats.Cause.FIGHT), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
                 deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE),
-                deaths.count(DeathStats.Cause.LIGHTNING));
+                deaths.count(DeathStats.Cause.LIGHTNING), deaths.count(DeathStats.Cause.DISEASE),
+                deaths.count(DeathStats.Cause.FIRE), deaths.count(DeathStats.Cause.DROWNING));
         String evolution = String.format(Locale.ROOT, "%d / %d uzlů odemčeno, celkem získáno %.0f EP",
                 species.unlockedNodes().size(), species.tree().size(), species.pointsEarned());
 

@@ -4,6 +4,7 @@ import evolvia.components.Age;
 import evolvia.components.Genome;
 import evolvia.components.Needs;
 import evolvia.components.PrevTransform;
+import evolvia.components.Sick;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.components.Velocity;
@@ -130,6 +131,12 @@ public final class CreatureRenderer implements AutoCloseable {
             float r = brightness;
             float g = brightness;
             float b = brightness;
+            Sick sick = ecs.get(entity, Sick.class);
+            if (sick != null && sick.isActive((int) (simSeconds * Time.TICKS_PER_SECOND))) {
+                r *= 0.8f; // ill: a sickly green (phase 9e)
+                g *= 1.1f;
+                b *= 0.6f;
+            }
             if (entity == selected) {
                 r = 1.25f;
                 g = 1.3f;

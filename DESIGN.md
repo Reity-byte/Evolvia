@@ -414,6 +414,19 @@ Rozhodnutí k fázi 9 (celé):
 - **Save verze 5:** útočiště (s posvátností) a útočiště stád.
 - **Testy:** cyklus dne, noční ochlazení a úkryt, stáda v noci v útočišti (většina lidu o půlnoci), spánek do rána, posvátné místo (domov + Víra), milníky, save → load.
 
+#### 9e Příroda (detail)
+- **Data:** `data/nature.json` (období, počasí, nemoc, katastrofy); vše deterministické ze simulačního generátoru, stav se ukládá.
+- **Roční období:** každé trvá `seasonDays` (2) dny, rok = 8 dní, hra začíná na jaře. Období mění dorůstání jídla (jaro ×1.3, léto ×1, podzim ×0.6, zima ×0.15), teplotu (léto +, zima −) a žízeň (léto ×1.25). V zimě je krajina zasněžená (bílá místa podle `uSnow` v terrain shaderu). Horní lišta: období a počasí.
+- **Počasí:** celý svět má jedno počasí, mění se po 90–180 s podle vah daného období: *jasno*, *déšť* (dorůstání ×1.5, uleví od žízně, ochladí, tlumí oheň), *bouřka* (déšť + přírodní blesky každých ~20 s: zabíjejí a v trávě a lese zapalují požár), *sněžení* (jen zima, chladno). Vidět jsou kapky / vločky kolem kamery a tmavší světlo.
+- **Nemoci ze zkaženého jídla:** mršina se po `spoilSeconds` zkazí (zezelená). Kdo ji jí, s šancí onemocní (`Sick`): ubírá zdraví, víc unavuje, bytost je nazelenalá. Nemoc se šíří na blízké členy stáda; po `durationSeconds` přejde a bytost je čas imunní. Nová příčina smrti *nemoc*. Božská ruka *Uzdrav* nemoc vyléčí.
+- **Přírodní katastrofy** (ne v prvních `graceDays` = 2 dnech; jednou za den s šancí podle období; oznámí se zprávou):
+  - *Požár* (hlavně léto a podzim, nebo úder blesku za bouřky): hoří dlaždice trávy / lesa / savany, oheň se šíří na sousední hořlavé dlaždice, spálí keře, zraňuje bytosti v plamenech (smrt *oheň*), bytosti v okolí utíkají. Déšť ho tlumí, zásah *Déšť* ho v oblasti uhasí. Spálená zem je chvíli tmavá a keře na ní začínají od nuly. Počet hořících dlaždic má strop.
+  - *Záplava* (jaro, bouřky): hladina moře stoupne o `rise`, chvíli drží a opadne. Bytosti na zatopených dlaždicích utíkají výš a topí se (smrt *utonutí*), keře pod vodou ztratí plody. Hledání cest zatopení nebere v úvahu (známý limit).
+  - *Vánice* (zima): 1–2 minuty silný mráz a husté sněžení; bytosti mimo útočiště mrznou.
+- **Save verze 6:** počasí, katastrofy (hořící a spálené dlaždice, záplava, vánice), nemoci, stáří mršin.
+- **Upřesněno při implementaci:** oheň se šíří těsně pod hranicí, kdy by prošel celým lesem (šance za sekundu les 0.05, tráva 0.03, bažina 0.01, hoření 15 s, spálená zem 120 s, nejvýš 300 dlaždic), jinak na malé mapě spálil vše a lid vyhladověl. Za deště hoří 3× kratší dobu a šíří se 5× méně. Požár katastrofy začíná 3×3 dlaždic 15–35 polí od lidu. Nemoc: šíření 0.05 / s v okruhu 3. Spálená zem je tmavá přes texturu v terrain shaderu. Den, období a počasí ukazuje panel vpravo pod lištou. Ladicí klávesy: F11 další počasí, F12 další katastrofa (požár, záplava, vánice).
+- **Testy:** koloběh období a jejich efekty, počasí ze semínka a jeho střídání, déšť zmírní žízeň, zkažená mršina → nemoc → šíření ve stádu → uzdravení rukou, požár se šíří jen po hořlavé zemi, pálí keře a zraňuje, zásah Déšť ho uhasí, záplava zatopí nízké pobřeží a opadne, vánice ochladí, v ochranné době žádné katastrofy, save → load → identický běh s hořícím požárem a nemocí.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.

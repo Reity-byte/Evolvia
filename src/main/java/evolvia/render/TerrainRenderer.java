@@ -1,10 +1,15 @@
 package evolvia.render;
 
 import evolvia.world.Biome;
+import evolvia.world.Nature;
 import evolvia.world.Terrain;
+import org.lwjgl.system.MemoryUtil;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.lwjgl.opengl.GL33C.*;
 
 /**
  * Renders the terrain as a grid of chunk meshes; a chunk is rebuilt alone when the terrain reports
@@ -30,6 +35,10 @@ public final class TerrainRenderer implements AutoCloseable {
     /** Terrain block revision each chunk was built from. */
     private final List<Integer> builtRevisions = new ArrayList<>();
     private final Mesh oceanFloor;
+    /** Scorched ground per tile (phase 9e), sampled by the terrain shader. */
+    private final int scorchTexture;
+    private final ByteBuffer scorch;
+    private boolean scorchClear = true;
 
     public TerrainRenderer(Terrain terrain) {
         this.terrain = terrain;
@@ -41,11 +50,42 @@ public final class TerrainRenderer implements AutoCloseable {
             }
         }
         oceanFloor = buildOceanFloor(terrain);
+        scorch = MemoryUtil.memCalloc(terrain.width() * terrain.depth());
+        scorchTexture = glGenTextures();
+        glBindTexture(GL_TEXTURE_2D, scorchTexture);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, terrain.width(), terrain.depth(), 0, GL_RED, GL_UNSIGNED_BYTE, scorch);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    public void render(Camera camera, Lighting lighting) {
+    /** Copies the burning and burnt tiles into the scorch texture (nothing to do while there are none). */
+    private void updateScorch(Nature nature, int tick) {
+        if (!nature.hasBurntGround() && scorchClear) {
+            return;
+        }
+        boolean any = false;
+        for (int i = 0; i < nature.tileCount(); i++) {
+            int value = Math.round(nature.scorch(i, tick) * 255f);
+            scorch.put(i, (byte) value);
+            any |= value > 0;
+        }
+        scorchClear = !any;
+        glBindTexture(GL_TEXTURE_2D, scorchTexture);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, terrain.width(), terrain.depth(), GL_RED, GL_UNSIGNED_BYTE, scorch);
+    }
+
+    public void render(Camera camera, Lighting lighting, Nature nature, int tick) {
         rebuildChangedChunks();
+        updateScorch(nature, tick);
         shader.bind();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, scorchTexture);
+        shader.setUniform("uScorch", 0);
+        shader.setUniform("uMapSize", (float) terrain.width(), (float) terrain.depth());
         shader.setUniform("uProjection", camera.projection());
         shader.setUniform("uView", camera.view());
         lighting.apply(shader, camera);
@@ -180,6 +220,8 @@ public final class TerrainRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        glDeleteTextures(scorchTexture);
+        MemoryUtil.memFree(scorch);
         for (Mesh chunk : chunks) {
             chunk.close();
         }

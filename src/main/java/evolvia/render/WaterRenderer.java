@@ -46,8 +46,9 @@ public final class WaterRenderer implements AutoCloseable {
     }
 
     /** Must be drawn after all opaque geometry. */
-    public void render(Camera camera, Lighting lighting) {
+    public void render(Camera camera, Lighting lighting, float floodLevel) {
         shader.bind();
+        shader.setUniform("uLevel", floodLevel);
         shader.setUniform("uProjection", camera.projection());
         shader.setUniform("uView", camera.view());
         shader.setUniform("uWaterColor", red, green, blue, alpha);

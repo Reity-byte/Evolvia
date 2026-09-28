@@ -1,0 +1,56 @@
+{
+  "seasonDays": 2,
+  "seasons": [
+    {
+      "id": "spring", "name": "Jaro", "regrow": 1.3, "temperature": 0.0, "thirst": 1.0,
+      "weather": { "clear": 5, "rain": 4, "storm": 1 },
+      "disasters": { "fire": 0.1, "flood": 0.5 }
+    },
+    {
+      "id": "summer", "name": "Léto", "regrow": 1.0, "temperature": 0.12, "thirst": 1.25,
+      "weather": { "clear": 7, "rain": 2, "storm": 2 },
+      "disasters": { "fire": 0.45, "flood": 0.1 }
+    },
+    {
+      "id": "autumn", "name": "Podzim", "regrow": 0.6, "temperature": -0.05, "thirst": 1.0,
+      "weather": { "clear": 4, "rain": 5, "storm": 1 },
+      "disasters": { "fire": 0.25, "flood": 0.2 }
+    },
+    {
+      "id": "winter", "name": "Zima", "regrow": 0.15, "temperature": -0.2, "thirst": 0.9,
+      "weather": { "clear": 4, "snow": 5 },
+      "disasters": { "blizzard": 0.6 }
+    }
+  ],
+  "weather": {
+    "minSeconds": 90,
+    "maxSeconds": 180,
+    "rain": { "regrow": 1.5, "temperature": -0.04, "thirstReliefPerSecond": 0.002 },
+    "storm": { "strikeSeconds": 20, "killRadius": 1.5, "scareRadius": 8, "scareSeconds": 5, "igniteChance": 0.5 },
+    "snow": { "temperature": -0.08 }
+  },
+  "disease": {
+    "spoilSeconds": 60,
+    "infectChance": 0.5,
+    "durationSeconds": 90,
+    "immuneSeconds": 300,
+    "damagePerSecond": 0.006,
+    "energyDrainFactor": 2.0,
+    "spreadRadius": 3.0,
+    "spreadChancePerSecond": 0.05
+  },
+  "disasters": {
+    "graceDays": 2,
+    "fire": {
+      "flammable": { "forest": 0.05, "grass": 0.03, "swamp": 0.01 },
+      "burnSeconds": 15,
+      "rainFactor": 0.2,
+      "burntSeconds": 120,
+      "damagePerSecond": 0.15,
+      "fearRadius": 7,
+      "maxTiles": 300
+    },
+    "flood": { "rise": 1.6, "riseSeconds": 30, "holdSeconds": 60, "damagePerSecond": 0.03 },
+    "blizzard": { "minSeconds": 60, "maxSeconds": 120, "temperature": -0.3 }
+  }
+}

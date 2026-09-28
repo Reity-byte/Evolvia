@@ -24,6 +24,7 @@ import evolvia.systems.MilestoneSystem;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
+import evolvia.components.Sick;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
@@ -42,6 +43,7 @@ import evolvia.systems.PrevTransformSystem;
 import evolvia.systems.ReproductionSystem;
 import evolvia.systems.ResourceRegrowthSystem;
 import evolvia.systems.SpatialIndexSystem;
+import evolvia.systems.NatureSystem;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -90,6 +92,7 @@ public final class World implements EvolutionConditions {
     private final Milestones milestones = new Milestones(DataLoader.loadMilestones());
     private final Refuges refuges = new Refuges(DataLoader.loadRefuges());
     private final WorldClock clock;
+    private final Nature nature;
     /** Tick being simulated (or last simulated), for the clock and milestones. */
     private int currentTick;
     private final SimRandom random;
@@ -101,6 +104,7 @@ public final class World implements EvolutionConditions {
                   float shallowDepth, WorldConfig.TimeSettings time, GodConfig godConfig, SimRandom random) {
         this.seed = seed;
         this.clock = new WorldClock(time);
+        this.nature = new Nature(DataLoader.loadNature(), clock, terrain);
         this.random = random;
         this.godPowers = new GodPowers(godConfig);
         this.terrain = terrain;
@@ -115,20 +119,22 @@ public final class World implements EvolutionConditions {
         this.reproductionSystem = new ReproductionSystem(births, creatureFactory, terrain);
         this.evolutionSystem = new EvolutionSystem(species, reproductionSystem::maxGeneration);
         this.agingSystem = new AgingSystem(deaths, creatureGrid, this::creatureDied);
+        agingSystem.setNature(nature);
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
-                creatureGrid, births, random, groups, clock, refuges);
+                creatureGrid, births, random, groups, clock, refuges, nature);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
                 godPowerSystem,
-                new NeedsSystem(terrain, clock, refuges),
+                new NatureSystem(this, nature, random),
+                new NeedsSystem(terrain, clock, refuges, nature),
                 new AiSystem(actionContext),
                 pathfindingSystem,
                 new PathFollowingSystem(pathQueue),
                 new MovementSystem(navigation),
                 new SpatialIndexSystem(creatureGrid),
-                new ResourceRegrowthSystem(foodGrid),
+                new ResourceRegrowthSystem(foodGrid, nature),
                 reproductionSystem,
                 agingSystem,
                 new GroupSystem(groups, creatureGrid, clock, refuges),
@@ -731,6 +737,10 @@ public final class World implements EvolutionConditions {
                 }
                 Health health = ecs.get(entity, Health.class);
                 health.hp = health.maxHp;
+                Sick sick = ecs.get(entity, Sick.class);
+                if (sick != null) {
+                    sick.untilTick = Math.min(sick.untilTick, currentTick); // cured (and immune for a while)
+                }
             }
             case BLESS -> {
                 if (own) {
@@ -806,6 +816,16 @@ public final class World implements EvolutionConditions {
             counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
         }
         return counts;
+    }
+
+    /** Seasons, weather, disease and natural disasters (phase 9e). */
+    public Nature nature() {
+        return nature;
+    }
+
+    /** Kills a creature now (nature: lightning in a storm). */
+    public void killCreature(int entity, DeathStats.Cause cause) {
+        agingSystem.die(ecs, entity, cause);
     }
 
     /** The tick being (or last) simulated. */
