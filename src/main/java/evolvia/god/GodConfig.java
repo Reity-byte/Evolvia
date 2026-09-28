@@ -4,7 +4,7 @@ package evolvia.god;
  * Faith and god power parameters, loaded from {@code data/powers.json} (DESIGN.md §9).
  */
 public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, TerrainBrush raise, TerrainBrush lower,
-                        Lightning lightning, Hand hand) {
+                        Lightning lightning, Hand hand, Sanctify sanctify) {
 
     /**
      * @param starting             faith at the start of a game
@@ -86,6 +86,15 @@ public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, Ter
         }
     }
 
+    /**
+     * Sacred place (phase 9d): turns the refuge within {@code radius} of the click into a sacred place.
+     *
+     * @param faithPerSleeperPerMinute extra faith for every believer asleep there
+     */
+    public record Sanctify(String name, String description, float cost, float radius, float alignment,
+                           float faithPerSleeperPerMinute) implements Power {
+    }
+
     /** The parameters of a power. */
     public Power of(DivinePower power) {
         return switch (power) {
@@ -94,6 +103,7 @@ public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, Ter
             case RAISE -> raise;
             case LOWER -> lower;
             case LIGHTNING -> lightning;
+            case SANCTIFY -> sanctify;
         };
     }
 
@@ -125,6 +135,7 @@ public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, Ter
         check(hand.attackSeconds() > 0, source, "\"hand\": attackSeconds must be > 0");
         check(lightning.maxKills() >= 0 && lightning.scareRadius() >= lightning.radius() && lightning.scareSeconds() > 0
                 && lightning.fleeDistance() > 0, source, "\"lightning\": invalid maxKills / scareRadius / scareSeconds / fleeDistance");
+        check(sanctify.faithPerSleeperPerMinute() >= 0, source, "\"sanctify\": faithPerSleeperPerMinute must be >= 0");
     }
 
     private static void check(boolean condition, String source, String message) {

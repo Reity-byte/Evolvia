@@ -25,7 +25,8 @@ public record SaveData(
         EcsData ecs,
         int[] pathQueue,
         GroupsData groups,
-        List<String> milestones) {
+        List<String> milestones,
+        List<RefugeData> refuges) {
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {
@@ -115,11 +116,14 @@ public record SaveData(
     public record UnderAttackData(int e, int attacker, int untilTick) {
     }
 
+    public record RefugeData(String type, float x, float z, boolean sacred) {
+    }
+
     public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {
     }
 
     public record GroupData(int id, int leader, int size, boolean player, float homeX, float homeZ, boolean settled,
-                            float hunger, int attackGroup, int attackUntilTick, boolean knowsWater, float waterX, float waterZ,
+                            float hunger, int attackGroup, int attackUntilTick, int shelter, boolean knowsWater, float waterX, float waterZ,
                             boolean knowsFood, float foodX, float foodZ) {
     }
 }

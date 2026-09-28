@@ -1,5 +1,6 @@
 package evolvia.render;
 
+import evolvia.core.Time;
 import evolvia.world.World;
 import evolvia.world.WorldConfig;
 import org.joml.Vector3fc;
@@ -20,6 +21,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final WaterRenderer waterRenderer;
     private final GodEffectsRenderer effectsRenderer;
     private final GroupOverlayRenderer groupRenderer;
+    private final RefugeRenderer refugeRenderer;
     private boolean showGroups;
     private int selectedGroup;
 
@@ -31,6 +33,7 @@ public final class SceneRenderer implements AutoCloseable {
         waterRenderer = new WaterRenderer(world.terrain(), water);
         effectsRenderer = new GodEffectsRenderer();
         groupRenderer = new GroupOverlayRenderer();
+        refugeRenderer = new RefugeRenderer();
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -62,10 +65,14 @@ public final class SceneRenderer implements AutoCloseable {
      */
     public void render(Camera camera, int framebufferWidth, int framebufferHeight, float alpha, double simSeconds, int selected,
                        GodEffectsRenderer.Brush brush) {
+        lighting.update(world.clock().timeOfDay(simSeconds * Time.TICKS_PER_SECOND));
+        Vector3fc sky = lighting.skyColor();
+        glClearColor(sky.x(), sky.y(), sky.z(), 1f);
         glViewport(0, 0, framebufferWidth, framebufferHeight);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         terrainRenderer.render(camera, lighting);
         resourceRenderer.render(camera, lighting, world.ecs());
+        refugeRenderer.render(camera, lighting, world.terrain(), world.refuges());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
         groupRenderer.render(camera, lighting, world.terrain(), world.ecs(), world.groups(), alpha, showGroups, selectedGroup,
@@ -82,5 +89,6 @@ public final class SceneRenderer implements AutoCloseable {
         waterRenderer.close();
         effectsRenderer.close();
         groupRenderer.close();
+        refugeRenderer.close();
     }
 }

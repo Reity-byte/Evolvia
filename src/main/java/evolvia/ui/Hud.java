@@ -64,7 +64,8 @@ public final class Hud {
         x += ui.text(ui.bold, species.stats().name(), x, y, Ui.TEXT) + 18f;
         x += stat(ui, "Lid", Integer.toString(world.population()), x, y);
         x += stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), x, y);
-        x += stat(ui, "Generace", Integer.toString(world.maxGeneration()), x, y);
+        x += stat(ui, "Gen.", Integer.toString(world.maxGeneration()), x, y);
+        x += stat(ui, "Den", world.clock().day(time.tickCount()) + " · " + dayPart(world.clock().timeOfDay(time.tickCount())), x, y);
         x += stat(ui, "EP", String.format(Locale.ROOT, "%.0f", species.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", world.evolutionSystem().pointsPerMinute()),
                 x - 12f, y + 2f, Ui.TEXT_DIM) + 8f;
@@ -150,6 +151,19 @@ public final class Hud {
             ui.draw().rect(tx, BAR_HEIGHT + 4f, w, ui.small.lineHeight() + 10f, 0xF5181B20);
             ui.text(ui.small, text, tx + 8f, BAR_HEIGHT + 9f, Ui.TEXT);
         }
+    }
+
+    private static String dayPart(float timeOfDay) {
+        if (timeOfDay < 0.22f || timeOfDay >= 0.78f) {
+            return "noc";
+        }
+        if (timeOfDay < 0.35f) {
+            return "ráno";
+        }
+        if (timeOfDay < 0.62f) {
+            return "den";
+        }
+        return "večer";
     }
 
     private static float stat(Ui ui, String label, String value, float x, float y) {

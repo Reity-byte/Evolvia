@@ -404,6 +404,16 @@ Rozhodnutí k fázi 9 (celé):
 - **Testy:** start (1 + 3 stáda), tempo růstu, boj a vzdání se, rozkaz útoku, přenesení vůdce a následování stáda, usazení, uzdravení a požehnání, převzetí divokého stáda, milníky s odměnou, game over, save → load → identický běh.
 - **Upřesněno při implementaci (měřeno na 4 seedech):** divoká stáda brání území vždy, hráčova jen při hladu nebo na rozkaz; divoká stáda vznikají 1–1,6× `herdSpacing` (38) od hráče na stejné pevnině, takže první střety přijdou v prvních minutách. Méně jídla (hustota 0.018, dorůstání 0.02) a delší dospívání / pauza mezi mláďaty (300 / 240 s): po 10 minutách ~50–100 bytostí celkem. Víra za věřícího 0.5 / min. Podmínky uzlů: Masožravec ≥ 40, Sociální skupiny ≥ 25 lidu. EP za populaci se počítají z lidu. Kamera startuje nad lidem, zobrazení stád je zapnuté od začátku.
 
+#### 9d Den, noc a útočiště (detail)
+- **Čas:** `world.json` → `time` (délka dne `dayLengthSeconds` 480, začátek `startTimeOfDay`, noční ochlazení `nightCooling`). Čas dne se počítá z ticku (nic se neukládá navíc); noc je od 0.78 do 0.22 dne. Horní lišta ukazuje den a denní dobu.
+- **Světlo:** slunce obíhá, v noci je krajina modrá a tmavá, obloha a mlha tmavnou, ráno a večer do oranžova (uniform `uLightTint` ve všech světových shaderech).
+- **Útočiště** (`data/refuges.json`): jeskyně (vysoko), hustý háj (les), skalní převis (tráva, poušť, tundra); rozmístí se při generování s rozestupem. Mají poloměr; kdo v něm spí, je *v úkrytu*: neochlazuje ho noc, rychleji odpočívá a léčí se.
+- **Noc:** večer si stádo vybere útočiště (nejbližší k vůdci v `searchRadius`, lid preferuje posvátné). Útočiště, které už zabralo jiné stádo, bere jen, když jiné není (společný nocleh znamená ráno boj); divoká stáda se posvátným místům vyhýbají. Útočiště mají vlastní generátor ze semínka, takže nemění zbytek světa a staré savy dostanou stejná. Nová akce `SeekShelter` (jdi do útočiště) a spánek: v noci se spí déle (do rána), v úkrytu nebo tam, kde bytost je, když útočiště nezná.
+- **Posvátné místo:** nový zásah *Posvátné místo* (klik na útočiště, Víra): útočiště se stane posvátným, nejbližší stádo lidu se tam usadí (domov). Věřící, kteří tam spí, dávají Víru navíc. Laskavý čin.
+- **Milníky:** Útočiště (5 bytostí lidu spí v úkrytu), Přečkej noc (1. noc), Posvátné místo.
+- **Save verze 5:** útočiště (s posvátností) a útočiště stád.
+- **Testy:** cyklus dne, noční ochlazení a úkryt, stáda v noci v útočišti (většina lidu o půlnoci), spánek do rána, posvátné místo (domov + Víra), milníky, save → load.
+
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.

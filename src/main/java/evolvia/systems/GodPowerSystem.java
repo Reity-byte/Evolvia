@@ -9,6 +9,7 @@ import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.god.DivinePower;
 import evolvia.god.Faith;
 import evolvia.god.GodConfig;
 import evolvia.god.GodPowers;
@@ -68,6 +69,10 @@ public final class GodPowerSystem implements GameSystem {
         GodConfig config = powers.config();
         GodConfig.Power power = config.of(command.power());
         Faith faith = powers.faith();
+        if (command.power() == DivinePower.SANCTIFY
+                && world.refuges().nearest(command.x(), command.z(), power.radius(), false) == null) {
+            return; // nothing to sanctify there: nothing is paid
+        }
         if (!faith.spend(power.cost())) {
             return; // cannot happen through the UI (it checks before queueing)
         }
@@ -80,6 +85,7 @@ public final class GodPowerSystem implements GameSystem {
             case ABUNDANCE -> world.abundance(x, z, power.radius(), config.abundance().resource(), config.abundance().newNodes());
             case RAISE -> world.changeTerrain(x, z, power.radius(), config.raise().step());
             case LOWER -> world.changeTerrain(x, z, power.radius(), -config.lower().step());
+            case SANCTIFY -> world.sanctify(x, z, power.radius());
             case LIGHTNING -> {
                 GodConfig.Lightning l = config.lightning();
                 world.lightning(x, z, l.radius(), l.maxKills(), l.scareRadius(),

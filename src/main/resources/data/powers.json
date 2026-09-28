@@ -41,6 +41,14 @@
     "step": 0.8,
     "repeatSeconds": 0.2
   },
+  "sanctify": {
+    "name": "Posvátné místo",
+    "description": "Posvětí útočiště (jeskyni, háj, převis): nejbližší stádo tvého lidu tam bude mít domov a věřící, kteří tam spí, ti dávají Víru navíc.",
+    "cost": 60,
+    "radius": 8,
+    "alignment": 0.02,
+    "faithPerSleeperPerMinute": 1.0
+  },
   "hand": {
     "moveCost": 5,
     "attackCost": 20,

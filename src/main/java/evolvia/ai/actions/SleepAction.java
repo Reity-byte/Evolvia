@@ -3,14 +3,20 @@ package evolvia.ai.actions;
 import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
+import evolvia.world.Refuges;
 
-/** Sleep in place until rested; needs grow slower meanwhile (see NeedsSystem). */
+/**
+ * Sleep in place until rested; needs grow slower meanwhile (see NeedsSystem). At night creatures sleep
+ * (in a refuge once they are there, or where they are if they know none) and keep sleeping until morning.
+ */
 public final class SleepAction implements Action {
 
     /** Wake up at this energy. */
     public static final float RESTED = 0.98f;
     /** Hunger or thirst at which sleeping is not an option. */
     public static final float CRITICAL_NEED = 0.85f;
+    /** Utility of sleeping at night (above seeking the refuge, so sleepers are not woken to walk there). */
+    public static final float NIGHT_SCORE = 0.6f;
 
     @Override
     public ActionType type() {
@@ -23,6 +29,13 @@ public final class SleepAction implements Action {
             return 0f; // survival first: don't sleep (or keep sleeping) while starving or dying of thirst
         }
         float tiredness = 1f - c.needs.energy;
+        if (c.clock.isNight(c.tick)) {
+            Refuges.Refuge shelter = c.shelter();
+            boolean placed = shelter == null || shelter.contains(c.transform.position.x, c.transform.position.z);
+            if (c.needs.sleeping || placed) {
+                return NIGHT_SCORE; // night: sleep (after reaching the refuge)
+            }
+        }
         if (c.needs.sleeping) {
             return 0.3f + 0.7f * tiredness; // keep sleeping unless something is much more urgent
         }
@@ -37,7 +50,7 @@ public final class SleepAction implements Action {
 
     @Override
     public Status update(ActionContext c) {
-        return c.needs.energy >= RESTED ? Status.DONE : Status.RUNNING;
+        return c.needs.energy >= RESTED && !c.clock.isNight(c.tick) ? Status.DONE : Status.RUNNING;
     }
 
     @Override

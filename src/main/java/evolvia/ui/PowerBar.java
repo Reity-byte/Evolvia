@@ -21,7 +21,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  */
 public final class PowerBar {
 
-    private static final float BUTTON_WIDTH = 118f;
+    private static final float BUTTON_WIDTH = 112f;
     private static final float BUTTON_HEIGHT = 44f;
     private static final float GAP = 6f;
     private static final float MARGIN = 10f;
@@ -180,6 +180,7 @@ public final class PowerBar {
             case ABUNDANCE -> 0xFF6FBF4A;
             case RAISE, LOWER -> 0xFFC4A064;
             case LIGHTNING -> 0xFFF2D65C;
+            case SANCTIFY -> 0xFFE8D27A;
         };
     }
 }

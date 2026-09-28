@@ -31,6 +31,8 @@ import evolvia.save.SaveData.*;
 import evolvia.world.BiomeTable;
 import evolvia.world.DeathStats;
 import evolvia.world.Groups;
+import evolvia.world.Refuges;
+import evolvia.world.WorldConfig;
 import evolvia.world.PopulationHistory;
 import evolvia.world.ResourceDefinition;
 import evolvia.world.ResourceTable;
@@ -58,10 +60,11 @@ public final class WorldCodec {
 
     /**
      * 2: herds (phase 9a); 3: evolutionary stage per creature (generational evolution); 4: herd owner, home,
-     * attack orders, fights, milestones (phase 9c). Older saves load without herds (they form again; wild
-     * or not follows the believers), with every creature at the latest stage and no milestones reached.
+     * attack orders, fights, milestones (phase 9c); 5: refuges (phase 9d). Older saves load without herds (they
+     * form again; wild or not follows the believers), with every creature at the latest stage, no milestones
+     * reached and freshly placed refuges.
      */
-    public static final int SAVE_VERSION = 4;
+    public static final int SAVE_VERSION = 5;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
@@ -69,8 +72,8 @@ public final class WorldCodec {
             Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class);
 
     /** Game data a save is loaded against (the current definitions). */
-    public record GameData(float shallowDepth, BiomeTable biomes, SpeciesDefinition species, EvolutionTree tree,
-                           ResourceTable resources, GodConfig god) {
+    public record GameData(float shallowDepth, WorldConfig.TimeSettings time, BiomeTable biomes, SpeciesDefinition species,
+                           EvolutionTree tree, ResourceTable resources, GodConfig god) {
     }
 
     /** A loaded world plus the non-simulation state stored with it. */
@@ -124,7 +127,8 @@ public final class WorldCodec {
                 terrain(world.terrain().snapshot()),
                 new SpeciesData(species.base().id(), species.points(), species.pointsEarned(), List.copyOf(species.unlockedNodes())),
                 god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()),
-                List.copyOf(world.milestones().completed()));
+                List.copyOf(world.milestones().completed()),
+                world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList());
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -182,7 +186,7 @@ public final class WorldCodec {
         List<GroupData> list = new ArrayList<>();
         for (Groups.Group g : groups.all()) {
             list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
-                    g.attackUntilTick, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
+                    g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
         }
         return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
@@ -247,8 +251,20 @@ public final class WorldCodec {
             Terrain terrain = Terrain.restore(terrain(save.terrain()), data.biomes());
             Species species = new Species(data.species(), data.tree());
             List<String> skipped = species.restore(save.species().points(), save.species().pointsEarned(), save.species().unlocked());
-            World world = World.restore(save.seed(), terrain, species, data.resources(), data.shallowDepth(), data.god(),
-                    SimRandom.restore(save.random()));
+            World world = World.restore(save.seed(), terrain, species, data.resources(), data.shallowDepth(), data.time(),
+                    data.god(), SimRandom.restore(save.random()));
+            world.restoreTick((int) save.tick());
+            if (save.refuges() != null) {
+                world.refuges().clear();
+                for (RefugeData d : save.refuges()) {
+                    Refuges.Type type = world.refuges().type(d.type());
+                    if (type != null) {
+                        world.refuges().add(type, d.x(), d.z()).sacred = d.sacred();
+                    }
+                }
+            } else {
+                world.placeRefugesAfterLoad(save.seed());
+            }
             restoreEcs(world, save.ecs(), species, data.resources());
             world.rebuildSpatialIndex();
             for (int entity : save.pathQueue()) {
@@ -424,6 +440,7 @@ public final class WorldCodec {
             g.hunger = d.hunger();
             g.attackGroup = d.attackGroup();
             g.attackUntilTick = d.attackUntilTick();
+            g.shelter = d.shelter();
             g.leader = d.leader();
             g.size = d.size();
             g.knowsWater = d.knowsWater();

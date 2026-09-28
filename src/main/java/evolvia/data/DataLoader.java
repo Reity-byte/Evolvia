@@ -10,6 +10,7 @@ import evolvia.evolution.SpeciesDefinition;
 import evolvia.evolution.Stat;
 import evolvia.god.GodConfig;
 import evolvia.world.Milestones;
+import evolvia.world.Refuges;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
 import evolvia.world.BiomeTable;
@@ -44,6 +45,7 @@ public final class DataLoader {
     public static final String RESOURCES = "data/resources.json";
     public static final String POWERS = "data/powers.json";
     public static final String MILESTONES = "data/milestones.json";
+    public static final String REFUGES = "data/refuges.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -77,6 +79,25 @@ public final class DataLoader {
     public static GodConfig parseGodConfig(String json, String source) {
         GodConfig config = fromJson(json, GodConfig.class, source);
         config.validate(source);
+        return config;
+    }
+
+    /** Loads and validates {@code data/refuges.json} (phase 9d). */
+    public static Refuges.Config loadRefuges() {
+        return parseRefuges(readResource(REFUGES), REFUGES);
+    }
+
+    public static Refuges.Config parseRefuges(String json, String source) {
+        Refuges.Config config = fromJson(json, Refuges.Config.class, source);
+        require(config.types() != null && !config.types().isEmpty(), source, "missing \"types\"");
+        Set<String> ids = new HashSet<>();
+        for (Refuges.Type type : config.types()) {
+            require(type.id() != null && ids.add(type.id()), source, "missing or duplicate refuge id " + type.id());
+            require(type.name() != null && type.count() >= 0 && type.radius() > 0 && type.minAltitude() >= 0
+                    && type.biomes() != null, source, "refuge " + type.id() + ": name, count >= 0, radius > 0, biomes list");
+        }
+        require(config.searchRadius() > 0 && config.minSpacing() >= 0 && config.sleepEnergyFactor() >= 1
+                && config.sleepHealFactor() >= 1, source, "searchRadius > 0, minSpacing >= 0, sleep factors >= 1");
         return config;
     }
 

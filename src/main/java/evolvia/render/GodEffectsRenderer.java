@@ -228,6 +228,7 @@ public final class GodEffectsRenderer implements AutoCloseable {
             case ABUNDANCE -> new Brush(x, z, radius, 0.6f, 1.3f, 0.4f);
             case RAISE, LOWER -> new Brush(x, z, radius, 1.2f, 0.95f, 0.55f);
             case LIGHTNING -> new Brush(x, z, radius, 1.5f, 1.4f, 0.5f);
+            case SANCTIFY -> new Brush(x, z, radius, 1.6f, 1.35f, 0.7f);
         };
     }
 

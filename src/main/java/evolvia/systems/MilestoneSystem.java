@@ -38,6 +38,9 @@ public final class MilestoneSystem implements GameSystem {
             case NODES -> world.species().unlockedNodes().size();
             case VICTORIES -> world.groups().playerVictories();
             case HERDS -> world.groups().playerCount();
+            case SHELTERED -> world.shelteredSleepers(false);
+            case DAYS -> world.clock().day(world.tick()) - 1;
+            case SACRED -> world.refuges().sacredCount();
         };
     }
 

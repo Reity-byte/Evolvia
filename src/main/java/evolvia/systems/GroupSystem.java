@@ -12,6 +12,8 @@ import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Groups;
+import evolvia.world.Refuges;
+import evolvia.world.WorldClock;
 import evolvia.world.SpatialGrid;
 
 import java.util.ArrayList;
@@ -34,10 +36,14 @@ public final class GroupSystem implements GameSystem {
 
     private final Groups groups;
     private final SpatialGrid creatureGrid;
+    private final WorldClock clock;
+    private final Refuges refuges;
 
-    public GroupSystem(Groups groups, SpatialGrid creatureGrid) {
+    public GroupSystem(Groups groups, SpatialGrid creatureGrid, WorldClock clock, Refuges refuges) {
         this.groups = groups;
         this.creatureGrid = creatureGrid;
+        this.clock = clock;
+        this.refuges = refuges;
     }
 
     @Override
@@ -118,9 +124,40 @@ public final class GroupSystem implements GameSystem {
             if (group.attackGroup != 0 && (!group.attackOrdered(tick) || groups.get(group.attackGroup) == null)) {
                 group.attackGroup = 0;
             }
+            chooseShelter(group, transforms.get(group.leader), tick);
         }
 
         joinOrFound(creatures, members, transforms, ages, believers, rules, maxSize, adultTicks);
+    }
+
+    /**
+     * In the evening the herd picks the refuge nearest to its leader and keeps it through the night; by day
+     * it has none. A refuge another herd has taken is used only if there is no other (sharing one means a
+     * fight in the morning); the player's people prefer sacred places, wild herds shun them.
+     */
+    private void chooseShelter(Groups.Group group, Transform leader, int tick) {
+        if (!clock.isShelterTime(tick)) {
+            group.shelter = 0;
+            return;
+        }
+        if (group.shelter != 0 || leader == null) {
+            return;
+        }
+        Set<Integer> taken = new HashSet<>();
+        for (Groups.Group other : groups.all()) {
+            if (other != group && other.shelter != 0) {
+                taken.add(other.shelter);
+            }
+        }
+        float x = leader.position.x;
+        float z = leader.position.z;
+        float radius = refuges.config().searchRadius();
+        Refuges.Refuge refuge = refuges.nearest(x, z, radius, group.player,
+                r -> !taken.contains(r.id) && (group.player || !r.sacred));
+        if (refuge == null) {
+            refuge = refuges.nearest(x, z, radius, group.player, r -> group.player || !r.sacred);
+        }
+        group.shelter = refuge != null ? refuge.id : 0;
     }
 
     /**

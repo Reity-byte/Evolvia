@@ -33,6 +33,8 @@ public final class Groups {
         /** Herd the god ordered this one to attack (0 = none), until {@link #attackUntilTick}. */
         public int attackGroup;
         public int attackUntilTick;
+        /** Refuge the herd spends the night at (0 = none chosen, phase 9d). */
+        public int shelter;
         public boolean knowsWater;
         public float waterX;
         public float waterZ;

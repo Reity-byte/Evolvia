@@ -14,6 +14,7 @@ package evolvia.world;
  * @param altitudeCooling how much temperature drops from sea level to the highest peak (0..1)
  * @param moisture        moisture noise
  * @param water           look of the water surface
+ * @param time            day and night (phase 9d)
  */
 public record WorldConfig(
         int width,
@@ -26,7 +27,8 @@ public record WorldConfig(
         NoiseSettings temperature,
         float altitudeCooling,
         NoiseSettings moisture,
-        WaterSettings water) {
+        WaterSettings water,
+        TimeSettings time) {
 
     /**
      * @param scale      feature size in tiles of the first octave
@@ -52,6 +54,14 @@ public record WorldConfig(
     public record WaterSettings(String color, float alpha, float shallowDepth) {
     }
 
+    /**
+     * @param dayLengthSeconds length of one day and night in game seconds
+     * @param startTimeOfDay   time of day a new world starts at (0 = midnight, 0.5 = noon)
+     * @param nightCooling     how much colder (0..1) the night is for creatures not in a refuge
+     */
+    public record TimeSettings(float dayLengthSeconds, float startTimeOfDay, float nightCooling) {
+    }
+
     /** Throws {@link IllegalStateException} with a clear message if a value is missing or out of range. */
     public void validate(String source) {
         require(width > 0 && depth > 0, source, "width and depth must be positive");
@@ -67,6 +77,8 @@ public record WorldConfig(
         require(water != null && water.color() != null, source, "water.color is missing");
         require(water.alpha() >= 0 && water.alpha() <= 1, source, "water.alpha must be in [0, 1]");
         require(water.shallowDepth() >= 0, source, "water.shallowDepth must not be negative");
+        require(time != null && time.dayLengthSeconds() > 0 && time.startTimeOfDay() >= 0 && time.startTimeOfDay() < 1
+                && time.nightCooling() >= 0, source, "time: dayLengthSeconds > 0, startTimeOfDay in [0, 1), nightCooling >= 0");
     }
 
     private static void validateNoise(NoiseSettings noise, String name, String source) {

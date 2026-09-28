@@ -88,14 +88,19 @@ public final class World implements EvolutionConditions {
     private final GodPowers godPowers;
     private final Groups groups = new Groups();
     private final Milestones milestones = new Milestones(DataLoader.loadMilestones());
+    private final Refuges refuges = new Refuges(DataLoader.loadRefuges());
+    private final WorldClock clock;
+    /** Tick being simulated (or last simulated), for the clock and milestones. */
+    private int currentTick;
     private final SimRandom random;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
     private final long[] systemNanos;
 
     private World(long seed, Terrain terrain, Species species, ResourceTable resourceTable,
-                  float shallowDepth, GodConfig godConfig, SimRandom random) {
+                  float shallowDepth, WorldConfig.TimeSettings time, GodConfig godConfig, SimRandom random) {
         this.seed = seed;
+        this.clock = new WorldClock(time);
         this.random = random;
         this.godPowers = new GodPowers(godConfig);
         this.terrain = terrain;
@@ -112,12 +117,12 @@ public final class World implements EvolutionConditions {
         this.agingSystem = new AgingSystem(deaths, creatureGrid, this::creatureDied);
         this.godPowerSystem = new GodPowerSystem(this, godPowers);
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
-                creatureGrid, births, random, groups);
+                creatureGrid, births, random, groups, clock, refuges);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
                 godPowerSystem,
-                new NeedsSystem(terrain),
+                new NeedsSystem(terrain, clock, refuges),
                 new AiSystem(actionContext),
                 pathfindingSystem,
                 new PathFollowingSystem(pathQueue),
@@ -126,9 +131,10 @@ public final class World implements EvolutionConditions {
                 new ResourceRegrowthSystem(foodGrid),
                 reproductionSystem,
                 agingSystem,
-                new GroupSystem(groups, creatureGrid),
+                new GroupSystem(groups, creatureGrid, clock, refuges),
                 evolutionSystem,
-                new FaithSystem(godPowers.faith(), godConfig.faith()),
+                new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
+                        godConfig.sanctify().faithPerSleeperPerMinute()),
                 new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
     }
@@ -138,8 +144,10 @@ public final class World implements EvolutionConditions {
                                EvolutionTree tree, ResourceTable resources, GodConfig god, long seed) {
         SimRandom random = new SimRandom(seed);
         Terrain terrain = TerrainGenerator.generate(config, biomes, seed, random);
-        World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(), god, random);
+        World world = new World(seed, terrain, new Species(species, tree), resources, config.water().shallowDepth(),
+                config.time(), god, random);
         world.spawnResources(random);
+        world.placeRefuges(refugeRandom(seed));
         world.spawnPopulation(random);
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
@@ -150,8 +158,8 @@ public final class World implements EvolutionConditions {
      * the saved entities and then calls {@link #rebuildSpatialIndex()}.
      */
     public static World restore(long seed, Terrain terrain, Species species, ResourceTable resources,
-                                float shallowDepth, GodConfig god, SimRandom random) {
-        return new World(seed, terrain, species, resources, shallowDepth, god, random);
+                                float shallowDepth, WorldConfig.TimeSettings time, GodConfig god, SimRandom random) {
+        return new World(seed, terrain, species, resources, shallowDepth, time, god, random);
     }
 
     /** Puts all creatures and resource nodes into the spatial grids (after loading). */
@@ -192,6 +200,7 @@ public final class World implements EvolutionConditions {
 
     /** Advances the simulation by one tick. */
     public void tick(int tick) {
+        currentTick = tick;
         for (int i = 0; i < systems.size(); i++) {
             long start = System.nanoTime();
             systems.get(i).update(ecs, tick);
@@ -307,6 +316,46 @@ public final class World implements EvolutionConditions {
             groups.died(entity, member.group);
         }
         leaveCarcass(entity, x, z);
+    }
+
+    /** Places refuges in a world loaded from a save made before refuges existed: the same as in a new world. */
+    public void placeRefugesAfterLoad(long seed) {
+        placeRefuges(refugeRandom(seed));
+    }
+
+    /** Refuges have their own generator (from the seed), so they do not change the rest of the world. */
+    private static Random refugeRandom(long seed) {
+        return new Random(seed ^ 0x5eedL);
+    }
+
+    /** Places the refuges of {@code data/refuges.json} on suitable land, apart from each other (phase 9d). */
+    private void placeRefuges(Random random) {
+        Refuges.Config config = refuges.config();
+        for (Refuges.Type type : config.types()) {
+            int placed = 0;
+            for (int attempt = 0; attempt < type.count() * 300 && placed < type.count(); attempt++) {
+                int tx = random.nextInt(terrain.width());
+                int tz = random.nextInt(terrain.depth());
+                if (!terrain.isPassable(tx, tz)) {
+                    continue;
+                }
+                float altitude = (terrain.tileHeight(tx, tz) - terrain.seaLevel()) / (terrain.maxHeight() - terrain.seaLevel());
+                if (altitude < type.minAltitude()
+                        || (!type.biomes().isEmpty() && !type.biomes().contains(terrain.biome(tx, tz).id()))) {
+                    continue;
+                }
+                float x = tx + 0.5f;
+                float z = tz + 0.5f;
+                boolean spaced = true;
+                for (Refuges.Refuge other : refuges.all()) {
+                    spaced &= Math.hypot(other.x - x, other.z - z) >= config.minSpacing();
+                }
+                if (spaced) {
+                    refuges.add(type, x, z);
+                    placed++;
+                }
+            }
+        }
     }
 
     /** A dead creature leaves a carcass (if resources.json defines one), which then decays. */
@@ -757,6 +806,78 @@ public final class World implements EvolutionConditions {
             counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
         }
         return counts;
+    }
+
+    /** The tick being (or last) simulated. */
+    public int tick() {
+        return currentTick;
+    }
+
+    /** Restores the tick of a save game. */
+    public void restoreTick(int tick) {
+        currentTick = tick;
+    }
+
+    /** Day and night (phase 9d). */
+    public WorldClock clock() {
+        return clock;
+    }
+
+    /** Caves, groves and overhangs (phase 9d). */
+    public Refuges refuges() {
+        return refuges;
+    }
+
+    /**
+     * Makes the refuge within {@code radius} of (x, z) a sacred place; the nearest herd of the player's people
+     * settles there (phase 9d).
+     *
+     * @return false if there is no refuge there
+     */
+    public boolean sanctify(float x, float z, float radius) {
+        Refuges.Refuge refuge = refuges.nearest(x, z, radius, false);
+        if (refuge == null) {
+            return false;
+        }
+        refuge.sacred = true;
+        Groups.Group nearest = null;
+        double best = Double.MAX_VALUE;
+        for (Groups.Group group : groups.all()) {
+            double d = Math.hypot(group.homeX - refuge.x, group.homeZ - refuge.z);
+            if (group.player && d < best) {
+                best = d;
+                nearest = group;
+            }
+        }
+        if (nearest != null) {
+            nearest.settled = true;
+            nearest.homeX = refuge.x;
+            nearest.homeZ = refuge.z;
+        }
+        return true;
+    }
+
+    /** Believers asleep in a refuge (sheltered), and of them those in a sacred place. */
+    public int shelteredSleepers(boolean sacredOnly) {
+        ComponentStore<Believer> store = ecs.store(Believer.class);
+        int count = 0;
+        for (int i = 0; i < store.size(); i++) {
+            int entity = store.entityAt(i);
+            Needs needs = ecs.get(entity, Needs.class);
+            Transform t = ecs.get(entity, Transform.class);
+            if (needs == null || t == null || !needs.sleeping) {
+                continue;
+            }
+            Refuges.Refuge refuge = refuges.at(t.position.x, t.position.z);
+            if (refuge != null && (!sacredOnly || refuge.sacred)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int sacredSleepers() {
+        return shelteredSleepers(true);
     }
 
     /** Early game goals (phase 9c). */

@@ -6,7 +6,8 @@ public enum DivinePower {
     ABUNDANCE("abundance"),
     RAISE("raise"),
     LOWER("lower"),
-    LIGHTNING("lightning");
+    LIGHTNING("lightning"),
+    SANCTIFY("sanctify");
 
     private final String key;
 

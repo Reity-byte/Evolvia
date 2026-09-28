@@ -118,7 +118,7 @@ class ReproductionTest {
         // A 128x128 map keeps the test fast; carrying capacity is a few hundred creatures there.
         WorldConfig small = new WorldConfig(128, 128, config.heightScale(), config.seaLevel(), config.height(),
                 config.heightExponent(), config.edgeFalloff(), config.temperature(), config.altitudeCooling(),
-                config.moisture(), config.water());
+                config.moisture(), config.water(), config.time());
         SpeciesDefinition few = species.withPopulation(new SpeciesDefinition.Population(60, 15f, 3000));
         World world = World.create(small, biomes, few, resources, 11);
         int tick = run(world, 0, 20 * 60 * 20); // 20 minutes to grow

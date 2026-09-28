@@ -11,7 +11,9 @@ import evolvia.ecs.GameSystem;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.evolution.SpeciesDefinition.Climate;
 import evolvia.evolution.SpeciesDefinition.NeedRates;
+import evolvia.world.Refuges;
 import evolvia.world.Terrain;
+import evolvia.world.WorldClock;
 
 /**
  * Grows hunger and thirst, drains energy while awake and restores it while sleeping.
@@ -22,9 +24,22 @@ import evolvia.world.Terrain;
 public final class NeedsSystem implements GameSystem {
 
     private final Terrain terrain;
+    private final WorldClock clock;
+    private final Refuges refuges;
 
+    /** Without day and night (tests). */
     public NeedsSystem(Terrain terrain) {
+        this(terrain, null, null);
+    }
+
+    /**
+     * @param clock   the night is colder, except in a refuge (null = no night)
+     * @param refuges sleeping in a refuge restores energy and health faster (null = none)
+     */
+    public NeedsSystem(Terrain terrain, WorldClock clock, Refuges refuges) {
         this.terrain = terrain;
+        this.clock = clock;
+        this.refuges = refuges;
     }
 
     @Override
@@ -47,7 +62,12 @@ public final class NeedsSystem implements GameSystem {
 
             Transform transform = transforms.get(entity);
             Climate climate = stats.climate();
-            needs.exposure = transform != null ? climate.exposure(temperatureAt(transform)) : 0f;
+            boolean sheltered = refuges != null && transform != null && refuges.at(transform.position.x, transform.position.z) != null;
+            float temperature = transform != null ? temperatureAt(transform) : 0.5f;
+            if (clock != null && !sheltered) {
+                temperature -= clock.settings().nightCooling() * clock.nightness(tick);
+            }
+            needs.exposure = transform != null ? climate.exposure(temperature) : 0f;
             float coldFactor = 1f + climate.needFactorPerUnit() * Math.max(0f, -needs.exposure);
             float heatFactor = 1f + climate.needFactorPerUnit() * Math.max(0f, needs.exposure);
 
@@ -58,8 +78,9 @@ public final class NeedsSystem implements GameSystem {
                     + SpeciesDefinition.perTick(rates.hungerPerSecond()) * factor * metabolism * coldFactor);
             needs.thirst = Math.min(1f, needs.thirst
                     + SpeciesDefinition.perTick(rates.thirstPerSecond()) * factor * heatFactor);
+            float shelter = sheltered && needs.sleeping ? refuges.config().sleepEnergyFactor() : 1f;
             if (needs.sleeping) {
-                needs.energy = Math.min(1f, needs.energy + SpeciesDefinition.perTick(rates.energyRecoverPerSecond()));
+                needs.energy = Math.min(1f, needs.energy + SpeciesDefinition.perTick(rates.energyRecoverPerSecond()) * shelter);
             } else {
                 needs.energy = Math.max(0f, needs.energy - SpeciesDefinition.perTick(rates.energyDrainPerSecond()));
             }
@@ -79,7 +100,8 @@ public final class NeedsSystem implements GameSystem {
                 suffering = true;
             }
             if (!suffering && health.hp < health.maxHp) {
-                health.hp = Math.min(health.maxHp, health.hp + SpeciesDefinition.perTick(rates.healthRegenPerSecond()));
+                float heal = sheltered && needs.sleeping ? refuges.config().sleepHealFactor() : 1f;
+                health.hp = Math.min(health.maxHp, health.hp + SpeciesDefinition.perTick(rates.healthRegenPerSecond()) * heal);
             }
         }
     }

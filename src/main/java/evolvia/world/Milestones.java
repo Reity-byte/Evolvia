@@ -23,7 +23,13 @@ public final class Milestones {
         /** Fights the player's people won. */
         VICTORIES,
         /** Herds of the player's people. */
-        HERDS
+        HERDS,
+        /** The player's people asleep in a refuge (phase 9d). */
+        SHELTERED,
+        /** Days passed (nights survived). */
+        DAYS,
+        /** Sacred places. */
+        SACRED
     }
 
     public record Milestone(String id, String name, String description, Type type, int value, float rewardEp,

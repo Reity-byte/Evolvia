@@ -356,7 +356,8 @@ public final class Evolvia implements GameLoop.Handler {
     // ---------------------------------------------------------------- save games
 
     private WorldCodec.GameData gameData() {
-        return new WorldCodec.GameData(worldConfig.water().shallowDepth(), biomes, species, evolutionTree, resources, godConfig);
+        return new WorldCodec.GameData(worldConfig.water().shallowDepth(), worldConfig.time(), biomes, species, evolutionTree,
+                resources, godConfig);
     }
 
     private void menuChoice(GameMenu.Choice choice) {

@@ -21,6 +21,8 @@ import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.Births;
 import evolvia.world.Groups;
+import evolvia.world.Refuges;
+import evolvia.world.WorldClock;
 import evolvia.world.ResourceKind;
 import evolvia.world.SpatialGrid;
 import evolvia.world.Terrain;
@@ -48,6 +50,8 @@ public final class ActionContext {
     public final Births births;
     public final Random random;
     public final Groups groups;
+    public final WorldClock clock;
+    public final Refuges refuges;
 
     public EcsWorld ecs;
     public ComponentStore<ResourceNode> resources;
@@ -87,7 +91,7 @@ public final class ActionContext {
 
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
-                         Random random, Groups groups) {
+                         Random random, Groups groups, WorldClock clock, Refuges refuges) {
         this.terrain = terrain;
         this.navigation = navigation;
         this.pathQueue = pathQueue;
@@ -97,6 +101,17 @@ public final class ActionContext {
         this.births = births;
         this.random = random;
         this.groups = groups;
+        this.clock = clock;
+        this.refuges = refuges;
+    }
+
+    /** Where the creature should spend the night: its herd's refuge, or (alone) the nearest one it sees; or null. */
+    public Refuges.Refuge shelter() {
+        Groups.Group group = group();
+        if (group != null) {
+            return refuges.get(group.shelter);
+        }
+        return refuges.nearest(transform.position.x, transform.position.z, species.senseRadius(), false);
     }
 
     /** Prepares the context for one tick. */

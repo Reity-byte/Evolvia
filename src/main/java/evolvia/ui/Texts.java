@@ -39,6 +39,7 @@ public final class Texts {
             case FLEE -> "Utíká v hrůze";
             case FOLLOW_LEADER -> "Jde za vůdcem";
             case ATTACK -> "Bojuje";
+            case SEEK_SHELTER -> "Jde do úkrytu";
         };
     }
 

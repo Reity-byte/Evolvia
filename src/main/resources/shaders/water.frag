@@ -9,6 +9,7 @@ uniform vec3 uFogColor;
 uniform float uFogStart;
 uniform float uFogEnd;
 uniform vec3 uCameraPos;
+uniform vec3 uLightTint;     // time of day (phase 9d)
 
 out vec4 fragColor;
 
@@ -17,6 +18,7 @@ void main() {
     vec3 lit = uWaterColor.rgb * (uAmbient + (1.0 - uAmbient) * diffuse);
 
     // Fade into the fog color and become opaque with distance, so the far sea blends with the sky.
+    lit *= uLightTint;
     float fog = smoothstep(uFogStart, uFogEnd, distance(vWorldPos, uCameraPos));
     fragColor = vec4(mix(lit, uFogColor, fog), mix(uWaterColor.a, 1.0, fog));
 }
