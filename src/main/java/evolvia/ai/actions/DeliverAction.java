@@ -66,6 +66,9 @@ public final class DeliverAction implements Action {
             }
             group.stock.merge(load.material, load.amount, Float::sum);
             c.ecs.store(Carrying.class).remove(c.entity);
+            if (c.science != null) {
+                c.rewardKnowledge(c.science.rules().perDelivery());
+            }
             return Status.DONE;
         }
         return c.ai.pathStatus == AiState.PathStatus.FAILED ? Status.FAILED : Status.RUNNING;

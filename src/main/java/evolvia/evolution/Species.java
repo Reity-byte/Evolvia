@@ -45,6 +45,8 @@ public final class Species {
     private final Set<String> actions = new HashSet<>();
     private final Map<String, String> visuals = new LinkedHashMap<>();
     private final List<Stage> stages = new ArrayList<>();
+    /** Discoveries of the people (science, phase 10b): they apply to every stage, i.e. to everybody at once. */
+    private final List<EvolutionNode> culture = new ArrayList<>();
     private SpeciesDefinition stats;
     private float points;
     private float pointsEarned;
@@ -228,7 +230,8 @@ public final class Species {
             return new Availability(NodeStatus.LOCKED, "vyžaduje " + String.join(", ", missing));
         }
         if (node.condition() != null && !node.condition().isMet(world)) {
-            return new Availability(NodeStatus.LOCKED, node.condition().describe());
+            Condition unmet = node.condition() instanceof Condition.All all ? all.firstUnmet(world) : node.condition();
+            return new Availability(NodeStatus.LOCKED, unmet.describe());
         }
         if (points < cost(node)) {
             return new Availability(NodeStatus.LOCKED, String.format(Locale.ROOT, "chybí %.0f EP", cost(node) - points));
@@ -278,7 +281,25 @@ public final class Species {
         recompute();
     }
 
-    /** Rebuilds all stages (stage k = the first k unlocked nodes); the latest one is the species' current state. */
+    /**
+     * Sets the people's discoveries (science, phase 10b). Unlike evolution they are culture: their effects apply
+     * to every stage at once, so all living creatures get them, not only newborns.
+     */
+    public void setCulture(List<EvolutionNode> discoveries) {
+        culture.clear();
+        culture.addAll(discoveries);
+        recompute();
+    }
+
+    /** The people's discoveries whose effects every stage has. */
+    public List<EvolutionNode> culture() {
+        return Collections.unmodifiableList(culture);
+    }
+
+    /**
+     * Rebuilds all stages (stage k = the first k unlocked nodes plus the culture); the latest one is the species'
+     * current state.
+     */
     private void recompute() {
         List<EvolutionNode> nodes = new ArrayList<>();
         for (String id : unlocked) {
@@ -286,7 +307,8 @@ public final class Species {
         }
         stages.clear();
         for (int k = 0; k <= nodes.size(); k++) {
-            List<EvolutionNode> first = nodes.subList(0, k);
+            List<EvolutionNode> first = new ArrayList<>(nodes.subList(0, k));
+            first.addAll(culture);
             Set<String> stageAbilities = new HashSet<>();
             Map<String, String> stageVisuals = new LinkedHashMap<>();
             if (animal != null) {
@@ -312,6 +334,7 @@ public final class Species {
         visuals.clear();
         visuals.putAll(latest.visuals());
         actions.clear();
+        nodes.addAll(culture);
         for (EvolutionNode node : nodes) {
             for (Effect effect : node.effects()) {
                 if (effect instanceof Effect.UnlockAction action) {

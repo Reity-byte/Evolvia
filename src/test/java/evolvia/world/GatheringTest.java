@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GatheringTest {
 
     /** The Tools node and the chain leading to it. */
-    static final List<String> TOOLS = List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "mind_tools");
+    static final List<String> TOOLS = List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "sci_tools");
 
     private static WorldConfig config;
     private static BiomeTable biomes;
@@ -45,7 +45,7 @@ class GatheringTest {
     static void giveTools(World world) {
         world.species().addPoints(1000f);
         for (String node : TOOLS) {
-            world.unlock(node);
+            world.develop(node);
         }
         world.evolveEveryone();
     }

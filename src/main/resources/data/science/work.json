@@ -1,0 +1,48 @@
+{
+  "branch": "work",
+  "nodes": [
+    {
+      "id": "sci_tools",
+      "name": "Nástroje",
+      "cost": 20,
+      "description": "Kámen v šikovné ruce: lid sbírá dřevo a kámen a nosí je do tábora.",
+      "requiresCondition": {
+        "type": "evolved",
+        "id": "body_hands",
+        "name": "Šikovné ruce"
+      },
+      "effects": [
+        {
+          "type": "unlock_ability",
+          "ability": "tools"
+        }
+      ]
+    },
+    {
+      "id": "sci_storage",
+      "name": "Skladování",
+      "cost": 40,
+      "requires": [
+        "sci_tools"
+      ],
+      "description": "Jak zásoby uložit, aby vydržely: kmen umí postavit sklad.",
+      "effects": []
+    },
+    {
+      "id": "sci_spears",
+      "name": "Oštěpy",
+      "cost": 45,
+      "requires": [
+        "sci_tools"
+      ],
+      "description": "Dřevěné oštěpy s kamenným hrotem: tvrdší rány v boji i na lovu.",
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "damage",
+          "value": 1.3
+        }
+      ]
+    }
+  ]
+}

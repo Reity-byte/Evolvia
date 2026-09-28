@@ -57,6 +57,8 @@ public final class DataLoader {
     public static final String NATURE = "data/nature.json";
     public static final String ANIMALS = "data/animals.json";
     public static final String TRIBE = "data/tribe.json";
+    public static final String SCIENCE = "data/science/science.json";
+    public static final String SCIENCE_DIR = "data/science/";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -281,6 +283,25 @@ public final class DataLoader {
         return config;
     }
 
+    /**
+     * Loads the science rules and tree (phase 10b): {@code data/science/science.json} with the rules and the list of
+     * branch files in the same folder.
+     */
+    public static evolvia.world.Science.Config loadScience() {
+        ScienceFile file = fromJson(readResource(SCIENCE), ScienceFile.class, SCIENCE);
+        evolvia.world.Science.Rules r = file.rules();
+        require(r != null && r.ability() != null && r.basePerMinute() >= 0 && r.perDelivery() >= 0 && r.perBuilding() >= 0
+                        && r.tribeFactor() > 0 && r.costGrowthPerDiscovery() >= 0 && r.queueMax() >= 1
+                        && r.cookingSpoilFactor() >= 0 && r.herbalSpreadFactor() >= 0 && r.herbalDurationFactor() > 0,
+                SCIENCE, "rules: ability, non-negative rates, tribeFactor > 0, queueMax >= 1");
+        require(file.files() != null && !file.files().isEmpty(), SCIENCE, "missing \"files\" list");
+        Map<String, String> files = new LinkedHashMap<>();
+        for (String name : file.files()) {
+            files.put(SCIENCE_DIR + name, readResource(SCIENCE_DIR + name));
+        }
+        return new evolvia.world.Science.Config(r, parseEvolutionTree(files, null, "data/science"));
+    }
+
     /** Loads and validates {@code data/species.json}. */
     public static SpeciesDefinition loadSpecies() {
         return parseSpecies(readResource(SPECIES), SPECIES);
@@ -466,7 +487,7 @@ public final class DataLoader {
      *
      * @param biomes used to check biome ids in conditions; may be null to skip that check
      */
-    public static EvolutionTree parseEvolutionTree(Map<String, String> files, BiomeTable biomes) {
+    public static EvolutionTree parseEvolutionTree(Map<String, String> files, BiomeTable biomes, String label) {
         List<EvolutionNode> nodes = new ArrayList<>();
         for (Map.Entry<String, String> file : files.entrySet()) {
             String source = file.getKey();
@@ -487,6 +508,16 @@ public final class DataLoader {
                 List<String> requires = n.requires() != null ? List.copyOf(n.requires()) : List.of();
                 String description = n.description() != null ? n.description() : "";
                 Condition condition = parseCondition(n.requiresCondition(), where, biomes);
+                if (n.requiresConditions() != null && !n.requiresConditions().isEmpty()) { // several (phase 10b)
+                    List<Condition> all = new ArrayList<>();
+                    if (condition != null) {
+                        all.add(condition);
+                    }
+                    for (ConditionJson c : n.requiresConditions()) {
+                        all.add(parseCondition(c, where, biomes));
+                    }
+                    condition = all.size() == 1 ? all.getFirst() : new Condition.All(List.copyOf(all));
+                }
                 if (n.levels() == null) {
                     nodes.add(new EvolutionNode(n.id(), n.name(), description, branch.branch(), n.cost(), requires,
                             n.exclusiveGroup(), condition, List.copyOf(effects)));
@@ -506,7 +537,12 @@ public final class DataLoader {
                 }
             }
         }
-        return new EvolutionTree(nodes, "data/evolution");
+        return new EvolutionTree(nodes, label);
+    }
+
+    /** Same as {@link #parseEvolutionTree(Map, BiomeTable)} for another tree (the science tree, phase 10b). */
+    public static EvolutionTree parseEvolutionTree(Map<String, String> files, BiomeTable biomes) {
+        return parseEvolutionTree(files, biomes, "data/evolution");
     }
 
     private static Effect parseEffect(EffectJson e, String where) {
@@ -552,8 +588,16 @@ public final class DataLoader {
                 require(c.ratio() != null && c.ratio() > 0 && c.ratio() <= 1, where, "biome_presence needs \"ratio\" in (0, 1]");
                 yield new Condition.BiomePresence(c.biome(), c.ratio());
             }
+            case "discovery" -> {
+                require(c.id() != null && !c.id().isBlank(), where, "discovery needs an \"id\" (a science node)");
+                yield new Condition.Discovery(c.id(), c.name() != null ? c.name() : c.id());
+            }
+            case "evolved" -> {
+                require(c.id() != null && !c.id().isBlank(), where, "evolved needs an \"id\" (an evolution node)");
+                yield new Condition.Evolved(c.id(), c.name() != null ? c.name() : c.id());
+            }
             default -> throw new IllegalStateException(where + ": unknown condition type '" + c.type()
-                    + "' (known: population_min, biome_presence)");
+                    + "' (known: population_min, biome_presence, discovery, evolved)");
         };
     }
 
@@ -651,6 +695,10 @@ public final class DataLoader {
                                SpeciesDefinition.Combat combat) {
     }
 
+    /** JSON shape of {@code data/science/science.json}. */
+    private record ScienceFile(evolvia.world.Science.Rules rules, List<String> files) {
+    }
+
     /** JSON shape of {@code data/evolution/branches.json}. */
     private record BranchIndex(List<String> files) {
     }
@@ -660,8 +708,8 @@ public final class DataLoader {
     }
 
     private record NodeJson(String id, String name, String description, Integer cost, List<String> requires,
-                            String exclusiveGroup, ConditionJson requiresCondition, List<EffectJson> effects,
-                            Integer levels, Float levelCostGrowth) {
+                            String exclusiveGroup, ConditionJson requiresCondition, List<ConditionJson> requiresConditions,
+                            List<EffectJson> effects, Integer levels, Float levelCostGrowth) {
     }
 
     /** Level names of levelled traits (phase 10a). */
@@ -671,7 +719,7 @@ public final class DataLoader {
                               String action) {
     }
 
-    private record ConditionJson(String type, Float value, String biome, Float ratio) {
+    private record ConditionJson(String type, Float value, String biome, Float ratio, String id, String name) {
     }
 
     /** JSON shape of {@code resources.json}. */

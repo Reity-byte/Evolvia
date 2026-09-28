@@ -45,6 +45,7 @@ public final class Ui implements AutoCloseable {
     private float mouseX;
     private float mouseY;
     private boolean clickPending;
+    private boolean shiftDown;
     private boolean clickUsed;
 
     public Ui() {
@@ -68,6 +69,7 @@ public final class Ui implements AutoCloseable {
         mouseX = (float) input.mouseX() * framebufferPerWindow / scale;
         mouseY = (float) input.mouseY() * framebufferPerWindow / scale;
         clickPending = input.isButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+        shiftDown = input.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) || input.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
         clickUsed = false;
         blockers.clear();
         renderer.clear();
@@ -86,6 +88,11 @@ public final class Ui implements AutoCloseable {
     public void render(int framebufferWidth, int framebufferHeight) {
         atlas.ensureScale(scale);
         renderer.render(framebufferWidth, framebufferHeight, scale);
+    }
+
+    /** Whether Shift is held this frame (Shift+click queues research, phase 10b). */
+    public boolean shiftDown() {
+        return shiftDown;
     }
 
     public float width() {

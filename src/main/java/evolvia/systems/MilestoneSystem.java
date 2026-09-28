@@ -44,6 +44,7 @@ public final class MilestoneSystem implements GameSystem {
             case SACRED -> world.refuges().sacredCount();
             case TRIBE -> world.tribeGroup() != null ? 1 : 0;
             case BUILDINGS -> world.settlement().doneTypes().size();
+            case DISCOVERIES -> world.science().discovered().size();
             case STOCK -> (int) world.groups().all().stream().filter(g -> g.player)
                     .mapToDouble(Groups.Group::stockTotal).max().orElse(0);
         };

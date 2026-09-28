@@ -27,6 +27,7 @@
   "buildings": [
     {
       "id": "fire",
+      "requires": "sci_fire",
       "name": "Ohniště",
       "description": "Kdo je u ohně, nemrzne: ani v noci, v zimě či ve vánici.",
       "cost": { "wood": 10 },
@@ -38,6 +39,7 @@
     },
     {
       "id": "shelter",
+      "requires": "sci_construction",
       "name": "Přístřešek",
       "description": "Nové útočiště u tábora: spí se v něm jako v jeskyni a predátoři tam spící neloví.",
       "cost": { "wood": 15, "stone": 5 },
@@ -49,6 +51,7 @@
     },
     {
       "id": "storage",
+      "requires": "sci_storage",
       "name": "Sklad",
       "description": "Do tábora se vejde víc dřeva a kamene.",
       "cost": { "wood": 20, "stone": 10 },
@@ -60,6 +63,7 @@
     },
     {
       "id": "shrine",
+      "requires": "sci_rituals",
       "name": "Svatyně",
       "description": "Místo modliteb: věřící kmene ti dávají víc Víry.",
       "cost": { "stone": 20, "wood": 10 },

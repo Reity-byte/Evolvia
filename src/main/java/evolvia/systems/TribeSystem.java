@@ -40,6 +40,16 @@ public final class TribeSystem implements GameSystem {
     private final Terrain terrain;
     private final Random random;
     private final List<String> announcements = new ArrayList<>();
+    /** Buildings need discoveries (phase 10b); null = everything can be built. */
+    private evolvia.world.Science science;
+
+    public void setScience(evolvia.world.Science science) {
+        this.science = science;
+    }
+
+    private boolean known(Tribe.BuildingType type) {
+        return type.requires() == null || science == null || science.isDiscovered(type.requires());
+    }
 
     public TribeSystem(Groups groups, Species people, Settlement settlement, Refuges refuges, Terrain terrain, Random random) {
         this.groups = groups;
@@ -202,6 +212,9 @@ public final class TribeSystem implements GameSystem {
         Tribe.Config config = settlement.config();
         for (int pass = 0; pass < 2; pass++) {
             for (Tribe.BuildingType type : config.buildings()) {
+                if (!known(type)) {
+                    continue; // the tribe does not know how to build it yet
+                }
                 int count = settlement.count(type.id(), false);
                 boolean wanted = switch (type.effect()) {
                     case "warmth", "faith" -> count == 0;

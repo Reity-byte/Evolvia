@@ -172,6 +172,23 @@ public final class ActionContext {
     }
 
     /** Speed of the current creature's work: the tribe works harder under an evil god. */
+    /** The people's science (phase 10b): deliveries and finished buildings add knowledge. */
+    public evolvia.world.Science science;
+    private evolvia.evolution.EvolutionConditions conditions;
+
+    public void setScience(evolvia.world.Science science, evolvia.evolution.EvolutionConditions conditions) {
+        this.science = science;
+        this.conditions = conditions;
+    }
+
+    /** Knowledge for work of the player's people, once science has begun. */
+    public void rewardKnowledge(float amount) {
+        Groups.Group group = group();
+        if (science != null && science.isActive() && group != null && group.player) {
+            science.add(amount, conditions);
+        }
+    }
+
     public float workFactor() {
         return (inTribe() ? settlement.workFactor() : 1f) * species.skills().workSpeed(); // Strength (phase 10a)
     }

@@ -67,7 +67,10 @@ public final class Tribe {
      * @param radius       reach of warmth, size of the refuge
      * @param value        warmth added, people per shelter, storage multiplier, faith bonus
      */
+    /**
+     * @param requires the discovery the tribe needs before it can build this (science, phase 10b), or null
+     */
     public record BuildingType(String id, String name, String description, Map<String, Float> cost, float buildSeconds,
-                               float planFaith, String effect, float radius, float value) {
+                               float planFaith, String effect, float radius, float value, String requires) {
     }
 }

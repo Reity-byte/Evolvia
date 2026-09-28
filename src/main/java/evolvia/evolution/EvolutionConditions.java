@@ -8,4 +8,14 @@ public interface EvolutionConditions {
 
     /** Fraction (0..1) of the species' creatures standing in the biome with this id. */
     float biomeRatio(String biomeId);
+
+    /** Whether the people made the discovery {@code id} (science, phase 10b). */
+    default boolean isDiscovered(String id) {
+        return false;
+    }
+
+    /** Whether the species has evolved the node {@code id} (conditions of discoveries, phase 10b). */
+    default boolean isEvolved(String id) {
+        return false;
+    }
 }

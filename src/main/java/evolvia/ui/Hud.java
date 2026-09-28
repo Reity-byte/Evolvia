@@ -7,6 +7,7 @@ import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.world.DeathStats;
 import evolvia.world.Nature;
+import evolvia.world.Science;
 import evolvia.world.World;
 
 import java.util.ArrayList;
@@ -78,15 +79,17 @@ public final class Hud {
         int available = availableNodes(world);
         String treeLabel = available > 0 ? "Evoluce (" + available + ")" : "Evoluce";
         bw = ui.buttonWidth(treeLabel);
-        if (ui.button(treeLabel, x, buttonY, bw, buttonH, tree.isVisible())) {
-            tree.toggle();
+        boolean evolutionOpen = tree.isVisible() && tree.mode() == EvolutionTreeView.Mode.EVOLUTION;
+        if (ui.button(treeLabel, x, buttonY, bw, buttonH, evolutionOpen)) {
+            tree.toggle(EvolutionTreeView.Mode.EVOLUTION);
         }
         if (available > 0 && !tree.isVisible()) {
             ui.draw().outline(x, buttonY, bw, buttonH, 2f, 0xFFE0B040);
         }
         x += bw + 6f;
+        x += scienceButton(ui, world, tree, x, buttonY, buttonH) + 6f;
         {
-            String herdLabel = "Stáda (G)";
+            String herdLabel = "Stáda";
             float hw = ui.buttonWidth(herdLabel);
             if (ui.button(herdLabel, x, buttonY, hw, buttonH, showGroups)) {
                 showGroups = !showGroups;
@@ -172,6 +175,38 @@ public final class Hud {
         return "večer";
     }
 
+    /**
+     * The science button (phase 10b): what is being researched and how far, or a call to choose; dim before speech.
+     *
+     * @return its width
+     */
+    private static float scienceButton(Ui ui, World world, EvolutionTreeView tree, float x, float y, float h) {
+        Science science = world.science();
+        String label = "Věda";
+        boolean choose = false;
+        if (science.isActive()) {
+            EvolutionNode target = science.target() != null ? science.tree().node(science.target()) : null;
+            if (target != null) {
+                label = String.format(Locale.ROOT, "Věda: %s %.0f %%", target.name(), science.share(target) * 100f);
+            } else {
+                choose = science.tree().nodes().stream()
+                        .anyMatch(n -> science.availability(n, world).status() == Species.NodeStatus.AVAILABLE);
+                label = choose ? "Věda (vyber)" : "Věda";
+            }
+        }
+        float bw = ui.buttonWidth(label);
+        boolean open = tree.isVisible() && tree.mode() == EvolutionTreeView.Mode.SCIENCE;
+        if (ui.button(label, x, y, bw, h, open)) {
+            tree.toggle(EvolutionTreeView.Mode.SCIENCE);
+        }
+        if (!science.isActive()) {
+            ui.draw().rect(x, y, bw, h, 0x70101216);
+        } else if (choose && !tree.isVisible()) {
+            ui.draw().outline(x, y, bw, h, 2f, 0xFF8FB8F0);
+        }
+        return bw;
+    }
+
     private static float stat(Ui ui, String label, String value, float x, float y) {
         float lw = ui.text(ui.regular, label, x, y, Ui.TEXT_DIM);
         float vw = ui.text(ui.bold, value, x + lw + 6f, y, Ui.TEXT);
@@ -225,6 +260,11 @@ public final class Hud {
             rows.add(row("Stáda", String.format(Locale.ROOT, "tvoje %d, divoká %d, vítězství %d", mine, herds - mine,
                     world.groups().playerVictories()), 1f));
         }
+
+        rows.add(row("Věda", world.science().isActive()
+                ? String.format(Locale.ROOT, "%d / %d objevů, +%.1f ZN/min", world.science().discovered().size(),
+                world.science().tree().size(), world.science().perMinute())
+                : "začne s Řečí", 1f));
 
         DeathStats deaths = world.deaths();
         String deathText = String.format(Locale.ROOT, "boj %d, hlad %d, žízeň %d, klima %d, stáří %d, blesk %d, nemoc %d, oheň %d, voda %d",

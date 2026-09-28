@@ -53,9 +53,18 @@ public final class ConsumeAction implements Action {
             return; // wild game is used to carrion
         }
         Nature.Disease disease = c.nature.config().disease();
-        if (food.ageTicks > SpeciesDefinition.secondsToTicks(disease.spoilSeconds())
-                && c.random.nextFloat() < disease.infectChance()) {
-            Sick.infect(c.ecs, c.entity, c.tick, SpeciesDefinition.secondsToTicks(disease.durationSeconds()),
+        float chance = disease.infectChance();
+        float duration = disease.durationSeconds();
+        if (c.science != null) { // Cooking and Herbalism (phase 10b)
+            if (c.ref.hasAbility(evolvia.world.Science.COOKING)) {
+                chance *= c.science.rules().cookingSpoilFactor();
+            }
+            if (c.ref.hasAbility(evolvia.world.Science.HERBALISM)) {
+                duration *= c.science.rules().herbalDurationFactor();
+            }
+        }
+        if (food.ageTicks > SpeciesDefinition.secondsToTicks(disease.spoilSeconds()) && c.random.nextFloat() < chance) {
+            Sick.infect(c.ecs, c.entity, c.tick, SpeciesDefinition.secondsToTicks(duration),
                     SpeciesDefinition.secondsToTicks(disease.immuneSeconds()));
         }
     }

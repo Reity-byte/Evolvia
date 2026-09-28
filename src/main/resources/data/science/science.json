@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "ability": "speech",
+    "basePerMinute": 2.0,
+    "perDelivery": 0.1,
+    "perBuilding": 3.0,
+    "tribeFactor": 1.5,
+    "costGrowthPerDiscovery": 0.1,
+    "queueMax": 5,
+    "cookingSpoilFactor": 0.3,
+    "herbalSpreadFactor": 0.5,
+    "herbalDurationFactor": 0.6
+  },
+  "files": [
+    "work.json",
+    "fire.json",
+    "society.json"
+  ]
+}

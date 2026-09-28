@@ -1,0 +1,25 @@
+{
+  "branch": "society",
+  "nodes": [
+    {
+      "id": "sci_construction",
+      "name": "Stavitelství",
+      "cost": 35,
+      "requires": [
+        "sci_tools"
+      ],
+      "description": "Kůly, proutí a kámen: kmen umí postavit přístřešek.",
+      "effects": []
+    },
+    {
+      "id": "sci_rituals",
+      "name": "Obřady",
+      "cost": 50,
+      "requires": [
+        "sci_construction"
+      ],
+      "description": "Společné modlitby na posvátném místě: kmen umí postavit svatyni.",
+      "effects": []
+    }
+  ]
+}

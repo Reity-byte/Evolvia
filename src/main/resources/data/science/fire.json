@@ -1,0 +1,71 @@
+{
+  "branch": "fire",
+  "nodes": [
+    {
+      "id": "sci_fire",
+      "name": "Oheň",
+      "cost": 30,
+      "requires": [
+        "sci_tools"
+      ],
+      "description": "Rozdělat a udržet oheň: kmen umí postavit ohniště, u kterého nikdo nemrzne.",
+      "effects": []
+    },
+    {
+      "id": "sci_clothing",
+      "name": "Oděv z kůží",
+      "cost": 50,
+      "requires": [
+        "sci_fire"
+      ],
+      "description": "Kůže ulovené zvěře chrání před chladem.",
+      "effects": [
+        {
+          "type": "stat_add",
+          "stat": "comfortMin",
+          "value": -0.12
+        }
+      ]
+    },
+    {
+      "id": "sci_cooking",
+      "name": "Vaření",
+      "cost": 55,
+      "requires": [
+        "sci_fire"
+      ],
+      "description": "Jídlo z ohně víc nasytí a zkažené maso tolik neškodí.",
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "plantNutrition",
+          "value": 1.15
+        },
+        {
+          "type": "stat_mul",
+          "stat": "meatNutrition",
+          "value": 1.3
+        },
+        {
+          "type": "unlock_ability",
+          "ability": "cooking"
+        }
+      ]
+    },
+    {
+      "id": "sci_herbalism",
+      "name": "Léčitelství",
+      "cost": 60,
+      "requires": [
+        "sci_cooking"
+      ],
+      "description": "Byliny a odpočinek: nemoci se méně šíří a rychleji přejdou.",
+      "effects": [
+        {
+          "type": "unlock_ability",
+          "ability": "herbalism"
+        }
+      ]
+    }
+  ]
+}

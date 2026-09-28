@@ -21,6 +21,9 @@ public final class Texts {
             case "adaptation" -> "Adaptace";
             case "mind" -> "Mysl";
             case "traits" -> "Vlastnosti";
+            case "work" -> "Práce";
+            case "fire" -> "Oheň";
+            case "society" -> "Společnost";
             default -> branch;
         };
     }
@@ -76,6 +79,8 @@ public final class Texts {
             case "tools" -> "nástroje (sběr dřeva a kamene)";
             case "speech" -> "řeč (poplach ve stádě)";
             case "tribe" -> "kmen";
+            case "cooking" -> "vaření (zkažené jídlo méně škodí)";
+            case "herbalism" -> "léčitelství (nemoci se méně šíří a rychleji přejdou)";
             default -> ability;
         };
     }

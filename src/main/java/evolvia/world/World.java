@@ -1,5 +1,6 @@
 package evolvia.world;
 
+import evolvia.systems.ScienceSystem;
 import evolvia.systems.TribeSystem;
 import evolvia.ai.ActionContext;
 import evolvia.ai.Navigation;
@@ -83,6 +84,8 @@ public final class World implements EvolutionConditions {
     /** The tribe's buildings and mood (phase 9h). */
     private final Settlement settlement;
     private final TribeSystem tribeSystem;
+    /** The people's science (phase 10b). */
+    private final Science science;
     private final SpatialGrid creatureGrid;
     private final Navigation navigation;
     private final PathQueue pathQueue = new PathQueue();
@@ -121,6 +124,7 @@ public final class World implements EvolutionConditions {
         this.terrain = terrain;
         this.species = species;
         this.resourceTable = resourceTable;
+        this.science = new Science(DataLoader.loadScience(), species);
         this.foodGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.waterGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.materialGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
@@ -136,7 +140,9 @@ public final class World implements EvolutionConditions {
         ActionContext actionContext = new ActionContext(terrain, navigation, pathQueue, foodGrid, waterGrid,
                 creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting(), materialGrid, tribe.gathering(),
                 materials(), settlement);
+        actionContext.setScience(science, this);
         this.tribeSystem = new TribeSystem(groups, species, settlement, refuges, terrain, random);
+        tribeSystem.setScience(science);
         NeedsSystem needsSystem = new NeedsSystem(terrain, clock, refuges, nature);
         needsSystem.setSettlement(settlement);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
@@ -158,6 +164,7 @@ public final class World implements EvolutionConditions {
                 new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
                         godConfig.sanctify().faithPerSleeperPerMinute(), this::shrineFaithPerMinute),
                 tribeSystem,
+                new ScienceSystem(science, species, this, () -> tribeSystem.tribe() != null),
                 new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
     }
@@ -256,6 +263,15 @@ public final class World implements EvolutionConditions {
      */
     public void unlock(String nodeId) {
         species.unlock(nodeId, this);
+    }
+
+    /** Unlocks an evolution node, or makes a discovery at once when {@code id} is one (tests and debugging). */
+    public void develop(String id) {
+        if (science.tree().node(id) != null) {
+            science.discover(id);
+        } else {
+            unlock(id);
+        }
     }
 
     /** The player's people (believers): evolution conditions and milestones count these. */
@@ -405,6 +421,26 @@ public final class World implements EvolutionConditions {
         return tribeSystem;
     }
 
+    /** The people's science (phase 10b). */
+    public Science science() {
+        return science;
+    }
+
+    @Override
+    public boolean isDiscovered(String id) {
+        return science.isDiscovered(id);
+    }
+
+    @Override
+    public boolean isEvolved(String id) {
+        return species.isUnlocked(id);
+    }
+
+    /** Whether the tribe knows how to build {@code type} (its discovery is made, phase 10b). */
+    public boolean canBuild(Tribe.BuildingType type) {
+        return type.requires() == null || science.isDiscovered(type.requires());
+    }
+
     /** Materials that can be gathered, sorted by id ("stone", "wood"). */
     public List<String> materials() {
         return resourceTable.materials().stream().map(ResourceDefinition::material).distinct().sorted().toList();
@@ -452,7 +488,7 @@ public final class World implements EvolutionConditions {
     public boolean planBuilding(String typeId, float x, float z) {
         Groups.Group group = tribeSystem.tribe();
         Tribe.BuildingType type = tribe.building(typeId);
-        if (group == null || type == null || !tribeSystem.free(x, z)
+        if (group == null || type == null || !canBuild(type) || !tribeSystem.free(x, z)
                 || Math.hypot(x - group.campX, z - group.campZ) > tribe.tribe().siteRadius()[1] * 2f) {
             return false;
         }

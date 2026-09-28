@@ -71,9 +71,10 @@ public final class WorldCodec {
      * in clear weather without disasters; 7: the species of every creature and herd (wild game, phase 9f), older
      * saves get the game of a new world with the same seed; 8: carried materials, camps and their stock (phase 9g),
      * older saves get the trees and rocks of a new world with the same seed; 9: the tribe, roles, buildings and
-     * the god's building plans (phase 9h).
+     * the god's building plans (phase 9h); 10: science (phase 10b), older saves turn the evolution node Tools into
+     * the discovery Tools and get the discoveries of the buildings they already have.
      */
-    public static final int SAVE_VERSION = 9;
+    public static final int SAVE_VERSION = 10;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
@@ -88,6 +89,10 @@ public final class WorldCodec {
     /** A loaded world plus the non-simulation state stored with it. */
     public record Loaded(World world, long tick, Time.Speed speed, View view, List<String> skippedNodes) {
     }
+
+    /** The evolution node Tools (before phase 10b) and the discovery that replaced it. */
+    static final String OLD_TOOLS_NODE = "mind_tools";
+    static final String TOOLS_DISCOVERY = "sci_tools";
 
     private WorldCodec() {
     }
@@ -141,7 +146,8 @@ public final class WorldCodec {
                 world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList(),
                 world.nature().state((int) tick),
                 world.settlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress, b.paid,
-                        b.planned, b.refuge)).toList());
+                        b.planned, b.refuge)).toList(),
+                world.science().state());
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -329,6 +335,20 @@ public final class WorldCodec {
             }
             if (save.milestones() != null) {
                 world.milestones().restore(save.milestones());
+            }
+            if (save.science() != null) {
+                world.science().restore(save.science());
+            } else if (save.saveVersion() < 10) {
+                // Tools were an evolution node before phase 10b; the tribe's buildings needed no discoveries.
+                if (skipped.remove(OLD_TOOLS_NODE)) {
+                    world.science().discover(TOOLS_DISCOVERY);
+                }
+                for (evolvia.world.Settlement.Building building : world.settlement().all()) {
+                    if (building.type.requires() != null) {
+                        world.science().discover(building.type.requires());
+                    }
+                }
+                world.science().takeAnnouncements();
             }
             Time.Speed speed = save.speed() != null ? Time.Speed.valueOf(save.speed()) : Time.Speed.NORMAL;
             return new Loaded(world, save.tick(), speed, save.view(), skipped);

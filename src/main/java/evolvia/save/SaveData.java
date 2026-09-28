@@ -29,7 +29,17 @@ public record SaveData(
         List<String> milestones,
         List<RefugeData> refuges,
         Nature.State nature,
-        List<BuildingData> buildings) {
+        List<BuildingData> buildings,
+        evolvia.world.Science.State science) {
+
+    /** A save without science (older versions and tests). */
+    public SaveData(int saveVersion, Meta meta, long seed, long tick, String speed, View view, SimRandom.State random,
+                    TerrainData terrain, SpeciesData species, GodData god, StatsData stats, EcsData ecs, int[] pathQueue,
+                    GroupsData groups, List<String> milestones, List<RefugeData> refuges, Nature.State nature,
+                    List<BuildingData> buildings) {
+        this(saveVersion, meta, seed, tick, speed, view, random, terrain, species, god, stats, ecs, pathQueue, groups,
+                milestones, refuges, nature, buildings, null);
+    }
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {

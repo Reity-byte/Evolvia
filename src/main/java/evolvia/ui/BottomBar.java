@@ -1,12 +1,15 @@
 package evolvia.ui;
 
 import evolvia.core.Input;
+import evolvia.evolution.EvolutionNode;
+import evolvia.evolution.Species;
 import evolvia.god.DivinePower;
 import evolvia.god.Faith;
 import evolvia.god.GodConfig;
 import evolvia.god.GodPowers;
 import evolvia.render.GodEffectsRenderer;
 import evolvia.world.Groups;
+import evolvia.world.Science;
 import evolvia.world.Settlement;
 import evolvia.world.Tribe;
 import evolvia.world.World;
@@ -43,7 +46,7 @@ public final class BottomBar {
 
     /** The tabs of the bar. */
     public enum Tab {
-        POWERS("Zásahy"), BUILDINGS("Stavby");
+        POWERS("Zásahy"), BUILDINGS("Stavby"), SCIENCE("Věda");
 
         final String label;
 
@@ -108,13 +111,30 @@ public final class BottomBar {
         return armed != null || armedPlan != null;
     }
 
-    /** Switches to the next tab (Tab key); the building tab only once there is a tribe. */
+    /** Switches to the next tab that is open (Tab key): buildings need a tribe, science speech. */
     public void nextTab(World world) {
-        if (tab == Tab.POWERS && world.tribeGroup() == null) {
-            show("Stavby odemkne kmen (uzel Kmen v Evoluci)");
-            return;
+        Tab[] all = Tab.values();
+        for (int k = 1; k < all.length; k++) {
+            Tab next = all[(tab.ordinal() + k) % all.length];
+            if (enabled(next, world)) {
+                select(next);
+                return;
+            }
         }
-        select(tab == Tab.POWERS ? Tab.BUILDINGS : Tab.POWERS);
+        show(locked(Tab.BUILDINGS));
+    }
+
+    private static boolean enabled(Tab each, World world) {
+        return switch (each) {
+            case POWERS -> true;
+            case BUILDINGS -> world.tribeGroup() != null;
+            case SCIENCE -> world.science().isActive();
+        };
+    }
+
+    private static String locked(Tab each) {
+        return each == Tab.SCIENCE ? "Věda začne, až tvůj lid získá Řeč (větev Mysl v Evoluci)"
+                : "Stavby odemkne kmen (uzel Kmen v Evoluci)";
     }
 
     private void select(Tab next) {
@@ -137,7 +157,7 @@ public final class BottomBar {
         }
         hadTribe = tribe;
         lastWorld = world;
-        if (!tribe && tab == Tab.BUILDINGS) {
+        if (!enabled(tab, world)) {
             select(Tab.POWERS);
         }
 
@@ -148,17 +168,26 @@ public final class BottomBar {
         ui.block(0, top, width, HEIGHT);
 
         List<Tribe.BuildingType> plans = world.tribe().buildings();
-        int cards = tab == Tab.POWERS ? DivinePower.values().length : plans.size();
+        List<EvolutionNode> research = research(world);
+        int cards = switch (tab) {
+            case POWERS -> DivinePower.values().length;
+            case BUILDINGS -> plans.size();
+            case SCIENCE -> research.size();
+        };
         Layout layout = layout(width, cards);
         people(ui, world, layout.peopleX(), top);
         separator(ui, layout.stockX() - GAP / 2f, top);
         stock(ui, world, layout.stockX(), top);
         separator(ui, layout.tabsX() - GAP / 2f, top);
-        tabs(ui, layout.tabsX(), top, tribe);
+        tabs(ui, world, layout.tabsX(), top);
         separator(ui, layout.faithX() - GAP / 2f, top);
         faith(ui, world, layout.faithX(), top);
 
-        Runnable tooltip = tab == Tab.POWERS ? powers(ui, world, layout, top) : plans(ui, world, plans, layout, top);
+        Runnable tooltip = switch (tab) {
+            case POWERS -> powers(ui, world, layout, top);
+            case BUILDINGS -> plans(ui, world, plans, layout, top);
+            case SCIENCE -> science(ui, world, research, layout, top);
+        };
 
         if (!message.isEmpty() && System.nanoTime() - messageTime < MESSAGE_NANOS) {
             float mw = ui.bold.width(message);
@@ -226,7 +255,7 @@ public final class BottomBar {
             ui.text(ui.regular, "Bez tábora", x, line1(ui, top), Ui.TEXT_DIM);
             ui.text(ui.small, "sběr přijde s Nástroji", x, line2(ui, top) + 2f, Ui.TEXT_DIM);
             if (ui.hovered(x, top, STOCK_WIDTH, HEIGHT)) {
-                hint(ui, "Tvůj lid zatím nemá tábor: první donesené dřevo nebo kámen ho založí (uzel Nástroje)", x, top);
+                hint(ui, "Tvůj lid zatím nemá tábor: první donesené dřevo nebo kámen ho založí (objev Nástroje ve Vědě)", x, top);
             }
             return;
         }
@@ -248,26 +277,147 @@ public final class BottomBar {
         }
     }
 
-    private void tabs(Ui ui, float x, float top, boolean tribe) {
-        float h = (HEIGHT - 12f - 4f) / 2f;
-        float y = top + 6f;
-        for (Tab each : Tab.values()) {
-            boolean enabled = each == Tab.POWERS || tribe;
-            if (ui.button(each.label, x, y, TABS_WIDTH, h, tab == each)) {
+    /** Three small tabs stacked (small font, so they fit the bar). */
+    private void tabs(Ui ui, World world, float x, float top) {
+        Tab[] all = Tab.values();
+        float gap = 2f;
+        float h = (HEIGHT - 8f - (all.length - 1) * gap) / all.length;
+        float y = top + 4f;
+        for (Tab each : all) {
+            boolean enabled = enabled(each, world);
+            boolean active = tab == each;
+            boolean hover = ui.hovered(x, y, TABS_WIDTH, h);
+            ui.draw().rect(x, y, TABS_WIDTH, h, active ? Ui.BUTTON_ACTIVE : hover ? Ui.BUTTON_HOVER : Ui.BUTTON);
+            ui.draw().outline(x, y, TABS_WIDTH, h, 1f, Ui.PANEL_BORDER);
+            float tw = ui.small.width(each.label);
+            ui.text(ui.small, each.label, x + (TABS_WIDTH - tw) / 2f, y + (h - ui.small.lineHeight()) / 2f,
+                    enabled ? Ui.TEXT : Ui.TEXT_DIM);
+            if (ui.clicked(x, y, TABS_WIDTH, h)) {
                 if (enabled) {
                     select(each);
                 } else {
-                    show("Stavby odemkne kmen (uzel Kmen v Evoluci)");
+                    show(locked(each));
                 }
             }
-            if (!enabled) {
-                ui.draw().rect(x, y, TABS_WIDTH, h, 0x80101216);
-            } else if (each == Tab.BUILDINGS && tab != each && System.nanoTime() < highlightUntil) {
+            if (enabled && each == Tab.BUILDINGS && !active && System.nanoTime() < highlightUntil) {
                 boolean on = (System.nanoTime() / 400_000_000L) % 2 == 0;
                 ui.draw().outline(x, y, TABS_WIDTH, h, 2f, on ? 0xFFF2C75C : 0xFF8A7440);
             }
-            y += h + 4f;
+            y += h + gap;
         }
+    }
+
+    /** The target first, then what can be researched now, then the queue (phase 10b). */
+    private static List<EvolutionNode> research(World world) {
+        Science science = world.science();
+        List<EvolutionNode> list = new java.util.ArrayList<>();
+        if (!science.isActive()) {
+            return list;
+        }
+        if (science.target() != null) {
+            list.add(science.tree().node(science.target()));
+        }
+        for (EvolutionNode node : science.tree().nodes()) {
+            if (!list.contains(node) && !science.queue().contains(node.id())
+                    && science.availability(node, world).status() == Species.NodeStatus.AVAILABLE) {
+                list.add(node);
+            }
+        }
+        for (String id : science.queue()) {
+            EvolutionNode node = science.tree().node(id);
+            if (!list.contains(node)) {
+                list.add(node);
+            }
+        }
+        return list;
+    }
+
+    /** Research cards: click = research it, Shift+click = queue it (or take it off the plan). */
+    private Runnable science(Ui ui, World world, List<EvolutionNode> nodes, Layout layout, float top) {
+        Science science = world.science();
+        float y = top + (HEIGHT - CARD_HEIGHT) / 2f;
+        if (nodes.isEmpty()) {
+            String text = "Není co zkoumat – další objevy odemkne evoluce nebo předchozí objevy";
+            ui.text(ui.small, text, layout.cardsX(), y + 14f, Ui.TEXT_DIM);
+            return null;
+        }
+        Runnable tooltip = null;
+        for (int i = 0; i < nodes.size(); i++) {
+            EvolutionNode node = nodes.get(i);
+            float x = layout.cardX(i);
+            boolean target = node.id().equals(science.target());
+            int queued = science.queue().indexOf(node.id());
+            String detail = target ? String.format(Locale.ROOT, "zkoumá se %.0f %%", science.share(node) * 100f)
+                    : queued >= 0 ? "ve frontě " + (queued + 1) + "."
+                    : science.cost(node) + " ZN";
+            if (card(ui, x, y, layout.cardWidth(), target, scienceAccent(node.branch()), node.name(), detail, true)) {
+                if (ui.shiftDown()) {
+                    if (target || queued >= 0) {
+                        science.cancel(node.id(), world);
+                    } else if (!science.enqueue(node.id(), world)) {
+                        show("Fronta výzkumu je plná");
+                    }
+                } else if (!science.setTarget(node.id(), world)) {
+                    show("Tohle zatím zkoumat nejde");
+                }
+            }
+            float share = science.share(node);
+            if (share > 0f) {
+                ui.draw().rect(x + 4f, y + CARD_HEIGHT - 4f, (layout.cardWidth() - 5f) * share, 3f, 0xFF8FB8F0);
+            }
+            if (ui.hovered(x, y, layout.cardWidth(), CARD_HEIGHT)) {
+                tooltip = () -> discoveryTooltip(ui, world, node, x, top);
+            }
+        }
+        return tooltip;
+    }
+
+    private static void discoveryTooltip(Ui ui, World world, EvolutionNode node, float cardX, float top) {
+        Science science = world.science();
+        float padding = 10f;
+        float inner = TOOLTIP_WIDTH - 2 * padding;
+        List<String> lines = new java.util.ArrayList<>(Ui.wrap(ui.regular, node.description(), inner));
+        int textLines = lines.size();
+        for (evolvia.evolution.Effect effect : node.effects()) {
+            lines.add("• " + Texts.effect(effect));
+        }
+        for (Tribe.BuildingType type : world.tribe().buildings()) {
+            if (node.id().equals(type.requires())) {
+                lines.add("• Nová stavba: " + type.name());
+            }
+        }
+        lines.add(String.format(Locale.ROOT, "%.0f z %d ZN · +%.1f ZN/min · klik: zkoumat, Shift+klik: fronta",
+                science.progress(node.id()), science.cost(node), science.perMinute()));
+        float h = padding + ui.bold.lineHeight() + 2f + textLines * ui.regular.lineHeight() + 6f
+                + (lines.size() - textLines) * ui.small.lineHeight() + padding;
+        float x = Math.clamp(cardX, 4f, ui.width() - TOOLTIP_WIDTH - 4f);
+        float y = top - h - 8f;
+        ui.draw().rect(x, y, TOOLTIP_WIDTH, h, 0xF5181B20);
+        ui.draw().outline(x, y, TOOLTIP_WIDTH, h, 1f, 0xFF60656F);
+        float ty = y + padding;
+        ui.text(ui.bold, node.name(), x + padding, ty, Ui.TEXT);
+        ty += ui.bold.lineHeight() + 2f;
+        for (int i = 0; i < lines.size(); i++) {
+            if (i < textLines) {
+                ui.text(ui.regular, lines.get(i), x + padding, ty, 0xFFD5D9DF);
+                ty += ui.regular.lineHeight();
+                if (i == textLines - 1) {
+                    ty += 6f;
+                }
+            } else {
+                ui.text(ui.small, lines.get(i), x + padding, ty, i == lines.size() - 1 ? Ui.TEXT_ACCENT : 0xFFB7C7DA);
+                ty += ui.small.lineHeight();
+            }
+        }
+    }
+
+    private static int scienceAccent(String branch) {
+        return switch (branch) {
+            case "work" -> 0xFFC4A064;
+            case "fire" -> 0xFFE0883A;
+            case "society" -> 0xFF8FB8F0;
+            default -> 0xFF9AA0A8;
+        };
     }
 
     /** Faith, its growth and the god's alignment (good / evil). */
@@ -373,25 +523,41 @@ public final class BottomBar {
         for (int i = 0; i < types.size(); i++) {
             Tribe.BuildingType type = types.get(i);
             float x = layout.cardX(i);
-            boolean affordable = world.godPowers().faith().canAfford(type.planFaith());
+            boolean known = world.canBuild(type);
+            boolean affordable = known && world.godPowers().faith().canAfford(type.planFaith());
+            String detail = known ? String.format(Locale.ROOT, "plán %.0f Víry", type.planFaith()) : "neobjeveno";
             if (card(ui, x, y, layout.cardWidth(), type.id().equals(armedPlan), buildingAccent(type.id()), type.name(),
-                    String.format(Locale.ROOT, "plán %.0f Víry", type.planFaith()), affordable)) {
-                armedPlan = type.id().equals(armedPlan) ? null : type.id();
-                armed = null;
+                    detail, affordable)) {
+                if (!known) {
+                    show(type.name() + " vyžaduje objev " + discoveryName(world, type));
+                } else {
+                    armedPlan = type.id().equals(armedPlan) ? null : type.id();
+                    armed = null;
+                }
+            }
+            if (!known) {
+                ui.draw().rect(x, y, layout.cardWidth(), CARD_HEIGHT, 0x70101216);
             }
             if (ui.hovered(x, y, layout.cardWidth(), CARD_HEIGHT)) {
-                tooltip = () -> planTooltip(ui, type, x, top);
+                String needs = known ? null : discoveryName(world, type);
+                tooltip = () -> planTooltip(ui, type, needs, x, top);
             }
         }
         return tooltip;
     }
 
-    private static void planTooltip(Ui ui, Tribe.BuildingType type, float buttonX, float top) {
+    private static String discoveryName(World world, Tribe.BuildingType type) {
+        EvolutionNode node = world.science().tree().node(type.requires());
+        return node != null ? node.name() : type.requires();
+    }
+
+    private static void planTooltip(Ui ui, Tribe.BuildingType type, String needs, float buttonX, float top) {
         float padding = 10f;
         List<String> description = Ui.wrap(ui.regular, type.description(), TOOLTIP_WIDTH - 2 * padding);
         StringBuilder cost = new StringBuilder("Kmen zaplatí:");
         type.cost().forEach((material, amount) -> cost.append(String.format(Locale.ROOT, " %s %.0f", Texts.material(material), amount)));
-        String plan = String.format(Locale.ROOT, "Plán stojí %.0f Víry, kmen ho postaví přednostně", type.planFaith());
+        String plan = needs != null ? "Vyžaduje objev " + needs + " (Věda)"
+                : String.format(Locale.ROOT, "Plán stojí %.0f Víry, kmen ho postaví přednostně", type.planFaith());
         float h = padding + ui.bold.lineHeight() + 2f + description.size() * ui.regular.lineHeight() + 6f
                 + 2 * ui.small.lineHeight() + padding;
         float x = Math.clamp(buttonX, 4f, ui.width() - TOOLTIP_WIDTH - 4f);

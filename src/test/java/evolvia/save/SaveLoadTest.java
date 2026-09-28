@@ -59,7 +59,8 @@ class SaveLoadTest {
         SaveData timeless = new SaveData(save.saveVersion(),
                 new SaveData.Meta(meta.name(), "", meta.speciesName(), meta.population(), meta.generation(), meta.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(),
-                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings());
+                save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings(),
+                save.science());
         return SaveManager.toJson(timeless);
     }
 
@@ -91,9 +92,9 @@ class SaveLoadTest {
             case 1700 -> world.godPowers().request(DivinePower.RAISE, x + 10f, z + 10f);
             case 1200 -> { // phase 9g: gathering (loads, camps, stock are saved)
                 world.species().addPoints(1000f);
-                for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "mind_tools")) {
+                for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "sci_tools")) {
                     if (!world.species().isUnlocked(node)) {
-                        world.unlock(node);
+                        world.develop(node);
                     }
                 }
                 world.evolveEveryone();

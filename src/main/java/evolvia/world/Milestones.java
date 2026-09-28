@@ -35,7 +35,9 @@ public final class Milestones {
         /** The tribe exists (phase 9h). */
         TRIBE,
         /** Kinds of finished buildings (phase 9h). */
-        BUILDINGS
+        BUILDINGS,
+        /** Discoveries of the people (phase 10b). */
+        DISCOVERIES
     }
 
     public record Milestone(String id, String name, String description, Type type, int value, float rewardEp,

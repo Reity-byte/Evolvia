@@ -400,7 +400,8 @@ public final class NatureSystem implements GameSystem {
             for (int other : scratch) {
                 GroupMember m = ecs.get(other, GroupMember.class);
                 if (other != entity && m != null && m.group == member.group && sickStore.get(other) == null
-                        && !infected.contains(other) && random.nextFloat() < disease.spreadChancePerSecond()) {
+                        && !infected.contains(other) && random.nextFloat() < disease.spreadChancePerSecond() * herbal(ecs, entity,
+                        world.science().rules().herbalSpreadFactor())) {
                     infected.add(other);
                 }
             }
@@ -409,7 +410,14 @@ public final class NatureSystem implements GameSystem {
             sickStore.remove(entity);
         }
         for (int entity : infected) {
-            Sick.infect(ecs, entity, tick, duration, immune);
+            Sick.infect(ecs, entity, tick, Math.round(duration * herbal(ecs, entity, world.science().rules().herbalDurationFactor())),
+                    immune);
         }
+    }
+
+    /** {@code factor} for a creature whose people know Herbalism (phase 10b), else 1. */
+    private static float herbal(EcsWorld ecs, int entity, float factor) {
+        evolvia.components.SpeciesRef ref = ecs.get(entity, evolvia.components.SpeciesRef.class);
+        return ref != null && ref.hasAbility(evolvia.world.Science.HERBALISM) ? factor : 1f;
     }
 }

@@ -29,8 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Phase 9h DoD: speech, the tribe, roles, buildings with effects, the god's plans, morality. */
 class TribeTest {
 
-    static final List<String> TRIBE = List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "mind_tools",
-            "mind_instincts", "mind_memory", "mind_social_groups", "mind_speech", "mind_tribe");
+    static final List<String> TRIBE = List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "sci_tools",
+            "mind_instincts", "mind_memory", "mind_social_groups", "mind_speech", "mind_tribe", "sci_fire", "sci_construction",
+            "sci_storage", "sci_rituals");
 
     private static WorldConfig config;
     private static BiomeTable biomes;
@@ -61,7 +62,7 @@ class TribeTest {
     private static void evolve(World world, String last) {
         world.species().addPoints(2000f);
         for (String node : TRIBE) {
-            world.unlock(node);
+            world.develop(node);
             if (node.equals(last)) {
                 break;
             }

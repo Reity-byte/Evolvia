@@ -52,8 +52,12 @@ public final class BuildAction implements Action {
                 c.stopMoving();
             }
             c.face(site.x, site.z);
+            boolean wasDone = site.done();
             site.progress = Math.min(1f, site.progress
                     + c.workFactor() / SpeciesDefinition.secondsToTicks(site.type.buildSeconds()));
+            if (site.done() && !wasDone && c.science != null) {
+                c.rewardKnowledge(c.science.rules().perBuilding()); // a finished building teaches (phase 10b)
+            }
             return site.done() ? Status.DONE : Status.RUNNING;
         }
         return c.ai.pathStatus == AiState.PathStatus.FAILED ? Status.FAILED : Status.RUNNING;

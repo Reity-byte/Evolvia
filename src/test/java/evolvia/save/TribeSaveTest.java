@@ -49,9 +49,9 @@ class TribeSaveTest {
 
     private static void evolve(World world, String last) {
         world.species().addPoints(2000f);
-        for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "mind_tools",
-                "mind_instincts", "mind_memory", "mind_social_groups", "mind_speech", "mind_tribe")) {
-            world.unlock(node);
+        for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal", "body_hands", "sci_tools",
+                "mind_instincts", "mind_memory", "mind_social_groups", "mind_speech", "mind_tribe", "sci_fire", "sci_construction", "sci_storage", "sci_rituals")) {
+            world.develop(node);
         }
         world.evolveEveryone();
     }
@@ -97,6 +97,6 @@ class TribeSaveTest {
         return new SaveData(save.saveVersion(), new SaveData.Meta(m.name(), "", m.speciesName(), m.population(), m.generation(), m.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(), save.god(),
                 save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(),
-                save.buildings());
+                save.buildings(), save.science());
     }
 }

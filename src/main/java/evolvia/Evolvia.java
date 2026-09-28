@@ -62,6 +62,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F2;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F4;
@@ -227,7 +228,10 @@ public final class Evolvia implements GameLoop.Handler {
             debugOverlay.toggle();
         }
         if (input.isKeyPressed(GLFW_KEY_F4)) {
-            treeView.toggle();
+            treeView.toggle(EvolutionTreeView.Mode.EVOLUTION);
+        }
+        if (input.isKeyPressed(GLFW_KEY_F2)) {
+            treeView.toggle(EvolutionTreeView.Mode.SCIENCE);
         }
         if (input.isKeyPressed(GLFW_KEY_F5)) {
             saveAsync(SaveManager.QUICK_SAVE, "Rychle uloženo");
@@ -240,6 +244,7 @@ public final class Evolvia implements GameLoop.Handler {
         }
         if (input.isKeyPressed(GLFW_KEY_F7)) {
             world.species().addPoints(100f); // debug
+            world.science().add(50f, world);
         }
         if (input.isKeyPressed(GLFW_KEY_TAB) && !treeView.isVisible() && !gameMenu.isVisible()) {
             bottomBar.nextTab(world);
@@ -321,6 +326,9 @@ public final class Evolvia implements GameLoop.Handler {
             notifications.info(String.format(Locale.ROOT, "Cíl splněn: %s (+%.0f EP, +%.0f Víry)", m.name(), m.rewardEp(), m.rewardFaith()));
         }
         for (String text : world.tribeSystem().takeAnnouncements()) {
+            notifications.info(text);
+        }
+        for (String text : world.science().takeAnnouncements()) {
             notifications.info(text);
         }
         for (String text : world.nature().takeAnnouncements()) {

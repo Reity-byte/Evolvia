@@ -7,8 +7,16 @@
       "description": "Pozornější k okolí: o něco dál vidí.",
       "cost": 10,
       "effects": [
-        { "type": "stat_mul", "stat": "sight", "value": 1.15 },
-        { "type": "visual", "part": "ears", "variant": "alert" }
+        {
+          "type": "stat_mul",
+          "stat": "sight",
+          "value": 1.15
+        },
+        {
+          "type": "visual",
+          "part": "ears",
+          "variant": "alert"
+        }
       ]
     },
     {
@@ -16,10 +24,19 @@
       "name": "Paměť",
       "description": "Pamatuje si, kde naposledy pila a jedla, a vrátí se tam, když nic nevidí.",
       "cost": 35,
-      "requires": ["mind_instincts"],
+      "requires": [
+        "mind_instincts"
+      ],
       "effects": [
-        { "type": "unlock_ability", "ability": "memory" },
-        { "type": "visual", "part": "head", "variant": "large" }
+        {
+          "type": "unlock_ability",
+          "ability": "memory"
+        },
+        {
+          "type": "visual",
+          "part": "head",
+          "variant": "large"
+        }
       ]
     },
     {
@@ -27,20 +44,18 @@
       "name": "Sociální skupiny",
       "description": "Stádo drží při sobě: dělí se o to, kde je voda a jídlo, stáda jsou větší a v boji si členové pomáhají.",
       "cost": 60,
-      "requires": ["mind_memory"],
-      "requiresCondition": { "type": "population_min", "value": 25 },
+      "requires": [
+        "mind_memory"
+      ],
+      "requiresCondition": {
+        "type": "population_min",
+        "value": 25
+      },
       "effects": [
-        { "type": "unlock_ability", "ability": "groups" }
-      ]
-    },
-    {
-      "id": "mind_tools",
-      "name": "Nástroje",
-      "description": "Šikovné ruce drží kámen a klacek: dospělí sbírají dřevo a kámen a nosí je do tábora stáda.",
-      "cost": 70,
-      "requires": ["body_hands"],
-      "effects": [
-        { "type": "unlock_ability", "ability": "tools" }
+        {
+          "type": "unlock_ability",
+          "ability": "groups"
+        }
       ]
     },
     {
@@ -48,9 +63,14 @@
       "name": "Řeč",
       "description": "První slova a výkřiky: když jeden uvidí lovce, varuje celé stádo a utíkají všichni.",
       "cost": 50,
-      "requires": ["mind_social_groups"],
+      "requires": [
+        "mind_social_groups"
+      ],
       "effects": [
-        { "type": "unlock_ability", "ability": "speech" }
+        {
+          "type": "unlock_ability",
+          "ability": "speech"
+        }
       ]
     },
     {
@@ -58,10 +78,25 @@
       "name": "Kmen",
       "description": "Největší stádo tvého lidu se stane kmenem: usadí se, rozdělí si práci a samo staví ohniště, přístřešky, sklad a svatyni.",
       "cost": 100,
-      "requires": ["mind_speech", "mind_tools"],
-      "requiresCondition": { "type": "population_min", "value": 25 },
+      "requires": [
+        "mind_speech"
+      ],
       "effects": [
-        { "type": "unlock_ability", "ability": "tribe" }
+        {
+          "type": "unlock_ability",
+          "ability": "tribe"
+        }
+      ],
+      "requiresConditions": [
+        {
+          "type": "population_min",
+          "value": 25
+        },
+        {
+          "type": "discovery",
+          "id": "sci_tools",
+          "name": "Nástroje"
+        }
       ]
     }
   ]
