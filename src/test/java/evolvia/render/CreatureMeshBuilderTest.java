@@ -135,11 +135,86 @@ class CreatureMeshBuilderTest {
         return max;
     }
 
+    /** Lowest point and number of swinging vertices (forward, backward) of boxes whose pivot is above {@code minPivot}. */
+    private static float[] stats(MeshData mesh, float minPivot) {
+        int floats = mesh.floatsPerVertex();
+        float minY = Float.MAX_VALUE;
+        int forward = 0;
+        int backward = 0;
+        for (int v = 0; v < mesh.vertexCount(); v++) {
+            minY = Math.min(minY, mesh.vertices()[v * floats + 1]);
+            float pivot = mesh.vertices()[v * floats + 9];
+            float swing = mesh.vertices()[v * floats + 11];
+            if (swing != 0 && pivot > minPivot) {
+                if (swing > 0) {
+                    forward++;
+                } else {
+                    backward++;
+                }
+            }
+        }
+        return new float[]{minY, forward, backward};
+    }
+
+    @Test
+    void everyPostureStandsOnTheGround() {
+        for (String posture : List.of("quadruped", "semi", "upright")) {
+            for (String legs : List.of("normal", "strong", "long")) {
+                MeshData mesh = CreatureMeshBuilder.build(COLOR, Map.of("posture", posture, "legs", legs, "feet", "webbed"));
+                assertEquals(0f, stats(mesh, -1f)[0], 0.01f, posture + " / " + legs + " is on the ground");
+            }
+        }
+    }
+
+    @Test
+    void uprightCreaturesWalkOnTwoLegsAndSwingTwoArms() {
+        MeshData upright = CreatureMeshBuilder.build(COLOR, Map.of("posture", "upright"));
+        float[] all = stats(upright, -1f);
+        assertEquals(4 * 24, all[1] + all[2], "two legs and two arms swing");
+        float[] arms = stats(upright, 0.8f); // shoulders are higher than hips
+        assertEquals(24, arms[1], "one arm swings forward");
+        assertEquals(24, arms[2], "the other backward");
+        float quadruped = CreatureMeshBuilder.height(CreatureMeshBuilder.build(COLOR, Map.of()));
+        float semi = CreatureMeshBuilder.height(CreatureMeshBuilder.build(COLOR, Map.of("posture", "semi")));
+        assertTrue(semi > quadruped, "half upright is taller");
+        assertTrue(CreatureMeshBuilder.height(upright) > quadruped * 1.5f, "upright is much taller");
+    }
+
+    @Test
+    void halfUprightCreaturesLeanOnTheirArms() {
+        MeshData semi = CreatureMeshBuilder.build(COLOR, Map.of("posture", "semi"));
+        int floats = semi.floatsPerVertex();
+        float armBottom = Float.MAX_VALUE;
+        float hip = 0.33f;
+        for (int v = 0; v < semi.vertexCount(); v++) {
+            if (semi.vertices()[v * floats + 11] != 0 && semi.vertices()[v * floats + 9] > hip + 0.05f) {
+                armBottom = Math.min(armBottom, semi.vertices()[v * floats + 1]);
+            }
+        }
+        assertEquals(0f, armBottom, 0.01f, "front limbs reach the ground");
+    }
+
+    @Test
+    void handsComeLastInTheUprightChainAndFurExcludesBareSkin() {
+        Species species = new Species(DataLoader.loadSpecies(), tree);
+        species.addPoints(10_000f);
+        for (String node : List.of("body_strong_legs", "body_upright", "body_bipedal")) {
+            species.unlock(node, RICH_WORLD);
+            assertFalse(species.hasAbility("hands"), "no hands after " + node);
+        }
+        species.unlock("body_hands", RICH_WORLD);
+        assertTrue(species.hasAbility("hands"));
+        assertEquals("upright", species.visuals().get("posture"));
+        species.unlock("adapt_hairless", RICH_WORLD);
+        assertEquals(Species.NodeStatus.EXCLUDED, species.availability(tree.node("adapt_fur"), RICH_WORLD).status());
+    }
+
     @Test
     void everySupportedVariantBuilds() {
         for (String part : CreatureMeshBuilder.parts()) {
             for (String variant : List.of("normal", "none", "strong", "long", "large", "thick", "sandy", "moist", "bare",
-                    "white", "webbed", "flat", "mixed", "sharp", "big", "alert", "round")) {
+                    "white", "webbed", "flat", "mixed", "sharp", "big", "alert", "round", "quadruped", "semi", "upright",
+                    "paws", "nimble", "muzzle", "human")) {
                 if (CreatureMeshBuilder.supports(part, variant)) {
                     MeshData mesh = CreatureMeshBuilder.build(COLOR, Map.of(part, variant));
                     for (float value : mesh.vertices()) {

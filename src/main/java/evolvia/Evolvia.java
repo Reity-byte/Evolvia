@@ -266,7 +266,7 @@ public final class Evolvia implements GameLoop.Handler {
                 menuChoice(choice);
             }
         } else if (treeView.isVisible()) {
-            treeView.build(ui, world, Hud.BAR_HEIGHT);
+            treeView.build(ui, world, Hud.BAR_HEIGHT, input.scrollY());
         } else {
             selection.buildPanel(ui, world, Hud.BAR_HEIGHT);
             powerBar.build(ui, world);

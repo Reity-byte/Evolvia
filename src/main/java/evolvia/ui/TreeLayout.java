@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * Positions of the evolution tree's nodes on screen, computed from the tree data (no positions in JSON).
- * Each branch is a block: a node's row is its depth (longest chain of requirements), its column is
+ * Each branch is a block: a node's row is its depth (longest chain of same-branch requirements), its column is
  * under its first requirement from the same branch when free, otherwise the next free one. Blocks are
  * placed left to right and wrap to a new line when they do not fit the available width.
  */
@@ -113,7 +113,10 @@ public final class TreeLayout {
         return layout;
     }
 
-    /** Longest chain of requirements below the node (0 = no requirements). The tree has no cycles. */
+    /**
+     * Longest chain of requirements from the same branch below the node (0 = none). Requirements from
+     * other branches do not push a node down (the tooltip names them). The tree has no cycles.
+     */
     private static int depth(EvolutionTree tree, EvolutionNode node, Map<String, Integer> depths) {
         Integer known = depths.get(node.id());
         if (known != null) {
@@ -121,7 +124,10 @@ public final class TreeLayout {
         }
         int depth = 0;
         for (String required : node.requires()) {
-            depth = Math.max(depth, depth(tree, tree.node(required), depths) + 1);
+            EvolutionNode parent = tree.node(required);
+            if (parent.branch().equals(node.branch())) {
+                depth = Math.max(depth, depth(tree, parent, depths) + 1);
+            }
         }
         depths.put(node.id(), depth);
         return depth;

@@ -54,6 +54,7 @@ public final class Texts {
             case "swim" -> "plavání";
             case "memory" -> "paměť";
             case "groups" -> "stáda";
+            case "hands" -> "šikovné ruce";
             default -> ability;
         };
     }
@@ -70,6 +71,9 @@ public final class Texts {
             case "ears" -> "uši";
             case "head" -> "hlava";
             case "belly" -> "břicho";
+            case "posture" -> "postoj";
+            case "hands" -> "ruce";
+            case "face" -> "tvář";
             default -> part;
         };
     }

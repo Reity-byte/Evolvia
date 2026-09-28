@@ -14,8 +14,10 @@ import evolvia.components.Transform;
 import evolvia.core.Input;
 import evolvia.core.Time;
 import evolvia.core.Window;
+import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.render.Camera;
+import evolvia.render.CreatureMeshBuilder;
 import evolvia.world.Groups;
 import evolvia.world.World;
 import org.joml.Vector3f;
@@ -34,11 +36,24 @@ public final class CreatureSelection {
     /** How far from the clicked ground point a creature may be to get selected (tiles). */
     private static final float PICK_RADIUS = 2.5f;
     private final GroundPicker picker = new GroundPicker();
+    private Species heightSpecies;
+    private int heightRevision = -1;
+    private float heightFactor = 1f;
     private final Vector3f screen = new Vector3f();
     private int selected = -1;
     private boolean following;
 
     private static final float PANEL_WIDTH = 290f;
+
+    /** Height of the species' model in body sizes (an upright creature is taller); cached per evolution state. */
+    private float modelHeight(Species kind) {
+        if (kind != heightSpecies || kind.revision() != heightRevision) {
+            heightSpecies = kind;
+            heightRevision = kind.revision();
+            heightFactor = CreatureMeshBuilder.height(CreatureMeshBuilder.build(kind.stats().rgb(), kind.visuals()));
+        }
+        return heightFactor;
+    }
 
     /** Selects (or deselects) on a left click. */
     public void handleInput(Input input, Window window, Camera camera, World world) {
@@ -169,7 +184,8 @@ public final class CreatureSelection {
             y = p.position.y + (y - p.position.y) * alpha;
             z = p.position.z + (z - p.position.z) * alpha;
         }
-        float headHeight = world.ecs().get(entity, SpeciesRef.class).species.stats().bodySize() + 0.3f + extra;
+        Species kind = world.ecs().get(entity, SpeciesRef.class).species;
+        float headHeight = kind.stats().bodySize() * modelHeight(kind) + 0.1f + extra;
         return camera.project(x, y + headHeight, z, framebufferWidth, framebufferHeight, screen);
     }
 

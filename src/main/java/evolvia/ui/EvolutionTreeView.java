@@ -20,12 +20,14 @@ public final class EvolutionTreeView {
     private static final float HEADER = 52f;
     private static final float TOOLTIP_WIDTH = 310f;
     private static final long MESSAGE_NANOS = 4_000_000_000L;
+    private static final float SCROLL_STEP = 60f;
 
     private static final int LINE_UNLOCKED = 0xFF5FAF6A;
     private static final int LINE_AVAILABLE = 0xFFB08A3A;
     private static final int LINE_LOCKED = 0xFF4A4F58;
 
     private boolean visible;
+    private float scroll;
     private String message = "";
     private boolean messageGood;
     private long messageTime;
@@ -42,8 +44,13 @@ public final class EvolutionTreeView {
         visible = false;
     }
 
-    /** Lays out, draws and handles clicks (call during input handling). */
-    public void build(Ui ui, World world, float top) {
+    /**
+     * Lays out, draws and handles clicks (call during input handling). A tree taller than the screen
+     * scrolls with the mouse wheel.
+     *
+     * @param scrollY mouse wheel movement this frame
+     */
+    public void build(Ui ui, World world, float top, double scrollY) {
         if (!visible) {
             return;
         }
@@ -53,7 +60,27 @@ public final class EvolutionTreeView {
         ui.draw().rect(0, top, width, height, 0xE6101216);
         ui.block(0, top, width, height);
 
+        // Tree (drawn first; the header covers what scrolls under it)
+        TreeLayout layout = TreeLayout.of(species.tree(), width - 2 * MARGIN);
+        float contentTop = top + HEADER;
+        float contentHeight = layout.height() + 26f + 30f; // tree + legend
+        float maxScroll = Math.max(0f, contentHeight - (ui.height() - contentTop - 10f));
+        scroll = Math.clamp(scroll - (float) scrollY * SCROLL_STEP, 0f, maxScroll);
+        float originX = Math.max(MARGIN, (width - layout.width()) / 2f);
+        float originY = contentTop + 10f - scroll;
+        drawBranches(ui, species, layout, originX, originY);
+        drawLines(ui, world, layout, originX, originY);
+        EvolutionNode hovered = drawNodes(ui, world, layout, originX, originY, contentTop);
+        drawLegend(ui, originX, originY + layout.height() + 26f);
+        if (maxScroll > 0f) {
+            float trackHeight = ui.height() - contentTop - 20f;
+            float barHeight = trackHeight * trackHeight / (trackHeight + maxScroll);
+            ui.draw().rect(width - 8f, contentTop + 10f + (trackHeight - barHeight) * scroll / maxScroll, 4f, barHeight, 0xFF60656F);
+        }
+
         // Header
+        ui.draw().rect(0, top, width, HEADER, 0xFF101216);
+        ui.draw().rect(0, contentTop - 1f, width, 1f, 0xFF2A2E36);
         float x = MARGIN;
         float y = top + 14f;
         ui.text(ui.title, "Evoluční strom", x, y, Ui.TEXT);
@@ -71,15 +98,6 @@ public final class EvolutionTreeView {
         if (ui.button(closeLabel, width - MARGIN - closeWidth, y - 2f, closeWidth, 28f, false)) {
             visible = false;
         }
-
-        // Tree
-        TreeLayout layout = TreeLayout.of(species.tree(), width - 2 * MARGIN);
-        float originX = Math.max(MARGIN, (width - layout.width()) / 2f);
-        float originY = top + HEADER + 10f;
-        drawBranches(ui, species, layout, originX, originY);
-        drawLines(ui, world, layout, originX, originY);
-        EvolutionNode hovered = drawNodes(ui, world, layout, originX, originY);
-        drawLegend(ui, originX, Math.min(originY + layout.height() + 26f, ui.height() - 28f));
 
         if (hovered != null) {
             Species.Availability availability = species.availability(hovered, world);
@@ -137,6 +155,9 @@ public final class EvolutionTreeView {
                 default -> LINE_LOCKED;
             };
             for (String required : node.requires()) {
+                if (!species.tree().node(required).branch().equals(node.branch())) {
+                    continue; // across branches: named in the tooltip instead of a long line
+                }
                 TreeLayout.Box parent = layout.node(required);
                 float x1 = ox + parent.centerX();
                 float y1 = oy + parent.bottom();
@@ -151,14 +172,14 @@ public final class EvolutionTreeView {
     }
 
     /** Draws the nodes and returns the one under the mouse, or null. */
-    private static EvolutionNode drawNodes(Ui ui, World world, TreeLayout layout, float ox, float oy) {
+    private static EvolutionNode drawNodes(Ui ui, World world, TreeLayout layout, float ox, float oy, float visibleTop) {
         Species species = world.species();
         EvolutionNode hovered = null;
         for (EvolutionNode node : species.tree().nodes()) {
             TreeLayout.Box box = layout.node(node.id());
             float x = ox + box.x();
             float y = oy + box.y();
-            boolean hover = ui.hovered(x, y, box.w(), box.h());
+            boolean hover = ui.hovered(x, y, box.w(), box.h()) && ui.mouseY() >= visibleTop;
             if (hover) {
                 hovered = node;
             }

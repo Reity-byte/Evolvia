@@ -35,7 +35,9 @@ class TreeLayoutTest {
         TreeLayout layout = TreeLayout.of(tree, 1200f);
         for (EvolutionNode node : tree.nodes()) {
             for (String required : node.requires()) {
-                assertTrue(layout.node(node.id()).y() > layout.node(required).bottom(), node.id() + " under " + required);
+                if (tree.node(required).branch().equals(node.branch())) {
+                    assertTrue(layout.node(node.id()).y() > layout.node(required).bottom(), node.id() + " under " + required);
+                }
             }
         }
         // A single child sits directly under its parent.

@@ -6,6 +6,7 @@
       "name": "Hustá srst",
       "description": "Snese chlad, v horku je jí ale hůř.",
       "cost": 40,
+      "exclusiveGroup": "coat",
       "effects": [
         { "type": "stat_add", "stat": "comfortMin", "value": -0.12 },
         { "type": "stat_add", "stat": "comfortMax", "value": -0.05 },
@@ -46,6 +47,20 @@
         { "type": "stat_add", "stat": "comfortMax", "value": 0.15 },
         { "type": "stat_mul", "stat": "thirstRate", "value": 0.75 },
         { "type": "visual", "part": "skin", "variant": "sandy" }
+      ]
+    },
+    {
+      "id": "adapt_hairless",
+      "name": "Holá kůže",
+      "description": "Ztrácí srst: lépe snáší horko, hůř chlad. Cesta k lidem; se srstí zůstanou „zvířecí lidé“.",
+      "cost": 40,
+      "requires": ["body_bipedal"],
+      "exclusiveGroup": "coat",
+      "effects": [
+        { "type": "stat_add", "stat": "comfortMax", "value": 0.1 },
+        { "type": "stat_add", "stat": "comfortMin", "value": 0.08 },
+        { "type": "visual", "part": "fur", "variant": "none" },
+        { "type": "visual", "part": "skin", "variant": "bare" }
       ]
     },
     {

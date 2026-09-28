@@ -389,6 +389,10 @@ Rozhodnutí k fázi 9 (celé):
   - `body_upright` „Vzpřímený postoj“ (vyžaduje Silné nohy, ~60 EP): dohled ×1.15 (vidí přes trávu), rychlost ×0.9 (zatím nemotorný), vzhled `posture: semi`.
   - `body_bipedal` „Chůze po dvou“ (vyžaduje Vzpřímený postoj, ~80 EP): únava ×0.85 (úsporná chůze), rychlost ×1.1, vzhled `posture: upright`.
   - `body_hands` „Šikovné ruce“ (vyžaduje Chůzi po dvou, ~70 EP): schopnost `hands` (podmínka nástrojů v 9c), vzhled `hands: nimble` (prsty a palec).
+  - `body_human_face` „Lidská tvář“ (vyžaduje Šikovné ruce, ~60 EP): čumák zmizí, plochý obličej s nosem, menší uši; první krok ke ztrátě zvířecích rysů (další přijdou s dalšími fázemi).
+- **Srst nebo kůže (volitelné, větev Adaptace):** `adapt_hairless` „Holá kůže“ (vyžaduje Chůzi po dvou, ~40 EP): bez srsti, lépe snáší horko, hůř chlad. Vylučuje se se Srstí (skupina `coat`), takže vedle „lidí“ mohou vzniknout i „zvířecí lidé“ se srstí (hodí se i pro jiné kolonie později). Jen volba, žádná povinnost.
+- **Směr:** po Šikovných rukách budou další uzly postupně ubírat zvířecí rysy, až z tvorů budou lidé; tempo a podoba se doplní u dalších podfází.
+- **UI stromu (upřesněno při implementaci):** strom vyšší než obrazovka se posouvá kolečkem myši; požadavek z jiné větve (Holá kůže ← Chůze po dvou) se nekreslí čarou ani neposouvá uzel níž, jmenuje ho tooltip.
 - **Model podle postoje** (`posture`: quadruped / semi / upright), `CreatureMeshBuilder` staví kostru podle postoje a ostatní díly (srst, kůže, zuby, oči, uši, chodidla, břicho, velká hlava, dlouhé / silné nohy) se k ní připojují:
   - *semi*: trup nakloněný ~35°, zadní nohy, dlouhé přední končetiny opřené o zem (chůze po kloubech), kratší ocas,
   - *upright*: svislý trup, 2 nohy, 2 ruce volně podél těla, hlava nahoře, bez ocasu, kratší čumák (víc obličej než tlama).

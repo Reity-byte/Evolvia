@@ -66,6 +66,52 @@
         { "type": "stat_mul", "stat": "sight", "value": 1.5 },
         { "type": "visual", "part": "eyes", "variant": "big" }
       ]
+    },
+    {
+      "id": "body_upright",
+      "name": "Vzpřímený postoj",
+      "description": "Zvedá se na zadní nohy a opírá se o dlouhé přední končetiny. Vidí přes trávu, ale zatím chodí nemotorně.",
+      "cost": 60,
+      "requires": ["body_strong_legs"],
+      "effects": [
+        { "type": "stat_mul", "stat": "sight", "value": 1.15 },
+        { "type": "stat_mul", "stat": "speed", "value": 0.9 },
+        { "type": "visual", "part": "posture", "variant": "semi" }
+      ]
+    },
+    {
+      "id": "body_bipedal",
+      "name": "Chůze po dvou",
+      "description": "Chodí vzpřímeně po dvou nohách, ruce má volné. Úsporná chůze, ocas zmizel.",
+      "cost": 80,
+      "requires": ["body_upright"],
+      "effects": [
+        { "type": "stat_mul", "stat": "energyDrain", "value": 0.85 },
+        { "type": "stat_mul", "stat": "speed", "value": 1.1 },
+        { "type": "visual", "part": "posture", "variant": "upright" }
+      ]
+    },
+    {
+      "id": "body_hands",
+      "name": "Šikovné ruce",
+      "description": "Prsty a palec: dokáže uchopit a držet věci. Podmínka pro nástroje.",
+      "cost": 70,
+      "requires": ["body_bipedal"],
+      "effects": [
+        { "type": "unlock_ability", "ability": "hands" },
+        { "type": "visual", "part": "hands", "variant": "nimble" }
+      ]
+    },
+    {
+      "id": "body_human_face",
+      "name": "Lidská tvář",
+      "description": "Čumák ustupuje plochému obličeji s nosem, uši se zmenšují. První krok od zvířete k člověku.",
+      "cost": 60,
+      "requires": ["body_hands"],
+      "effects": [
+        { "type": "stat_mul", "stat": "lifespan", "value": 1.05 },
+        { "type": "visual", "part": "face", "variant": "human" }
+      ]
     }
   ]
 }
