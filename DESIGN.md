@@ -483,6 +483,23 @@ Rozhodnutí k fázi 9 (celé):
 - **Animace:** nohy se kývají jako dnes; ruce se kývají proti noze na stejné straně (pivot v rameni). Vzpřímená postava je vyšší, popisky a značka výběru se řídí výškou modelu.
 - **Testy:** každý postoj se postaví a stojí na zemi, vzpřímený má 2 nohy + 2 ruce v pohybu, je vyšší než čtyřnožec, každý uzel řetězu viditelně změní model, `hands` odemkne až poslední uzel.
 
+### Fáze 10–20 — plán do verze 1.0
+Každá fáze se před začátkem rozepíše do detailu (podfáze, data, testy) a začne se až po schválení. Pořadí je doporučené a může se po testování fáze 9 změnit.
+
+| Fáze | Obsah | DoD |
+|---|---|---|
+| **10 Soupeřící kmeny** | AI kmen jiného druhu („zvířecí lidé“, druh s vlastní automatickou evolucí a vzhledem), vlastní tábor, stavby a území; nájezdy na zásoby a stáda; zajatci a obrácení na víru; zničení kmene; game over = zánik lidu nebo kmene | soupeřící kmen sám roste, staví a útočí; hráč ho může odrazit, obrátit na svou víru nebo zničit |
+| **11 Válka a obrana** | uzel *Zbraně* (kopí, kamenné sekery), role válečník a hlídka, palisáda a strážní věž, morálka v boji (útěk, vzdání), božské zásahy do bitvy (požehnání bojovníků, blesk, strach) | bitva dvou kmenů má viditelný průběh a výsledek; obrana z opevněného tábora je měřitelně silnější |
+| **12 Víra a kult** | šaman / kněz, modlitby lidu (kmen žádá déšť, jídlo, ochranu; splnění zvyšuje víru, nesplnění ji snižuje), rituály a oběti (zlá cesta), zlé zásahy (mor, zemětřesení, strach) a dobré (uzdravení kmene, úroda); větší rozdíl dobrého a zlého boha | kmen se modlí o konkrétní věci a reaguje na odpověď; dobrá a zlá cesta mají každá vlastní zásahy a důsledky |
+| **13 Lidé** | poslední kroky od zvířete k člověku (vzhled, postoj, ztráta srsti volitelně), oděv z kůží (chrání před chladem), rozdělávání ohně, vaření (lepší výživa), lov lidí ve skupině | bytosti vypadají jako lidé, oděv a vaření mají měřitelný efekt |
+| **14 Zemědělství a osada** | pole a sklizeň podle ročních období, domestikace zvěře (ohrada), zásoby jídla a sýpka, příprava na zimu; kmen se mění ve vesnici (domy místo přístřešků) | vesnice díky zásobám přežije zimu a roste i bez divoké potravy |
+| **15 Řemesla a věky** | nové suroviny (hlína, ruda), dílny, uzly Keramika, Tkaní, Kovářství; věky (kámen → bronz) mění vzhled staveb, nástrojů a zbraní | kmen projde aspoň dvěma věky s viditelnou a měřitelnou změnou |
+| **16 Osady a diplomacie** | více osad hráčova lidu (kolonie, pěšiny mezi nimi), obchod mezi osadami a s AI kmeny, spojenectví a nepřátelství, vliv boha na vztahy | hráčův lid má 2+ osady, obchoduje a udrží mír nebo vede válku s AI kmenem |
+| **17 Velký svět a výkon** | mapa 512², zjednodušená simulace vzdálených oblastí, LOD a ořez vykreslování, minimapa, nastavení nového světa (velikost, ostrovy / kontinent, množství zvěře) | 512² svět s 3 000+ bytostmi běží na cílovém FPS; minimapa a nastavení světa fungují |
+| **18 Menu, nastavení a první kroky** | hlavní menu (Pokračovat, Nová hra, Načíst, Nastavení), nastavení grafiky a ovládání, úvodní průvodce přes milníky, encyklopedie druhů, staveb a zásahů | nový hráč se bez návodu dostane k prvnímu kmeni |
+| **19 Zvuk a atmosféra** | zvuky prostředí (les, déšť, bouřka, noc), hudba podle denní doby a nebezpečí, zvuky zásahů, staveb a boje (OpenAL z LWJGL), hlasitost v nastavení | hra má zvuk, jde ztlumit po kategoriích a nesnižuje výkon |
+| **20 Vyvážení a verze 1.0** | automatické dlouhé simulace pro vyvážení, volitelné cíle (např. „Jediný kmen“, „Bůh všech“), statistiky hry, opravy, anglická lokalizace, vydání 1.0 přes launcher | dvouhodinová hra bez zaseknutí a propadů výkonu; vydání v1.0 |
+
 ### Průřezová infrastruktura (mimo fáze)
 Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádné fáze.
 
@@ -510,10 +527,9 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 
 - Sférická planeta
 - Více hráčem řízených druhů (soupeřící AI kmeny a divoká zvěř naopak do první verze patří, fáze 9f a 10+)
-- Good/evil morální systém
 - Multiplayer
 - Ručně modelované assety a kosterní animace
-- Zvuk (možná později)
+- Zvuk až ve fázi 19
 
 ---
 
