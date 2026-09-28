@@ -560,6 +560,7 @@ Rozhodnutí (Lucas, po 9i): věda se zkoumá **cílem výzkumu** (vybraný objev
 - *Lidská postava* `body_human_build` (vyžaduje Lidskou tvář): delší nohy, kratší ruce, užší trup (`build: human`), délka života ×1.05.
 - *Vysoké čelo* `mind_high_forehead` (vyžaduje Lidskou tvář a Řeč): Znalosti ×1.2, vyšší lebka (`head: human`).
 - *Oděv z kůží* (objev 10b) přidá na model kožený oděv (trup a stehna, barva kůže); vaření: lidé u ohniště občas „vaří“ (kouř nad ohništěm, když kmen jí).
+- **Upřesněno při implementaci:** nové díly `build: animal / human`, `head: human` (vyšší lebka, u lidí bez srsti tmavé vlasy) a `clothes: none / hide` (světlá kožená tunika s lemem na trupu, u vzpřímených i sukně přes boky, která se nehoupe s nohama). Lidská postava: nohy ×1.2, trup užší, ruce kratší, délka života ×1.05 a únava ×0.95. Oděv je vizuální efekt objevu, takže ho dostanou všichni naráz; vizuální díly stromu vědy se kontrolují při startu hry. Vaření zjednodušeno: nad ohništěm kmene stoupá kouř, jakmile kmen Vaření zná (ne jen při jídle).
 - **Testy:** modely s novými díly se postaví, oděv je jen s objevem, screenshoty celé cesty od zvířete k člověku.
 
 ### Průřezová infrastruktura (mimo fáze)

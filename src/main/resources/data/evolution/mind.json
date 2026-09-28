@@ -98,6 +98,28 @@
           "name": "Nástroje"
         }
       ]
+    },
+    {
+      "id": "mind_high_forehead",
+      "name": "Vysoké čelo",
+      "cost": 70,
+      "requires": [
+        "mind_speech",
+        "body_human_face"
+      ],
+      "description": "Větší mozek pod vysokým čelem: lid se učí rychleji a tvoří víc Znalostí.",
+      "effects": [
+        {
+          "type": "stat_mul",
+          "stat": "learning",
+          "value": 1.2
+        },
+        {
+          "type": "visual",
+          "part": "head",
+          "variant": "human"
+        }
+      ]
     }
   ]
 }

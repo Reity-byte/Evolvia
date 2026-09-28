@@ -56,7 +56,9 @@ public final class BuildingRenderer implements AutoCloseable {
         boxes = new InstanceBatch(new BoxMeshBuilder().box(0f, 0f, 0f, 1f, 1f, 1f, 1f).build());
     }
 
-    public void render(Camera camera, Lighting lighting, Terrain terrain, Settlement settlement, double simSeconds) {
+    /** @param cooking the tribe knows Cooking: smoke rises from its fire (phase 10c) */
+    public void render(Camera camera, Lighting lighting, Terrain terrain, Settlement settlement, double simSeconds,
+                       boolean cooking) {
         shapes.values().forEach(InstanceBatch::begin);
         boxes.begin();
         for (Settlement.Building building : settlement.all()) {
@@ -78,6 +80,9 @@ public final class BuildingRenderer implements AutoCloseable {
                 stakes(terrain, building, new float[]{0.6f, 0.45f, 0.3f});
             } else if ("fire".equals(building.type.id())) {
                 flames(building, y, simSeconds);
+                if (cooking) {
+                    smoke(building, y, simSeconds);
+                }
             } else if ("shrine".equals(building.type.id())) {
                 model.translation(building.x, y + 3.25f, building.z).rotateY((float) simSeconds).scale(0.45f);
                 boxes.add(model, 1.9f, 1.6f, 0.6f); // golden top
@@ -109,6 +114,18 @@ public final class BuildingRenderer implements AutoCloseable {
             model.translation(building.x + (k - 1) * 0.18f, y + 0.25f + h * 0.5f, building.z + (k % 2) * 0.12f)
                     .rotateY(k).scale(0.3f, h, 0.3f);
             boxes.add(model, 2.0f, k == 0 ? 0.8f : 1.4f, 0.25f);
+        }
+    }
+
+    /** Grey puffs rising and fading above a fire where food is cooked. */
+    private void smoke(Settlement.Building building, float y, double simSeconds) {
+        for (int k = 0; k < 4; k++) {
+            float phase = (float) ((simSeconds * 0.35 + k * 0.25 + building.id * 0.13) % 1.0);
+            float size = 0.25f + phase * 0.45f;
+            float grey = 0.75f - phase * 0.3f;
+            model.translation(building.x + (float) Math.sin(phase * 5f + k) * 0.25f, y + 1.1f + phase * 2.6f,
+                    building.z + (float) Math.cos(phase * 4f + k) * 0.2f).rotateY(phase * 3f).scale(size);
+            boxes.add(model, grey, grey, grey * 1.02f);
         }
     }
 

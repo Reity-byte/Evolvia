@@ -210,11 +210,36 @@ class CreatureMeshBuilderTest {
     }
 
     @Test
+    void theLastStepsMakeAHuman() {
+        Map<String, String> ape = Map.of("posture", "upright", "face", "human", "hands", "nimble");
+        Map<String, String> human = new java.util.HashMap<>(ape);
+        human.put("build", "human");
+        human.put("head", "human");
+        float apeHeight = CreatureMeshBuilder.height(CreatureMeshBuilder.build(COLOR, ape));
+        float humanHeight = CreatureMeshBuilder.height(CreatureMeshBuilder.build(COLOR, human));
+        assertTrue(humanHeight > apeHeight * 1.05f, "long legs and a high skull: " + apeHeight + " -> " + humanHeight);
+        human.put("clothes", "hide");
+        MeshData clothed = CreatureMeshBuilder.build(COLOR, human);
+        human.put("clothes", "none");
+        assertTrue(clothed.vertexCount() > CreatureMeshBuilder.build(COLOR, human).vertexCount(), "the hide adds parts");
+    }
+
+    @Test
+    void clothesComeWithTheDiscoveryForEveryone() {
+        EvolutionTree science = DataLoader.loadScience().tree();
+        CreatureMeshBuilder.validate(science);
+        Species species = new Species(DataLoader.loadSpecies(), tree);
+        assertFalse(species.stage(0).visuals().containsKey("clothes"));
+        species.setCulture(List.of(science.node("sci_clothing")));
+        assertEquals("hide", species.stage(0).visuals().get("clothes"), "culture: even the oldest stage wears it");
+    }
+
+    @Test
     void everySupportedVariantBuilds() {
         for (String part : CreatureMeshBuilder.parts()) {
             for (String variant : List.of("normal", "none", "strong", "long", "large", "thick", "sandy", "moist", "bare",
                     "white", "webbed", "flat", "mixed", "sharp", "big", "alert", "round", "quadruped", "semi", "upright",
-                    "paws", "nimble", "muzzle", "human")) {
+                    "paws", "nimble", "muzzle", "human", "animal", "hide")) {
                 if (CreatureMeshBuilder.supports(part, variant)) {
                     MeshData mesh = CreatureMeshBuilder.build(COLOR, Map.of(part, variant));
                     for (float value : mesh.vertices()) {

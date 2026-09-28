@@ -140,6 +140,7 @@ public final class Evolvia implements GameLoop.Handler {
         resources = DataLoader.loadResources();
         evolutionTree = DataLoader.loadEvolutionTree(biomes);
         CreatureMeshBuilder.validate(evolutionTree);
+        CreatureMeshBuilder.validate(DataLoader.loadScience().tree()); // clothing (phase 10c)
         godConfig = DataLoader.loadGodConfig();
         // Resolved here, not in a static constant: the entry point decides where the data folder is.
         saves = new SaveManager(GameDirs.root().resolve("saves"));

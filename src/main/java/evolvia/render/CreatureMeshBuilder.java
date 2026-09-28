@@ -40,11 +40,13 @@ public final class CreatureMeshBuilder {
         VARIANTS.put("teeth", List.of("none", "flat", "mixed", "sharp"));
         VARIANTS.put("eyes", List.of("normal", "big"));
         VARIANTS.put("ears", List.of("normal", "alert"));
-        VARIANTS.put("head", List.of("normal", "large"));
+        VARIANTS.put("head", List.of("normal", "large", "human"));
         VARIANTS.put("belly", List.of("normal", "round"));
         VARIANTS.put("hands", List.of("paws", "nimble"));
         VARIANTS.put("face", List.of("muzzle", "human"));
         VARIANTS.put("horns", List.of("none", "antlers")); // wild game (phase 9f)
+        VARIANTS.put("build", List.of("animal", "human")); // human proportions (phase 10c)
+        VARIANTS.put("clothes", List.of("none", "hide")); // clothing from the discovery (phase 10c)
     }
 
     private static final float[] EYE = {0.07f, 0.06f, 0.05f};
@@ -54,6 +56,8 @@ public final class CreatureMeshBuilder {
     private static final float[] MOIST = {0.33f, 0.58f, 0.50f};
     private static final float[] BARE = {0.93f, 0.66f, 0.60f};
     private static final float[] ANTLER = {0.86f, 0.78f, 0.62f};
+    private static final float[] HIDE = {0.68f, 0.56f, 0.38f};
+    private static final float[] HAIR = {0.23f, 0.16f, 0.11f};
     private static final float SEMI_TILT = (float) Math.toRadians(35);
     private static final float TAIL_DROOP = 0.45f;
 
@@ -103,7 +107,7 @@ public final class CreatureMeshBuilder {
     /** The chosen look: variants and colors. */
     private record Look(String posture, String legs, String body, String skinType, String fur, String feet,
                         String teeth, String eyes, String ears, String head, String belly, String hands, String face,
-                        String horns, float[] skin, float[] coat) {
+                        String horns, String build, String clothes, float[] skin, float[] coat) {
 
         static Look of(int bodyRgb, Map<String, String> visuals) {
             String skinType = variant(visuals, "skin");
@@ -112,7 +116,7 @@ public final class CreatureMeshBuilder {
             return new Look(variant(visuals, "posture"), variant(visuals, "legs"), variant(visuals, "body"), skinType, fur,
                     variant(visuals, "feet"), variant(visuals, "teeth"), variant(visuals, "eyes"), variant(visuals, "ears"),
                     variant(visuals, "head"), variant(visuals, "belly"), variant(visuals, "hands"), variant(visuals, "face"),
-                    variant(visuals, "horns"), skin, furColor(skin, fur));
+                    variant(visuals, "horns"), variant(visuals, "build"), variant(visuals, "clothes"), skin, furColor(skin, fur));
         }
 
         boolean furry() {
@@ -121,6 +125,14 @@ public final class CreatureMeshBuilder {
 
         boolean large() {
             return body.equals("large");
+        }
+
+        boolean human() {
+            return build.equals("human");
+        }
+
+        boolean clothed() {
+            return clothes.equals("hide");
         }
     }
 
@@ -212,13 +224,18 @@ public final class CreatureMeshBuilder {
         float w = look.large() ? 0.44f : 0.36f;
         float h = look.large() ? 0.30f : 0.24f;
         float l = look.large() ? 0.56f : 0.50f;
+        if (look.human()) { // human proportions (phase 10c): long legs, a slim torso
+            legLength *= 1.2f;
+            w *= 0.88f;
+            h *= 0.9f;
+        }
         float legX = w * 0.28f;
         leg(b, look, legX, 0f, legLength, legWidth, 1f, true);
         leg(b, look, -legX, 0f, legLength, legWidth, -1f, true);
 
         float shoulderY = legLength + l - 0.07f;
         float armWidth = look.legs().equals("strong") ? 0.10f : 0.09f;
-        float armLength = 0.46f;
+        float armLength = look.human() ? 0.42f : 0.46f;
         float armX = w / 2f + armWidth / 2f + 0.005f;
         // Arms swing against the leg on the same side.
         arm(b, look, armX, shoulderY, 0f, armLength, armWidth, -1f);
@@ -227,7 +244,14 @@ public final class CreatureMeshBuilder {
 
         Matrix4f frame = new Matrix4f().translation(0f, legLength + l / 2f - 0.02f, 0f).rotateX((float) (-Math.PI / 2));
         torso(b, look, frame, w, h, l, 0f);
-        float headH = look.head().equals("large") ? 0.34f : 0.28f;
+        if (look.clothed()) { // a hide skirt over the hips (does not swing with the legs)
+            b.color(shade(HIDE, 0.9f)).box(0f, legLength - 0.06f, 0f, w + 0.07f, 0.2f, h + 0.1f);
+        }
+        float headH = switch (look.head()) {
+            case "large" -> 0.34f;
+            case "human" -> 0.32f;
+            default -> 0.28f;
+        };
         head(b, look, new Vector3f(0f, legLength + l + headH / 2f + 0.01f, 0.03f), look.face().equals("human"));
     }
 
@@ -297,6 +321,10 @@ public final class CreatureMeshBuilder {
                 local(b, frame, (i - 1) * 0.08f, h / 2f + 0.07f, -l * 0.1f + i * 0.09f, 0.07f, 0.06f, 0.1f);
             }
         }
+        if (look.clothed()) { // a hide tunic around the body (phase 10c)
+            local(b.color(HIDE), frame, 0f, 0f, -l * 0.08f, w + 0.05f, h + 0.05f, l * 0.72f);
+            local(b.color(shade(HIDE, 0.75f)), frame, 0f, 0f, l * 0.28f, w + 0.055f, h + 0.055f, 0.03f); // hem
+        }
         if (tail > 0f) {
             b.color(shade(skin, 0.9f)).box(new Matrix4f(frame).translate(0f, h * 0.12f, -l / 2f - 0.11f * tail)
                     .rotateX(TAIL_DROOP).scale(0.07f, 0.07f, 0.26f * tail));
@@ -316,8 +344,9 @@ public final class CreatureMeshBuilder {
     private static void head(PartMeshBuilder b, Look look, Vector3f c, boolean human) {
         float[] skin = look.skin();
         boolean bigHead = look.head().equals("large");
-        float headW = bigHead ? 0.34f : 0.28f;
-        float headH = bigHead ? 0.34f : 0.28f;
+        boolean humanHead = look.head().equals("human");
+        float headW = bigHead ? 0.34f : humanHead ? 0.26f : 0.28f;
+        float headH = bigHead ? 0.34f : humanHead ? 0.32f : 0.28f;
         float headL = human ? 0.26f : 0.28f;
         float headY = c.y + (bigHead ? 0.03f : 0f);
         float headZ = c.z;
@@ -325,6 +354,13 @@ public final class CreatureMeshBuilder {
         b.color(shade(skin, 1.04f)).box(0f, headY, headZ, headW, headH, headL);
         if (bigHead) { // high forehead
             b.color(shade(skin, 1.0f)).box(0f, headY + headH / 2f + 0.03f, headZ - 0.02f, headW * 0.8f, 0.07f, headL * 0.75f);
+        }
+        if (humanHead) { // a high, rounded skull; hair when the body has no coat (phase 10c)
+            b.color(shade(skin, 1.02f)).box(0f, headY + headH / 2f + 0.025f, headZ - 0.01f, headW * 0.86f, 0.05f, headL * 0.86f);
+            if (!look.furry()) {
+                b.color(HAIR).box(0f, headY + headH / 2f + 0.045f, headZ - 0.03f, headW * 0.92f, 0.05f, headL * 0.9f);
+                b.color(HAIR).box(0f, headY + headH * 0.1f, headZ - headL / 2f - 0.015f, headW * 0.92f, headH * 0.75f, 0.04f);
+            }
         }
         if (look.furry()) { // mane behind the head
             b.color(shade(look.coat(), 0.95f)).box(0f, headY - 0.01f, headZ - headL / 2f - 0.02f, headW + 0.1f, headH + 0.08f, 0.1f);

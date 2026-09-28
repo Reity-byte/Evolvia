@@ -100,6 +100,8 @@ public final class Texts {
             case "posture" -> "postoj";
             case "hands" -> "ruce";
             case "face" -> "tvář";
+            case "build" -> "postava";
+            case "clothes" -> "oděv";
             default -> part;
         };
     }
