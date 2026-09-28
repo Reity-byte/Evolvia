@@ -2,7 +2,7 @@
   "faith": {
     "starting": 120,
     "basePerMinute": 2.0,
-    "perBelieverPerMinute": 0.15
+    "perBelieverPerMinute": 0.5
   },
   "rain": {
     "name": "Déšť",
@@ -40,6 +40,17 @@
     "alignment": 0.0,
     "step": 0.8,
     "repeatSeconds": 0.2
+  },
+  "hand": {
+    "moveCost": 5,
+    "attackCost": 20,
+    "settleCost": 5,
+    "healCost": 10,
+    "blessCost": 15,
+    "attackSeconds": 60,
+    "attackAlignment": -0.05,
+    "healAlignment": 0.01,
+    "blessAlignment": 0.02
   },
   "lightning": {
     "name": "Blesk",

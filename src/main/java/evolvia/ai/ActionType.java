@@ -10,7 +10,8 @@ public enum ActionType {
     SLEEP("Sleep"),
     SEEK_MATE("SeekMate"),
     FLEE("Flee"),
-    FOLLOW_LEADER("FollowLeader");
+    FOLLOW_LEADER("FollowLeader"),
+    ATTACK("Attack");
 
     private final String label;
 

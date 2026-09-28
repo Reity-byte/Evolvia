@@ -2,6 +2,7 @@ package evolvia.ui;
 
 import evolvia.ai.ActionType;
 import evolvia.components.Age;
+import evolvia.components.Believer;
 import evolvia.components.Genome;
 import evolvia.components.GroupMember;
 import evolvia.components.AiState;
@@ -16,15 +17,20 @@ import evolvia.core.Time;
 import evolvia.core.Window;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.god.GodPowers;
+import evolvia.god.HandAction;
 import evolvia.render.Camera;
 import evolvia.render.CreatureMeshBuilder;
 import evolvia.world.Groups;
 import evolvia.world.World;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 
 /**
  * Selection of one creature (DESIGN.md §9): left click picks the creature nearest to the clicked
@@ -43,6 +49,8 @@ public final class CreatureSelection {
     private final Vector3f screen = new Vector3f();
     private int selected = -1;
     private boolean following;
+    /** Hand action waiting for a click into the world (MOVE: where to, ATTACK: whom), or null. */
+    private HandAction pendingHand;
 
     private static final float PANEL_WIDTH = 290f;
 
@@ -74,6 +82,58 @@ public final class CreatureSelection {
     public void clear() {
         selected = -1;
         following = false;
+        pendingHand = null;
+    }
+
+    /** True while a hand action waits for a click into the world. */
+    public boolean hasPendingHand() {
+        return pendingHand != null;
+    }
+
+    public void cancelHand() {
+        pendingHand = null;
+    }
+
+    /**
+     * Completes a waiting hand action with a click into the world (call instead of {@link #handleInput}
+     * while {@link #hasPendingHand()}): MOVE takes the ground point, ATTACK the creature clicked on.
+     * Right click cancels.
+     */
+    public void handleHand(Input input, Window window, Camera camera, World world, Notifications notifications) {
+        if (input.isButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            pendingHand = null;
+            return;
+        }
+        if (!input.isButtonPressed(GLFW_MOUSE_BUTTON_LEFT) || selected(world) < 0) {
+            return;
+        }
+        Vector3f hit = picker.pick(input, window, camera, world.terrain());
+        if (hit == null) {
+            return;
+        }
+        GodPowers.HandCommand command;
+        if (pendingHand == HandAction.MOVE) {
+            command = new GodPowers.HandCommand(HandAction.MOVE, selected, -1, hit.x, hit.z);
+        } else {
+            int target = world.nearestCreature(hit.x, hit.z, PICK_RADIUS);
+            GroupMember mine = world.ecs().get(selected, GroupMember.class);
+            GroupMember theirs = target >= 0 ? world.ecs().get(target, GroupMember.class) : null;
+            if (theirs == null || mine == null
+                    || !Groups.enemies(world.groups().get(mine.group), world.groups().get(theirs.group))) {
+                notifications.error("Klikni na bytost cizího stáda");
+                return;
+            }
+            command = new GodPowers.HandCommand(HandAction.ATTACK, selected, target, 0f, 0f);
+        }
+        request(world, command, notifications);
+        pendingHand = null;
+    }
+
+    private static void request(World world, GodPowers.HandCommand command, Notifications notifications) {
+        if (!world.godPowers().request(command)) {
+            float missing = world.godPowers().config().hand().cost(command.action()) - world.godPowers().faith().points();
+            notifications.error(String.format(Locale.ROOT, "Nedostatek Víry – chybí %.0f", Math.max(1f, missing)));
+        }
     }
 
     /** True while the camera should follow the selected creature. */
@@ -90,9 +150,10 @@ public final class CreatureSelection {
     }
 
     /**
-     * Lays out and draws the panel of the selected creature (right side, below the top bar).
+     * Lays out and draws the panel of the selected creature (right side, below the top bar), with the
+     * god's hand: what can be done depends on whether it is the player's creature and its herd's leader.
      */
-    public void buildPanel(Ui ui, World world, float top) {
+    public void buildPanel(Ui ui, World world, float top, Notifications notifications) {
         int entity = selected(world);
         if (entity < 0) {
             return;
@@ -110,7 +171,23 @@ public final class CreatureSelection {
 
         float padding = 12f;
         float line = ui.regular.lineHeight() + 2f;
-        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 6 * line + padding;
+        GroupMember member = world.ecs().get(entity, GroupMember.class);
+        Groups.Group group = member != null ? world.groups().get(member.group) : null;
+        boolean own = world.ecs().get(entity, Believer.class) != null;
+        boolean leader = own && group != null && group.player && group.leader == entity;
+        List<HandAction> hand = new ArrayList<>();
+        if (own) {
+            hand.add(HandAction.MOVE);
+            if (leader) {
+                hand.add(HandAction.ATTACK);
+                hand.add(HandAction.SETTLE);
+            }
+            hand.add(HandAction.HEAL);
+        }
+        hand.add(HandAction.BLESS);
+        int handRows = (hand.size() + 2) / 3;
+        float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 6 * line + 10f
+                + ui.bold.lineHeight() + handRows * 30f + padding;
         float x = ui.width() - PANEL_WIDTH - 10f;
         float y = top + 10f;
         ui.panel(x, y, PANEL_WIDTH, h);
@@ -143,11 +220,11 @@ public final class CreatureSelection {
         ui.text(ui.regular, String.format(Locale.ROOT, "Generace %d, potomků %d", genome.generation, reproduction.offspring),
                 x + padding, ty, Ui.TEXT);
         ty += line;
-        GroupMember member = world.ecs().get(entity, GroupMember.class);
-        Groups.Group group = member != null ? world.groups().get(member.group) : null;
-        String herd = group == null ? "Bez stáda"
-                : String.format(Locale.ROOT, "Stádo #%d (%d bytostí), %s", group.id, group.size, group.leader == entity ? "vůdce" : "člen");
-        ui.text(ui.regular, herd, x + padding, ty, group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
+        String herd = group == null ? (own ? "Tvůj lid, bez stáda" : "Divoký, bez stáda")
+                : String.format(Locale.ROOT, "%s #%d (%d), %s", group.player ? "Tvůj lid, stádo" : "Divoké stádo", group.id,
+                group.size, group.leader == entity ? "vůdce" : "člen");
+        ui.text(ui.regular, herd, x + padding, ty, group != null && !group.player ? 0xFFE08A7A
+                : group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
         ty += line;
         int latest = ref.species.latestStage().index();
         ui.text(ui.regular, latest == 0 ? "Vývoj: původní druh"
@@ -156,8 +233,35 @@ public final class CreatureSelection {
         ty += line;
         ui.text(ui.regular, String.format(Locale.ROOT, "Geny: velikost %s, rychlost %s",
                 Texts.percent(genome.size - 1f), Texts.percent(genome.speed - 1f)), x + padding, ty, Ui.TEXT_DIM);
-        ty += line;
-        ui.text(ui.small, "Klikni jinam pro zrušení výběru.", x + padding, ty + 2f, Ui.TEXT_DIM);
+        ty += line + 10f;
+
+        // The god's hand
+        ui.text(ui.bold, "Božská ruka", x + padding, ty, Ui.TEXT);
+        ty += ui.bold.lineHeight() + 2f;
+        float bw = (PANEL_WIDTH - 2 * padding - 8f) / 3f;
+        for (int i = 0; i < hand.size(); i++) {
+            HandAction handAction = hand.get(i);
+            float bx = x + padding + (i % 3) * (bw + 4f);
+            float by = ty + (i / 3) * 30f;
+            String label = String.format(Locale.ROOT, "%s %.0f", Texts.hand(handAction),
+                    world.godPowers().config().hand().cost(handAction));
+            if (ui.button(label, bx, by, bw, 26f, pendingHand == handAction)) {
+                if (handAction == HandAction.MOVE || handAction == HandAction.ATTACK) {
+                    pendingHand = pendingHand == handAction ? null : handAction;
+                } else {
+                    request(world, new GodPowers.HandCommand(handAction, entity, -1, 0f, 0f), notifications);
+                }
+            }
+        }
+        if (pendingHand != null) {
+            String hint = pendingHand == HandAction.MOVE ? "Klikni do krajiny, kam bytost přenést (pravé tlačítko zruší)"
+                    : "Klikni na bytost cizího stáda, na které má stádo zaútočit (pravé tlačítko zruší)";
+            float hw = ui.bold.width(hint) + 24f;
+            float hx = (ui.width() - hw) / 2f;
+            float hy = ui.height() - 110f;
+            ui.draw().rect(hx, hy, hw, ui.bold.lineHeight() + 10f, 0xE8181B20);
+            ui.text(ui.bold, hint, hx + 12f, hy + 5f, Ui.TEXT_ACCENT);
+        }
     }
 
     private static float need(Ui ui, String label, float value, int color, float x, float barX, float barW, float y, float line) {

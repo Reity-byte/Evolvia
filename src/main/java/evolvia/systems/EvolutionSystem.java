@@ -1,5 +1,6 @@
 package evolvia.systems;
 
+import evolvia.components.Believer;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
 import evolvia.core.Time;
@@ -38,11 +39,12 @@ public final class EvolutionSystem implements GameSystem {
         }
         ComponentStore<SpeciesRef> creatures = world.store(SpeciesRef.class);
         ComponentStore<Needs> needsStore = world.store(Needs.class);
+        ComponentStore<Believer> believers = world.store(Believer.class);
         int population = 0;
         int harsh = 0;
         for (int i = 0; i < creatures.size(); i++) {
-            if (creatures.componentAt(i).species != species) {
-                continue;
+            if (creatures.componentAt(i).species != species || !believers.has(creatures.entityAt(i))) {
+                continue; // evolution points come from the player's people (believers)
             }
             population++;
             Needs needs = needsStore.get(creatures.entityAt(i));

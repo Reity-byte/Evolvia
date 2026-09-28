@@ -109,7 +109,7 @@ class GenerationalEvolutionTest {
                 world.tick(tick++);
             }
             int[] stages = world.stageCounts();
-            share[sample] = stages[1] / (float) world.population();
+            share[sample] = stages[1] / (float) world.creatureCount();
         }
         assertTrue(share[0] > 0f, "first newborns carry the trait");
         assertTrue(share[0] < 0.9f, "not everybody at once: " + share[0]);
@@ -124,6 +124,6 @@ class GenerationalEvolutionTest {
         world.evolveEveryone();
         int[] stages = world.stageCounts();
         assertEquals(0, stages[0]);
-        assertEquals(world.population(), stages[1]);
+        assertEquals(world.creatureCount(), stages[1]);
     }
 }

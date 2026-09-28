@@ -34,7 +34,7 @@ class GroupsTest {
     static void loadData() {
         config = DataLoader.loadWorldConfig();
         biomes = DataLoader.loadBiomes();
-        species = DataLoader.loadSpecies();
+        species = DataLoader.loadSpecies().withPopulation(new SpeciesDefinition.Population(200, 25f, 3000));
         resources = DataLoader.loadResources();
         tree = DataLoader.loadEvolutionTree(biomes);
     }
@@ -63,11 +63,17 @@ class GroupsTest {
     }
 
     @Test
-    void noHerdsWithoutTheNode() {
-        World world = create(species, 3, false);
-        run(world, 0, 60 * Time.TICKS_PER_SECOND);
-        assertEquals(0, members(world));
-        assertEquals(0, world.groups().count());
+    void herdsExistWithoutTheNodeButTheNodeMakesThemBigger() {
+        World plain = create(species, 3, false);
+        run(plain, 0, 60 * Time.TICKS_PER_SECOND);
+        assertTrue(members(plain) > plain.population() * 0.8, "herds are natural (phase 9c)");
+        for (Map.Entry<Integer, Integer> e : sizes(plain).entrySet()) {
+            assertTrue(e.getValue() <= species.groups().maxSize() + 5, "herd " + e.getKey() + " has " + e.getValue());
+        }
+        World social = create(species, 3, true);
+        run(social, 0, 60 * Time.TICKS_PER_SECOND);
+        int largest = sizes(social).values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        assertTrue(largest > species.groups().maxSize(), "social herds grow beyond the plain limit: " + largest);
     }
 
     @Test
@@ -80,7 +86,7 @@ class GroupsTest {
         Map<Integer, Integer> sizes = sizes(world);
         for (Groups.Group group : world.groups().all()) {
             int size = sizes.getOrDefault(group.id, 0);
-            assertTrue(size >= rules.minSize() && size <= rules.maxSize() + 5, "herd " + group.id + " has " + size);
+            assertTrue(size >= rules.minSize() && size <= rules.maxSize() * 3 / 2 + 5, "herd " + group.id + " has " + size);
             GroupMember leader = world.ecs().get(group.leader, GroupMember.class);
             assertNotNull(leader, "leader is alive");
             assertEquals(group.id, leader.group, "leader belongs to its herd");
@@ -122,7 +128,7 @@ class GroupsTest {
         }
         travelled /= Math.max(1, leaders);
         assertTrue(own < others * 0.5, "members stay with their own leader: " + own + " vs other leaders " + others);
-        assertTrue(near > 0.5, "most members are close to their leader: " + near);
+        assertTrue(near > 0.4, "many members are close to their leader (food is scarce since 9c): " + near);
         assertTrue(travelled > own, "herds move (" + travelled + ") while staying together (" + own + ")");
     }
 
@@ -201,7 +207,8 @@ class GroupsTest {
         World world = create(small, 3, true);
         run(world, 0, 90 * Time.TICKS_PER_SECOND);
         for (Map.Entry<Integer, Integer> e : sizes(world).entrySet()) {
-            assertTrue(e.getValue() <= 8 + 3, "herd " + e.getKey() + " has " + e.getValue()); // + births since the last update
+            // max 8, x1.5 with the herd bonus, + births since the last update
+            assertTrue(e.getValue() <= 8 * 3 / 2 + 3, "herd " + e.getKey() + " has " + e.getValue());
         }
         assertTrue(world.groups().count() >= world.population() / 12);
     }

@@ -25,10 +25,10 @@
     {
       "id": "mind_social_groups",
       "name": "Sociální skupiny",
-      "description": "Žijí ve stádech s vůdcem: drží se pohromadě a dělí se o to, kde je voda a jídlo.",
+      "description": "Stádo drží při sobě: dělí se o to, kde je voda a jídlo, stáda jsou větší a v boji si členové pomáhají.",
       "cost": 80,
       "requires": ["mind_memory"],
-      "requiresCondition": { "type": "population_min", "value": 60 },
+      "requiresCondition": { "type": "population_min", "value": 25 },
       "effects": [
         { "type": "unlock_ability", "ability": "groups" }
       ]

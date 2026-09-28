@@ -34,8 +34,8 @@
     "pauseSeconds": [0.5, 3.0]
   },
   "reproduction": {
-    "adultAgeSeconds": 180,
-    "cooldownSeconds": 120,
+    "adultAgeSeconds": 300,
+    "cooldownSeconds": 240,
     "maxNeed": 0.4,
     "minHealth": 0.7,
     "hungerCost": 0.3,
@@ -47,9 +47,12 @@
     "mutation": 0.02
   },
   "population": {
-    "starting": 200,
-    "spawnRadius": 25.0,
-    "max": 3000
+    "starting": 12,
+    "spawnRadius": 6.0,
+    "max": 3000,
+    "wildHerds": 3,
+    "wildHerdSize": 10,
+    "herdSpacing": 38
   },
   "diet": {
     "plantNutrition": 1.0,
@@ -67,6 +70,16 @@
     "followScore": 0.15,
     "forageRadius": 14,
     "urgentNeed": 0.7
+  },
+  "combat": {
+    "territoryRadius": 22,
+    "aggroNeed": 0.25,
+    "damagePerSecond": 0.12,
+    "attackRange": 1.1,
+    "fleeHealth": 0.4,
+    "surrenderHealth": 0.25,
+    "attackScore": 0.5,
+    "orderScore": 0.95
   },
   "climate": {
     "comfortMin": 0.25,

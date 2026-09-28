@@ -29,7 +29,12 @@ import evolvia.save.WorldCodec;
 import evolvia.ui.CreatureSelection;
 import evolvia.ui.DebugOverlay;
 import evolvia.ui.EvolutionTreeView;
+import evolvia.components.Believer;
+import evolvia.components.GroupMember;
 import evolvia.ui.GameMenu;
+import evolvia.ui.GameOverView;
+import evolvia.ui.MilestonePanel;
+import evolvia.world.Milestones;
 import evolvia.ui.GroundPicker;
 import evolvia.ui.Hud;
 import evolvia.ui.Notifications;
@@ -85,6 +90,8 @@ public final class Evolvia implements GameLoop.Handler {
     private final PowerBar powerBar = new PowerBar();
     private final GameMenu gameMenu = new GameMenu();
     private final Notifications notifications = new Notifications();
+    private final MilestonePanel milestonePanel = new MilestonePanel();
+    private final GameOverView gameOverView = new GameOverView();
     /** Autosave every 5 minutes of real time while the game runs (not while paused). */
     private static final float AUTOSAVE_SECONDS = 300f;
     private float autosaveTimer;
@@ -197,6 +204,8 @@ public final class Evolvia implements GameLoop.Handler {
             // Put away the selected power / close the topmost open window first; quit when nothing is open.
             if (gameMenu.isVisible()) {
                 gameMenu.close();
+            } else if (selection.hasPendingHand()) {
+                selection.cancelHand();
             } else if (powerBar.armed() != null) {
                 powerBar.disarm();
             } else if (treeView.isVisible()) {
@@ -269,11 +278,29 @@ public final class Evolvia implements GameLoop.Handler {
             if (choice != null) {
                 menuChoice(choice);
             }
+        } else if (world.playerDefeated()) {
+            time.setSpeed(Speed.PAUSED);
+            GameOverView.Choice choice = gameOverView.build(ui, world, Hud.BAR_HEIGHT);
+            if (choice == GameOverView.Choice.LOAD) {
+                gameMenu.open(saves.list());
+            } else if (choice == GameOverView.Choice.NEW_WORLD) {
+                regenerateWorld();
+                time.setSpeed(Speed.NORMAL);
+            }
         } else if (treeView.isVisible()) {
             treeView.build(ui, world, Hud.BAR_HEIGHT, input.scrollY());
         } else {
-            selection.buildPanel(ui, world, Hud.BAR_HEIGHT);
+            if (!hud.isSpeciesPanelVisible()) {
+                milestonePanel.build(ui, world, Hud.BAR_HEIGHT);
+            }
+            selection.buildPanel(ui, world, Hud.BAR_HEIGHT, notifications);
             powerBar.build(ui, world);
+            if (selection.hasPendingHand()) {
+                powerBar.disarm();
+            }
+        }
+        for (Milestones.Milestone m : world.milestones().takeAnnouncements()) {
+            notifications.info(String.format(Locale.ROOT, "Cíl splněn: %s (+%.0f EP, +%.0f Víry)", m.name(), m.rewardEp(), m.rewardFaith()));
         }
         notifications.build(ui, Hud.BAR_HEIGHT);
         boolean mouseOnUi = ui.wantsMouse();
@@ -302,7 +329,9 @@ public final class Evolvia implements GameLoop.Handler {
             world.applyGodPowersNow((int) time.tickCount()); // powers work during a pause too
         }
         cameraController.update(input, window, frameSeconds, !mouseOnUi, !treeView.isVisible());
-        if (!mouseOnUi && powerBar.armed() == null) {
+        if (!mouseOnUi && selection.hasPendingHand()) {
+            selection.handleHand(input, window, camera, world, notifications);
+        } else if (!mouseOnUi && powerBar.armed() == null) {
             selection.handleInput(input, window, camera, world);
         }
     }
@@ -419,20 +448,27 @@ public final class Evolvia implements GameLoop.Handler {
         cameraController.setView(new CameraController.View(v.focusX(), v.focusZ(), v.yaw(), v.pitch(), v.distance()));
     }
 
-    /** Points the camera at the middle of the population (the player's creatures). */
+    /** Points the camera at the middle of the player's people (all creatures if there are none). */
     private void focusOnPopulation() {
         ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
-        if (creatures.size() == 0) {
-            return;
-        }
         double x = 0;
         double z = 0;
-        for (int i = 0; i < creatures.size(); i++) {
-            Transform t = world.ecs().get(creatures.entityAt(i), Transform.class);
-            x += t.position.x;
-            z += t.position.z;
+        int count = 0;
+        for (int pass = 0; pass < 2 && count == 0; pass++) {
+            for (int i = 0; i < creatures.size(); i++) {
+                int entity = creatures.entityAt(i);
+                if (pass == 0 && world.ecs().get(entity, Believer.class) == null) {
+                    continue;
+                }
+                Transform t = world.ecs().get(entity, Transform.class);
+                x += t.position.x;
+                z += t.position.z;
+                count++;
+            }
         }
-        cameraController.focusOn((float) (x / creatures.size()), (float) (z / creatures.size()), 45f);
+        if (count > 0) {
+            cameraController.focusOn((float) (x / count), (float) (z / count), 45f);
+        }
     }
 
     @Override
@@ -447,6 +483,7 @@ public final class Evolvia implements GameLoop.Handler {
         camera.setViewport(width, height);
         double simSeconds = (time.tickCount() + alpha) / Time.TICKS_PER_SECOND;
         sceneRenderer.setShowGroups(hud.showGroups(world));
+        sceneRenderer.setSelectedGroup(selectedGroup());
         sceneRenderer.render(camera, width, height, alpha, simSeconds, selection.selected(world), brush);
 
         if (debugOverlay.isVisible() && !treeView.isVisible()) {
@@ -460,6 +497,13 @@ public final class Evolvia implements GameLoop.Handler {
         }
         lightningFlash();
         ui.render(width, height);
+    }
+
+    /** Herd of the selected creature (its territory is shown), or 0. */
+    private int selectedGroup() {
+        int entity = selection.selected(world);
+        GroupMember member = entity >= 0 ? world.ecs().get(entity, GroupMember.class) : null;
+        return member != null ? member.group : 0;
     }
 
     /** Brief white flash of the screen right after a lightning strike (real time, so it also fades while paused). */
@@ -506,6 +550,8 @@ public final class Evolvia implements GameLoop.Handler {
                 deaths.count(DeathStats.Cause.LIGHTNING)));
         sb.append(String.format(Locale.ROOT, "Herds: %d | members %d%n", world.groups().count(),
                 world.ecs().store(evolvia.components.GroupMember.class).size()));
+        sb.append(String.format(Locale.ROOT, "People %d | wild %d | fights: deaths %d, victories %d%n", world.believers(),
+                world.creatureCount() - world.believers(), deaths.count(DeathStats.Cause.FIGHT), world.groups().playerVictories()));
         sb.append(String.format(Locale.ROOT, "Faith: %.0f (+%.1f/min) | believers %d | alignment %+.2f | rains %d%n",
                 world.godPowers().faith().points(), world.godPowers().faith().perMinute(), world.believers(),
                 world.godPowers().faith().alignment(), world.godPowers().rains().size()));

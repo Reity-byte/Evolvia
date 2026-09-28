@@ -7,8 +7,8 @@
       "foodType": "plant",
       "nutrition": 1.0,
       "capacity": 8,
-      "regrowPerSecond": 0.03,
-      "spawnDensity": 0.03,
+      "regrowPerSecond": 0.02,
+      "spawnDensity": 0.018,
       "size": 0.9,
       "color": "#c23a52",
       "emptyColor": "#3d6b2c"

@@ -21,6 +21,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final GodEffectsRenderer effectsRenderer;
     private final GroupOverlayRenderer groupRenderer;
     private boolean showGroups;
+    private int selectedGroup;
 
     public SceneRenderer(World world, WorldConfig.WaterSettings water) {
         this.world = world;
@@ -36,6 +37,11 @@ public final class SceneRenderer implements AutoCloseable {
         glCullFace(GL_BACK);
         Vector3fc sky = lighting.skyColor();
         glClearColor(sky.x(), sky.y(), sky.z(), 1f);
+    }
+
+    /** Herd whose territory is shown (the selected creature's), or 0. */
+    public void setSelectedGroup(int group) {
+        selectedGroup = group;
     }
 
     /** Shows or hides the herd view (colored rings, leader flags). */
@@ -62,9 +68,8 @@ public final class SceneRenderer implements AutoCloseable {
         resourceRenderer.render(camera, lighting, world.ecs());
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         effectsRenderer.render(camera, lighting, world.terrain(), world.godPowers(), simSeconds, brush);
-        if (showGroups) {
-            groupRenderer.render(camera, lighting, world.terrain(), world.ecs(), world.groups(), alpha);
-        }
+        groupRenderer.render(camera, lighting, world.terrain(), world.ecs(), world.groups(), alpha, showGroups, selectedGroup,
+                world.species().stats().combat().territoryRadius());
         waterRenderer.render(camera, lighting);
         effectsRenderer.renderTranslucent(camera, lighting);
     }

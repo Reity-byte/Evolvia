@@ -3,6 +3,7 @@ package evolvia.systems;
 import evolvia.components.Age;
 import evolvia.components.Health;
 import evolvia.components.Needs;
+import evolvia.components.UnderAttack;
 import evolvia.components.Transform;
 import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
@@ -55,8 +56,11 @@ public final class AgingSystem implements GameSystem {
                 continue; // already died of old age this tick
             }
             Needs needs = world.get(entity, Needs.class);
+            UnderAttack attacked = world.get(entity, UnderAttack.class);
             DeathStats.Cause cause;
-            if (needs == null || (needs.hunger >= 1f && needs.hunger >= needs.thirst)) {
+            if (attacked != null && attacked.isActive(tick)) {
+                cause = DeathStats.Cause.FIGHT;
+            } else if (needs == null || (needs.hunger >= 1f && needs.hunger >= needs.thirst)) {
                 cause = DeathStats.Cause.STARVATION;
             } else if (needs.thirst >= 1f) {
                 cause = DeathStats.Cause.THIRST;

@@ -5,6 +5,7 @@ import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.components.Transform;
 import evolvia.evolution.SpeciesDefinition;
+import evolvia.world.Groups;
 
 /** Nothing better to do: walk to a random reachable spot nearby, then pause a while. */
 public final class WanderAction implements Action {
@@ -36,6 +37,11 @@ public final class WanderAction implements Action {
         Transform leader = c.leader();
         float centerX = leader != null ? leader.position.x : c.transform.position.x;
         float centerZ = leader != null ? leader.position.z : c.transform.position.z;
+        Groups.Group herd = c.group();
+        if (leader == null && herd != null && herd.settled) { // a settled herd's leader stays around home
+            centerX = herd.homeX;
+            centerZ = herd.homeZ;
+        }
         float bestX = 0f;
         float bestZ = 0f;
         float bestHeight = Float.POSITIVE_INFINITY;

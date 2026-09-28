@@ -25,7 +25,7 @@ public final class Hud {
     private static final float PANEL_WIDTH = 330f;
 
     private boolean speciesPanel;
-    private boolean showGroups;
+    private boolean showGroups = true; // herds are central from the start (phase 9c)
 
     public boolean isSpeciesPanelVisible() {
         return speciesPanel;
@@ -33,7 +33,7 @@ public final class Hud {
 
     /** Whether the herd view is on (only while the species lives in herds). */
     public boolean showGroups(World world) {
-        return showGroups && world.species().hasAbility(Groups.ABILITY);
+        return showGroups;
     }
 
     public void toggleGroups() {
@@ -62,7 +62,8 @@ public final class Hud {
         boolean menuClicked = ui.button("Hra", x, 5f, ui.buttonWidth("Hra"), BAR_HEIGHT - 10f, menuOpen);
         x += ui.buttonWidth("Hra") + 14f;
         x += ui.text(ui.bold, species.stats().name(), x, y, Ui.TEXT) + 18f;
-        x += stat(ui, "Populace", Integer.toString(world.population()), x, y);
+        x += stat(ui, "Lid", Integer.toString(world.population()), x, y);
+        x += stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), x, y);
         x += stat(ui, "Generace", Integer.toString(world.maxGeneration()), x, y);
         x += stat(ui, "EP", String.format(Locale.ROOT, "%.0f", species.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", world.evolutionSystem().pointsPerMinute()),
@@ -87,7 +88,7 @@ public final class Hud {
             ui.draw().outline(x, buttonY, bw, buttonH, 2f, 0xFFE0B040);
         }
         x += bw + 6f;
-        if (species.hasAbility(Groups.ABILITY)) {
+        {
             String herdLabel = "Stáda (G)";
             float hw = ui.buttonWidth(herdLabel);
             if (ui.button(herdLabel, x, buttonY, hw, buttonH, showGroups)) {
@@ -127,7 +128,6 @@ public final class Hud {
         Faith faith = world.godPowers().faith();
         x += stat(ui, "Víra", String.format(Locale.ROOT, "%.0f", faith.points()), x, y);
         x += ui.text(ui.small, String.format(Locale.ROOT, "+%.1f/min", faith.perMinute()), x - 12f, y + 2f, Ui.TEXT_DIM) + 8f;
-        x += stat(ui, "Věřící", Integer.toString(faith.believers()), x, y);
 
         float barX = x;
         float barY = y + 6f;
@@ -197,18 +197,18 @@ public final class Hud {
         if (stages.length > 1) {
             int newest = stages[stages.length - 1];
             rows.add(row("Nejnovější znaky", String.format(Locale.ROOT, "%.0f %% populace",
-                    100f * newest / Math.max(1, world.population())), 1f));
+                    100f * newest / Math.max(1, world.creatureCount())), 1f));
         }
-        if (species.hasAbility(Groups.ABILITY)) {
+        {
             int herds = world.groups().count();
-            int members = world.ecs().store(GroupMember.class).size();
-            rows.add(row("Stáda", herds == 0 ? "tvoří se…" : String.format(Locale.ROOT, "%d, průměrně %.0f bytostí",
-                    herds, members / (float) herds), 1f));
+            int mine = world.groups().playerCount();
+            rows.add(row("Stáda", String.format(Locale.ROOT, "tvoje %d, divoká %d, vítězství %d", mine, herds - mine,
+                    world.groups().playerVictories()), 1f));
         }
 
         DeathStats deaths = world.deaths();
-        String deathText = String.format(Locale.ROOT, "hlad %d, žízeň %d, klima %d, stáří %d, blesk %d",
-                deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
+        String deathText = String.format(Locale.ROOT, "boj %d, hlad %d, žízeň %d, klima %d, stáří %d, blesk %d",
+                deaths.count(DeathStats.Cause.FIGHT), deaths.count(DeathStats.Cause.STARVATION), deaths.count(DeathStats.Cause.THIRST),
                 deaths.count(DeathStats.Cause.EXPOSURE), deaths.count(DeathStats.Cause.OLD_AGE),
                 deaths.count(DeathStats.Cause.LIGHTNING));
         String evolution = String.format(Locale.ROOT, "%d / %d uzlů odemčeno, celkem získáno %.0f EP",

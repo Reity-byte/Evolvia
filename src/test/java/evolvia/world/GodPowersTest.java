@@ -60,6 +60,32 @@ class GodPowersTest {
         return world.ecs().store(SpeciesRef.class).entityAt(0);
     }
 
+    /** A berry bush with no creature within 30 tiles (so nobody eats from it during the test). */
+    private static Transform lonelyBush(World world) {
+        ComponentStore<ResourceNode> nodes = world.ecs().store(ResourceNode.class);
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.componentAt(i).type.kind() != ResourceKind.FOOD || nodes.componentAt(i).type.decays()) {
+                continue;
+            }
+            Transform t = world.ecs().get(nodes.entityAt(i), Transform.class);
+            if (world.creatureGrid().nearest(t.position.x, t.position.z, 30f, e -> true) < 0) {
+                return t;
+            }
+        }
+        throw new IllegalStateException("no lonely bush");
+    }
+
+    /** A creature of a wild herd (not a believer yet). */
+    private static int wildCreature(World world) {
+        ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
+        for (int i = 0; i < creatures.size(); i++) {
+            if (world.ecs().get(creatures.entityAt(i), Believer.class) == null) {
+                return creatures.entityAt(i);
+            }
+        }
+        throw new IllegalStateException("no wild creature");
+    }
+
     private static Transform position(World world, int entity) {
         return world.ecs().get(entity, Transform.class);
     }
@@ -84,26 +110,28 @@ class GodPowersTest {
     void faithGrowsWithBelievers() {
         World world = create(3);
         run(world, 1, Time.TICKS_PER_SECOND);
-        assertEquals(god.faith().basePerMinute(), world.godPowers().faith().perMinute(), 1e-3f, "no believers yet");
+        assertEquals(god.faith().basePerMinute() + world.believers() * god.faith().perBelieverPerMinute(),
+                world.godPowers().faith().perMinute(), 1e-3f, "the starting people believe");
+        int starting = world.believers();
 
         ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < creatures.size(); i++) {
             world.ecs().add(creatures.entityAt(i), new Believer());
         }
         float before = world.godPowers().faith().points();
         run(world, Time.TICKS_PER_SECOND + 1, 60 * Time.TICKS_PER_SECOND);
         // Children of believers believe too, so count the believers now.
         float expected = god.faith().basePerMinute() + world.believers() * god.faith().perBelieverPerMinute();
-        assertTrue(world.believers() >= 100);
+        assertTrue(world.believers() > starting);
         assertEquals(expected, world.godPowers().faith().perMinute(), 1e-3f);
-        float minimum = god.faith().basePerMinute() + 100 * god.faith().perBelieverPerMinute();
+        float minimum = god.faith().basePerMinute() + (starting + 1) * god.faith().perBelieverPerMinute();
         assertTrue(world.godPowers().faith().points() - before >= minimum * 0.95f);
     }
 
     @Test
     void abundanceFeedsCreaturesWhoThenBelieve() {
         World world = create(5);
-        int creature = firstCreature(world);
+        int creature = wildCreature(world);
         Transform t = position(world, creature);
         world.emptyAllFood();
         ComponentStore<Needs> needs = world.ecs().store(Needs.class);
@@ -115,10 +143,10 @@ class GodPowersTest {
         world.tick(0);
         assertTrue(world.resourceGrid(ResourceKind.FOOD).size() > foodBefore, "new bushes");
         assertTrue(countDivine(world) >= god.abundance().newNodes());
-        assertEquals(0, world.believers());
+        int before = world.believers();
 
         run(world, 1, 30 * Time.TICKS_PER_SECOND);
-        assertTrue(world.believers() >= 3, "hungry creatures ate divine food and believe: " + world.believers());
+        assertTrue(world.believers() >= before + 3, "hungry wild creatures ate divine food and believe: " + world.believers());
         assertTrue(world.godPowers().faith().alignment() > 0f, "a kind act");
         assertEquals(1, world.godPowers().faith().kindActs());
     }
@@ -198,8 +226,7 @@ class GodPowersTest {
     void rainMakesFoodRegrowFasterForAWhile() {
         World world = create(9);
         world.emptyAllFood();
-        int creature = firstCreature(world);
-        Transform t = position(world, creature);
+        Transform t = lonelyBush(world);
         assertTrue(world.godPowers().request(DivinePower.RAIN, t.position.x, t.position.z));
         world.tick(0);
         assertEquals(1, world.godPowers().rains().size());

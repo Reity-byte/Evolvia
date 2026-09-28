@@ -36,7 +36,9 @@ class DataLoaderTest {
                            "traitStepsPerBirth": 1},
              "groups": {"updateSeconds": 5, "joinRadius": 15, "minFounders": 5, "minSize": 3, "maxSize": 24,
                         "followDistance": 7, "leaveDistance": 40, "leaveSeconds": 60, "followScore": 0.15,
-                        "forageRadius": 14, "urgentNeed": 0.7}}
+                        "forageRadius": 14, "urgentNeed": 0.7},
+             "combat": {"territoryRadius": 22, "aggroNeed": 0.45, "damagePerSecond": 0.12, "attackRange": 1.1,
+                        "fleeHealth": 0.4, "surrenderHealth": 0.25, "attackScore": 0.5, "orderScore": 0.95}}
             """;
 
     private static BiomeTable parse(String... biomes) {

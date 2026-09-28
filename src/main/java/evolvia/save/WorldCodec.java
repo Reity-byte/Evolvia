@@ -16,6 +16,7 @@ import evolvia.components.Reproduction;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
+import evolvia.components.UnderAttack;
 import evolvia.components.Velocity;
 import evolvia.core.Time;
 import evolvia.ecs.ComponentStore;
@@ -56,15 +57,16 @@ import java.util.Set;
 public final class WorldCodec {
 
     /**
-     * 2: herds (phase 9a); 3: evolutionary stage per creature (generational evolution). Older saves load
-     * without herds (they form again) and with every creature at the latest stage.
+     * 2: herds (phase 9a); 3: evolutionary stage per creature (generational evolution); 4: herd owner, home,
+     * attack orders, fights, milestones (phase 9c). Older saves load without herds (they form again; wild
+     * or not follows the believers), with every creature at the latest stage and no milestones reached.
      */
-    public static final int SAVE_VERSION = 3;
+    public static final int SAVE_VERSION = 4;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
             SpeciesRef.class, Genome.class, Needs.class, Health.class, Age.class, Reproduction.class, AiState.class,
-            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class);
+            Memory.class, ResourceNode.class, Believer.class, Fear.class, GroupMember.class, UnderAttack.class);
 
     /** Game data a save is loaded against (the current definitions). */
     public record GameData(float shallowDepth, BiomeTable biomes, SpeciesDefinition species, EvolutionTree tree,
@@ -101,7 +103,7 @@ public final class WorldCodec {
                 new FaithData(faith.points(), faith.earned(), faith.perMinute(), faith.believers(), faith.alignment(),
                         faith.kindActs(), faith.cruelActs()),
                 new ArrayList<>(world.godPowers().rains()), world.godPowers().recentStrikes(),
-                new ArrayList<>(world.godPowers().queued()));
+                new ArrayList<>(world.godPowers().queued()), new ArrayList<>(world.godPowers().queuedHand()));
 
         Map<String, Integer> deaths = new LinkedHashMap<>();
         for (DeathStats.Cause cause : DeathStats.Cause.values()) {
@@ -121,7 +123,8 @@ public final class WorldCodec {
         return new SaveData(SAVE_VERSION, meta, world.seed(), tick, speed.name(), view, world.randomState(),
                 terrain(world.terrain().snapshot()),
                 new SpeciesData(species.base().id(), species.points(), species.pointsEarned(), List.copyOf(species.unlockedNodes())),
-                god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()));
+                god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()),
+                List.copyOf(world.milestones().completed()));
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -163,7 +166,8 @@ public final class WorldCodec {
                 entities(ecs.store(Believer.class)),
                 list(ecs.store(Fear.class), (e, f) -> new FearData(e, f.fromX, f.fromZ, f.distance, f.untilTick)),
                 list(ecs.store(GroupMember.class), (e, m) -> new GroupMemberData(e, m.group, m.farTicks)),
-                stages(ecs.store(SpeciesRef.class)));
+                stages(ecs.store(SpeciesRef.class)),
+                list(ecs.store(UnderAttack.class), (e, a) -> new UnderAttackData(e, a.attacker, a.untilTick)));
     }
 
     private static int[] stages(ComponentStore<SpeciesRef> creatures) {
@@ -177,9 +181,10 @@ public final class WorldCodec {
     private static GroupsData groups(Groups groups) {
         List<GroupData> list = new ArrayList<>();
         for (Groups.Group g : groups.all()) {
-            list.add(new GroupData(g.id, g.leader, g.size, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
+            list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
+                    g.attackUntilTick, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ));
         }
-        return new GroupsData(groups.nextId(), list);
+        return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
 
     private static AiData ai(int e, AiState ai) {
@@ -252,6 +257,9 @@ public final class WorldCodec {
             restoreStats(world, save.stats());
             restoreGod(world.godPowers(), save.god());
             restoreGroups(world.groups(), save.groups());
+            if (save.milestones() != null) {
+                world.milestones().restore(save.milestones());
+            }
             Time.Speed speed = save.speed() != null ? Time.Speed.valueOf(save.speed()) : Time.Speed.NORMAL;
             return new Loaded(world, save.tick(), speed, save.view(), skipped);
         } catch (IllegalArgumentException | NullPointerException e) {
@@ -351,6 +359,13 @@ public final class WorldCodec {
                 m.farTicks = d.farTicks();
             }
         }
+        if (data.underAttacks() != null) {
+            for (UnderAttackData d : data.underAttacks()) {
+                UnderAttack a = ecs.add(d.e(), new UnderAttack());
+                a.attacker = d.attacker();
+                a.untilTick = d.untilTick();
+            }
+        }
         for (FearData d : data.fears()) {
             Fear f = ecs.add(d.e(), new Fear());
             f.fromX = d.fromX();
@@ -402,6 +417,13 @@ public final class WorldCodec {
         }
         for (GroupData d : data.groups()) {
             Groups.Group g = new Groups.Group(d.id());
+            g.player = d.player();
+            g.homeX = d.homeX();
+            g.homeZ = d.homeZ();
+            g.settled = d.settled();
+            g.hunger = d.hunger();
+            g.attackGroup = d.attackGroup();
+            g.attackUntilTick = d.attackUntilTick();
             g.leader = d.leader();
             g.size = d.size();
             g.knowsWater = d.knowsWater();
@@ -412,6 +434,7 @@ public final class WorldCodec {
             g.foodZ = d.foodZ();
             groups.restore(g, data.nextId());
         }
+        groups.restoreVictories(data.playerVictories());
     }
 
     private static void restoreGod(GodPowers powers, GodData god) {
@@ -423,6 +446,9 @@ public final class WorldCodec {
         powers.rains().addAll(god.rains());
         god.strikes().forEach(powers::recordStrike);
         god.queue().forEach(powers::restoreQueued);
+        if (god.handQueue() != null) {
+            god.handQueue().forEach(powers::request);
+        }
     }
 
     // ---------------------------------------------------------------- arrays

@@ -77,7 +77,7 @@ public final class ConsumeAction implements Action {
 
     /** Species with memory remember where they ate / drank; a herd remembers it too (shared memory). */
     private void remember(ActionContext c, Transform source) {
-        Groups.Group group = c.group();
+        Groups.Group group = c.ref.hasAbility(Groups.ABILITY) ? c.group() : null; // shared memory is a herd bonus
         if (group != null) {
             if (kind == ResourceKind.FOOD) {
                 group.knowsFood = true;

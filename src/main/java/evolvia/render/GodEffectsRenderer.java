@@ -57,6 +57,9 @@ public final class GodEffectsRenderer implements AutoCloseable {
                 }
             }
         }
+        for (GodPowers.HandEffect effect : powers.recentHandEffects()) {
+            addHandSparkles(terrain, effect, (float) ((simTicks - effect.tick()) / Time.TICKS_PER_SECOND));
+        }
         if (brush != null) {
             addRing(terrain, brush);
         }
@@ -154,6 +157,24 @@ public final class GodEffectsRenderer implements AutoCloseable {
             float size = 0.18f * (1f - t) + 0.02f;
             model.translation(px, y, pz).rotateY(age * 3f + i).scale(size);
             boxes.add(model, 0.8f + 0.6f * (1f - t), 1.6f, 0.45f);
+        }
+    }
+
+    /** Golden sparkles where the god's hand touched a creature. */
+    private void addHandSparkles(Terrain terrain, GodPowers.HandEffect effect, float age) {
+        if (age < 0f || age > SPARKLE_SECONDS) {
+            return;
+        }
+        float t = age / SPARKLE_SECONDS;
+        for (int i = 0; i < 20; i++) {
+            float angle = hash(i, effect.tick()) * 6.2832f;
+            float distance = 1.2f * Math.abs(hash(i, effect.tick() + 3));
+            float px = effect.x() + (float) Math.sin(angle) * distance;
+            float pz = effect.z() + (float) Math.cos(angle) * distance;
+            float y = surface(terrain, px, pz) + 0.3f + t * (2f + Math.abs(hash(i, 7)) * 1.5f);
+            float size = 0.14f * (1f - t) + 0.02f;
+            model.translation(px, y, pz).rotateY(age * 4f + i).scale(size);
+            boxes.add(model, 1.8f, 1.5f, 0.6f);
         }
     }
 

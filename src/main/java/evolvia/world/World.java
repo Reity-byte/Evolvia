@@ -4,10 +4,14 @@ import evolvia.ai.ActionContext;
 import evolvia.ai.Navigation;
 import evolvia.ai.PathQueue;
 import evolvia.ai.Pathfinder;
+import evolvia.components.Age;
 import evolvia.components.AiState;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
 import evolvia.components.GroupMember;
+import evolvia.components.Health;
+import evolvia.components.Needs;
+import evolvia.components.Reproduction;
 import evolvia.components.PrevTransform;
 import evolvia.components.Velocity;
 import evolvia.data.DataLoader;
@@ -16,6 +20,7 @@ import evolvia.god.GodPowers;
 import evolvia.systems.FaithSystem;
 import evolvia.systems.GodPowerSystem;
 import evolvia.systems.GroupSystem;
+import evolvia.systems.MilestoneSystem;
 import evolvia.components.ResourceNode;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -82,6 +87,7 @@ public final class World implements EvolutionConditions {
     private final GodPowerSystem godPowerSystem;
     private final GodPowers godPowers;
     private final Groups groups = new Groups();
+    private final Milestones milestones = new Milestones(DataLoader.loadMilestones());
     private final SimRandom random;
     private final List<GameSystem> systems;
     /** Duration of each system in the last tick (for profiling / debug overlay). */
@@ -122,7 +128,8 @@ public final class World implements EvolutionConditions {
                 agingSystem,
                 new GroupSystem(groups, creatureGrid),
                 evolutionSystem,
-                new FaithSystem(godPowers.faith(), godConfig.faith()));
+                new FaithSystem(godPowers.faith(), godConfig.faith()),
+                new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
     }
 
@@ -217,9 +224,10 @@ public final class World implements EvolutionConditions {
         species.unlock(nodeId, this);
     }
 
+    /** The player's people (believers): evolution conditions and milestones count these. */
     @Override
     public int population() {
-        return creatureCount();
+        return believers();
     }
 
     @Override
@@ -310,69 +318,131 @@ public final class World implements EvolutionConditions {
     }
 
     /**
-     * Starting population: with a spawn radius, a group around one random land point that has food and
-     * water nearby (DESIGN.md §2: a small population of one species); with radius 0, spread over all land.
-     * Ages, needs and reproduction cooldowns are varied so the population does not act in lockstep.
+     * Starting population (DESIGN.md §11, 9c): the player's herd of believers around a land point with food
+     * and water nearby, plus {@code wildHerds} wild herds at least {@code herdSpacing} away (on the same
+     * land if possible, so they meet). With spawn radius 0 (tests) everyone is spread over all land as the
+     * player's people and herds form on their own. Ages, needs and reproduction cooldowns are varied so the
+     * population does not act in lockstep.
      */
     private void spawnPopulation(Random random) {
-        SpeciesDefinition stats = species.stats();
-        SpeciesDefinition.Population population = stats.population();
+        SpeciesDefinition.Population population = species.stats().population();
         float radius = population.spawnRadius();
-        float centerX = 0f;
-        float centerZ = 0f;
-        int region = -1;
-        if (radius > 0f) {
-            for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
-                float x = random.nextInt(terrain.width()) + 0.5f;
-                float z = random.nextInt(terrain.depth()) + 0.5f;
-                if (navigation.land().regionAt(x, z) < 0) {
-                    continue;
-                }
-                centerX = x;
-                centerZ = z;
-                region = navigation.land().regionAt(x, z);
-                if (foodGrid.nearest(x, z, radius, e -> true) >= 0 && waterGrid.nearest(x, z, radius, e -> true) >= 0) {
-                    break; // good spot: food and water within the group's area
+        if (radius <= 0f) {
+            for (int n = 0; n < population.starting(); n++) {
+                for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
+                    float x = random.nextInt(terrain.width()) + random.nextFloat();
+                    float z = random.nextInt(terrain.depth()) + random.nextFloat();
+                    if (navigation.land().regionAt(x, z) >= 0) {
+                        ecs.add(spawnCreature(random, x, z), new Believer());
+                        break;
+                    }
                 }
             }
-            if (region < 0) {
-                throw new IllegalStateException("World seed " + seed + " has (almost) no land to spawn creatures on");
+            return;
+        }
+        List<float[]> homes = new ArrayList<>();
+        float[] home = herdSpot(random, radius, homes, 0f, null);
+        if (home == null) {
+            throw new IllegalStateException("World seed " + seed + " has (almost) no land to spawn creatures on");
+        }
+        homes.add(home);
+        spawnHerd(random, home, population.starting(), radius, true);
+        for (int w = 0; w < population.wildHerds(); w++) {
+            float[] wild = herdSpot(random, radius, homes, population.herdSpacing(), home);
+            if (wild == null) {
+                break; // no room for more herds (small map)
+            }
+            homes.add(wild);
+            spawnHerd(random, wild, population.wildHerdSize(), radius, false);
+        }
+    }
+
+    /**
+     * A land point for a herd at least {@code spacing} from the other homes, preferably with food and water
+     * within the herd's radius; with {@code near} (the player's home) within 1.6 x spacing of it and on the
+     * same land, so neighbours meet early. Null if there is no such land.
+     */
+    private float[] herdSpot(Random random, float radius, List<float[]> homes, float spacing, float[] near) {
+        float[] fallback = null;
+        float need = Math.max(radius, 10f);
+        int region = near != null ? navigation.land().regionAt(near[0], near[1]) : -1;
+        for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
+            float x;
+            float z;
+            boolean close = near != null && attempt < SPAWN_ATTEMPTS / 2;
+            if (close) {
+                float angle = random.nextFloat() * TWO_PI;
+                float distance = spacing * (1f + 0.6f * random.nextFloat());
+                x = near[0] + (float) Math.sin(angle) * distance;
+                z = near[1] + (float) Math.cos(angle) * distance;
+            } else {
+                x = random.nextInt(terrain.width()) + 0.5f;
+                z = random.nextInt(terrain.depth()) + 0.5f;
+            }
+            int tileRegion = navigation.land().regionAt(x, z);
+            if (tileRegion < 0 || (close && tileRegion != region)) {
+                continue;
+            }
+            boolean spaced = true;
+            for (float[] other : homes) {
+                spaced &= Math.hypot(other[0] - x, other[1] - z) >= spacing;
+            }
+            if (!spaced) {
+                continue;
+            }
+            if (fallback == null) {
+                fallback = new float[]{x, z};
+            }
+            if (foodGrid.nearest(x, z, need, e -> true) >= 0 && waterGrid.nearest(x, z, need, e -> true) >= 0) {
+                return new float[]{x, z}; // good spot: food and water within the herd's area
             }
         }
+        return fallback;
+    }
 
-        int youngestLifespan = SpeciesDefinition.secondsToTicks(stats.lifespanMinSeconds());
-        int cooldown = SpeciesDefinition.secondsToTicks(stats.reproduction().cooldownSeconds());
-        for (int n = 0; n < population.starting(); n++) {
-            float x = -1f;
-            float z = -1f;
+    /** A herd of {@code count} creatures around {@code home}, led by its oldest member. */
+    private void spawnHerd(Random random, float[] home, int count, float radius, boolean player) {
+        Groups.Group group = groups.create();
+        group.player = player;
+        group.homeX = home[0];
+        group.homeZ = home[1];
+        int region = navigation.land().regionAt(home[0], home[1]);
+        int oldest = -1;
+        for (int n = 0; n < count; n++) {
+            float x = home[0];
+            float z = home[1];
             for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
-                float cx;
-                float cz;
-                if (radius > 0f) {
-                    float angle = random.nextFloat() * TWO_PI;
-                    float distance = radius * (float) Math.sqrt(random.nextFloat());
-                    cx = centerX + (float) Math.sin(angle) * distance;
-                    cz = centerZ + (float) Math.cos(angle) * distance;
-                } else {
-                    cx = random.nextInt(terrain.width()) + random.nextFloat();
-                    cz = random.nextInt(terrain.depth()) + random.nextFloat();
-                }
-                int tileRegion = navigation.land().regionAt(cx, cz);
-                if (tileRegion >= 0 && (region < 0 || tileRegion == region)) {
+                float angle = random.nextFloat() * TWO_PI;
+                float distance = radius * (float) Math.sqrt(random.nextFloat());
+                float cx = home[0] + (float) Math.sin(angle) * distance;
+                float cz = home[1] + (float) Math.cos(angle) * distance;
+                if (navigation.land().regionAt(cx, cz) == region) {
                     x = cx;
                     z = cz;
                     break;
                 }
             }
-            if (x < 0f) {
-                x = centerX;
-                z = centerZ;
+            int creature = spawnCreature(random, x, z);
+            ecs.add(creature, new GroupMember(group.id));
+            if (player) {
+                ecs.add(creature, new Believer());
             }
-            creatureFactory.spawn(species, species.latestStage().index(), creatureFactory.randomGenome(stats), x, z,
-                    random.nextInt(youngestLifespan / 2 + 1),
-                    0.3f * random.nextFloat(), 0.3f * random.nextFloat(), 0.7f + 0.3f * random.nextFloat(),
-                    random.nextInt(cooldown + 1));
+            if (oldest < 0 || ecs.get(creature, Age.class).ageTicks > ecs.get(oldest, Age.class).ageTicks) {
+                oldest = creature;
+            }
         }
+        group.leader = oldest;
+        group.size = count;
+    }
+
+    private int spawnCreature(Random random, float x, float z) {
+        SpeciesDefinition stats = species.stats();
+        int youngestLifespan = SpeciesDefinition.secondsToTicks(stats.lifespanMinSeconds());
+        int cooldown = SpeciesDefinition.secondsToTicks(stats.reproduction().cooldownSeconds());
+        return creatureFactory.spawn(species, species.latestStage().index(), creatureFactory.randomGenome(stats), x, z,
+                random.nextInt(youngestLifespan / 2 + 1),
+                0.3f * random.nextFloat(), 0.3f * random.nextFloat(), 0.7f + 0.3f * random.nextFloat(),
+                random.nextInt(cooldown + 1));
     }
 
     // ---------------------------------------------------------------- god powers (applied by GodPowerSystem)
@@ -565,6 +635,106 @@ public final class World implements EvolutionConditions {
         return null;
     }
 
+    /**
+     * The god's hand on a creature (DESIGN.md §11, 9c). Allowed: own creatures can be moved, healed and
+     * blessed; the own herd leader can also order an attack on another herd or settle the herd; wild
+     * creatures can only be blessed (they start believing).
+     *
+     * @return false if the action is not allowed now (the creature died, is not the player's, not a leader...)
+     */
+    public boolean applyHand(GodPowers.HandCommand command, int tick) {
+        int entity = command.entity();
+        if (ecs.get(entity, SpeciesRef.class) == null) {
+            return false;
+        }
+        boolean own = ecs.get(entity, Believer.class) != null;
+        GroupMember member = ecs.get(entity, GroupMember.class);
+        Groups.Group group = member != null ? groups.get(member.group) : null;
+        boolean leader = group != null && group.player && group.leader == entity;
+        Transform t = ecs.get(entity, Transform.class);
+        switch (command.action()) {
+            case MOVE -> {
+                if (!own) {
+                    return false;
+                }
+                moveCreature(entity, command.x(), command.z());
+            }
+            case ATTACK -> {
+                GroupMember theirs = ecs.get(command.target(), GroupMember.class);
+                Groups.Group target = theirs != null ? groups.get(theirs.group) : null;
+                if (!leader || !Groups.enemies(group, target)) {
+                    return false;
+                }
+                group.attackGroup = target.id;
+                group.attackUntilTick = tick + SpeciesDefinition.secondsToTicks(godPowers.config().hand().attackSeconds());
+            }
+            case SETTLE -> {
+                if (!leader) {
+                    return false;
+                }
+                group.settled = true;
+                group.homeX = t.position.x;
+                group.homeZ = t.position.z;
+            }
+            case HEAL -> {
+                if (!own) {
+                    return false;
+                }
+                Health health = ecs.get(entity, Health.class);
+                health.hp = health.maxHp;
+            }
+            case BLESS -> {
+                if (own) {
+                    ecs.get(entity, Reproduction.class).readyAtTick = tick;
+                    Needs needs = ecs.get(entity, Needs.class);
+                    needs.hunger = Math.max(0f, needs.hunger - 0.3f);
+                    needs.thirst = Math.max(0f, needs.thirst - 0.3f);
+                } else {
+                    ecs.add(entity, new Believer());
+                }
+            }
+        }
+        godPowers.recordHand(new GodPowers.HandEffect(command.action(), t.position.x, t.position.z, tick));
+        return true;
+    }
+
+    /** Carries a creature to the nearest place it can stand at (x, z); it stops what it was walking to. */
+    public void moveCreature(int entity, float x, float z) {
+        Transform t = ecs.get(entity, Transform.class);
+        SpeciesRef ref = ecs.get(entity, SpeciesRef.class);
+        Pathfinder space = navigation.forCreature(ref);
+        int tx = Math.clamp((int) Math.floor(x), 0, terrain.width() - 1);
+        int tz = Math.clamp((int) Math.floor(z), 0, terrain.depth() - 1);
+        if (!space.isWalkable(tx, tz)) {
+            int[] tile = nearestWalkable(space, tx, tz);
+            if (tile == null) {
+                return;
+            }
+            x = tile[0] + 0.5f;
+            z = tile[1] + 0.5f;
+        }
+        creatureGrid.move(entity, t.position.x, t.position.z, x, z);
+        t.position.set(x, navigation.groundHeight(x, z), z);
+        PrevTransform prev = ecs.get(entity, PrevTransform.class);
+        if (prev != null) {
+            prev.position.set(t.position);
+        }
+        AiState ai = ecs.get(entity, AiState.class);
+        if (ai != null) {
+            ai.path = null;
+            ai.pathStatus = ai.pathStatus == AiState.PathStatus.NONE ? AiState.PathStatus.NONE : AiState.PathStatus.FAILED;
+        }
+        Velocity velocity = ecs.get(entity, Velocity.class);
+        if (velocity != null) {
+            velocity.speed = 0f;
+        }
+    }
+
+    /** True once the player's people died out (DESIGN.md §11, 9c: game over). */
+    public boolean playerDefeated() {
+        return believers() == 0;
+    }
+
     /** Applies queued god powers without advancing the simulation (while paused). */
     public void applyGodPowersNow(int nextTick) {
         godPowerSystem.applyQueued(nextTick);
@@ -587,6 +757,11 @@ public final class World implements EvolutionConditions {
             counts[Math.clamp(creatures.componentAt(i).stage, 0, counts.length - 1)]++;
         }
         return counts;
+    }
+
+    /** Early game goals (phase 9c). */
+    public Milestones milestones() {
+        return milestones;
     }
 
     /** The herds (phase 9a). */

@@ -176,7 +176,7 @@ public final class EvolutionTreeView {
         Species species = world.species();
         EvolutionNode hovered = null;
         int[] stageCounts = world.stageCounts();
-        int population = Math.max(1, world.population());
+        int population = Math.max(1, world.creatureCount());
         for (EvolutionNode node : species.tree().nodes()) {
             TreeLayout.Box box = layout.node(node.id());
             float x = ox + box.x();

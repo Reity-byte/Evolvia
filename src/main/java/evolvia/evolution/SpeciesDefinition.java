@@ -26,7 +26,8 @@ import evolvia.core.Time;
  * @param diet               how much each food type nourishes (0 = not eaten)
  * @param climate            temperature comfort range and what happens outside it
  * @param evolution          how fast the species earns evolution points
- * @param groups             how herds form and hold together (with the {@code groups} ability)
+ * @param groups             how herds form and hold together
+ * @param combat             territory and fights between herds (phase 9c)
  */
 public record SpeciesDefinition(
         String id,
@@ -48,7 +49,8 @@ public record SpeciesDefinition(
         Diet diet,
         Climate climate,
         EvolutionRates evolution,
-        Groups groups) {
+        Groups groups,
+        Combat combat) {
 
     /**
      * Diet as nutrition per food type: 1 = normal, 0 = the species does not eat it. Herbivore, omnivore
@@ -99,6 +101,22 @@ public record SpeciesDefinition(
     }
 
     /**
+     * Territory and fights between herds (phase 9c, DESIGN.md §11).
+     *
+     * @param territoryRadius  a herd claims this far around its home
+     * @param aggroNeed        a herd attacks intruders on its territory once its average hunger is this high
+     * @param damagePerSecond  health an attacker takes from its target per second
+     * @param attackRange      distance at which a creature can hit
+     * @param fleeHealth       below this share of max health a creature under attack runs away
+     * @param surrenderHealth  below this share it gives up and joins the attacker's herd
+     * @param attackScore      utility of attacking intruders (above needs up to their urgent range)
+     * @param orderScore       utility of attacking when the god ordered it
+     */
+    public record Combat(float territoryRadius, float aggroNeed, float damagePerSecond, float attackRange,
+                         float fleeHealth, float surrenderHealth, float attackScore, float orderScore) {
+    }
+
+    /**
      * Herds (phase 9a, DESIGN.md §11).
      *
      * @param updateSeconds   how often herds are updated (joining, founding, splitting, leaving)
@@ -144,19 +162,24 @@ public record SpeciesDefinition(
      *                    point; 0 = anywhere on land
      * @param max         safety cap: no reproduction above this population (performance guard)
      */
-    public record Population(int starting, float spawnRadius, int max) {
+    public record Population(int starting, float spawnRadius, int max, int wildHerds, int wildHerdSize, float herdSpacing) {
+
+        /** Only the player's people, no wild herds (tests). */
+        public Population(int starting, float spawnRadius, int max) {
+            this(starting, spawnRadius, max, 0, 0, 0f);
+        }
     }
 
     /** Copy with a different starting population (e.g. for tests). */
     /** Same species with other herd rules (tests). */
     public SpeciesDefinition withGroups(Groups newGroups) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, population, diet, climate, evolution, newGroups);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, population, diet, climate, evolution, newGroups, combat);
     }
 
     public SpeciesDefinition withPopulation(Population newPopulation) {
         return new SpeciesDefinition(id, name, rgb, bodySize, speed, maxHealth, lifespanMinSeconds, lifespanMaxSeconds,
-                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution, groups);
+                senseRadius, needs, eating, ai, wander, reproduction, genome, newPopulation, diet, climate, evolution, groups, combat);
     }
 
     /**

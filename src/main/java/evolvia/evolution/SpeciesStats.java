@@ -93,7 +93,8 @@ public final class SpeciesStats {
                 new SpeciesDefinition.Diet(Math.max(0f, v.get(Stat.PLANT_NUTRITION)), Math.max(0f, v.get(Stat.MEAT_NUTRITION))),
                 new SpeciesDefinition.Climate(comfortMin, comfortMax, c.needFactorPerUnit(), c.damageBeyond(), c.damagePerSecond()),
                 base.evolution(),
-                base.groups());
+                base.groups(),
+                base.combat());
     }
 
     /** Keeps stats that must stay positive from reaching zero (a node could multiply by a tiny factor). */

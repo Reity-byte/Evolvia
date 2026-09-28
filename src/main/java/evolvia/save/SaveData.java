@@ -24,7 +24,8 @@ public record SaveData(
         StatsData stats,
         EcsData ecs,
         int[] pathQueue,
-        GroupsData groups) {
+        GroupsData groups,
+        List<String> milestones) {
 
     /** Shown in the save list. */
     public record Meta(String name, String savedAt, String speciesName, int population, int generation, long tick) {
@@ -48,7 +49,7 @@ public record SaveData(
     }
 
     public record GodData(FaithData faith, List<GodPowers.RainArea> rains, List<GodPowers.Strike> strikes,
-                          List<GodPowers.Command> queue) {
+                          List<GodPowers.Command> queue, List<GodPowers.HandCommand> handQueue) {
     }
 
     public record StatsData(Map<String, Integer> deaths, int births, int maxGeneration, int lastGeneration,
@@ -65,7 +66,7 @@ public record SaveData(
                           List<NeedsData> needs, List<HealthData> healths, List<AgeData> ages,
                           List<ReproductionData> reproductions, List<AiData> ai, List<MemoryData> memories,
                           List<ResourceData> resources, int[] believers, List<FearData> fears,
-                          List<GroupMemberData> groupMembers, int[] creatureStages) {
+                          List<GroupMemberData> groupMembers, int[] creatureStages, List<UnderAttackData> underAttacks) {
     }
 
     public record TransformData(int e, float x, float y, float z, float yaw) {
@@ -111,10 +112,14 @@ public record SaveData(
     }
 
     /** Herds (save version 2+; null in older saves). */
-    public record GroupsData(int nextId, List<GroupData> groups) {
+    public record UnderAttackData(int e, int attacker, int untilTick) {
     }
 
-    public record GroupData(int id, int leader, int size, boolean knowsWater, float waterX, float waterZ,
+    public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {
+    }
+
+    public record GroupData(int id, int leader, int size, boolean player, float homeX, float homeZ, boolean settled,
+                            float hunger, int attackGroup, int attackUntilTick, boolean knowsWater, float waterX, float waterZ,
                             boolean knowsFood, float foodX, float foodZ) {
     }
 }

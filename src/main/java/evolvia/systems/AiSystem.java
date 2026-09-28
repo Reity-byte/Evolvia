@@ -4,6 +4,7 @@ import evolvia.ai.Action;
 import evolvia.ai.ActionContext;
 import evolvia.ai.ActionType;
 import evolvia.ai.actions.ConsumeAction;
+import evolvia.ai.actions.AttackAction;
 import evolvia.ai.actions.FleeAction;
 import evolvia.ai.actions.FollowLeaderAction;
 import evolvia.ai.actions.SeekMateAction;
@@ -12,6 +13,7 @@ import evolvia.ai.actions.SleepAction;
 import evolvia.ai.actions.WanderAction;
 import evolvia.components.AiState;
 import evolvia.components.Fear;
+import evolvia.components.UnderAttack;
 import evolvia.components.Needs;
 import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
@@ -47,6 +49,7 @@ public final class AiSystem implements GameSystem {
         register(new SeekMateAction());
         register(new FleeAction());
         register(new FollowLeaderAction());
+        register(new AttackAction());
         for (ActionType type : ActionType.values()) {
             if (actions[type.ordinal()] == null) {
                 throw new IllegalStateException("No action registered for " + type);
@@ -66,6 +69,7 @@ public final class AiSystem implements GameSystem {
         ComponentStore<Needs> needsStore = world.store(Needs.class);
         ComponentStore<SpeciesRef> speciesStore = world.store(SpeciesRef.class);
         ComponentStore<Fear> fears = world.store(Fear.class);
+        ComponentStore<UnderAttack> attacks = world.store(UnderAttack.class);
         context.beginTick(world, tick);
 
         for (int i = 0; i < aiStore.size(); i++) {
@@ -82,7 +86,8 @@ public final class AiSystem implements GameSystem {
 
             int interval = Math.max(1, SpeciesDefinition.secondsToTicks(species.stats().ai().evaluateEverySeconds()));
             boolean evaluate = ai.action == null || (tick + entity) % interval == 0
-                    || (ai.action != ActionType.FLEE && fears.has(entity) && fears.get(entity).isActive(tick)); // react at once
+                    || (ai.action != ActionType.FLEE && fears.has(entity) && fears.get(entity).isActive(tick)) // react at once
+                    || (ai.action != ActionType.ATTACK && attacks.has(entity) && attacks.get(entity).isActive(tick));
 
             if (ai.action != null) {
                 Action current = actions[ai.action.ordinal()];

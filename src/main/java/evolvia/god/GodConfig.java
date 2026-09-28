@@ -4,7 +4,7 @@ package evolvia.god;
  * Faith and god power parameters, loaded from {@code data/powers.json} (DESIGN.md §9).
  */
 public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, TerrainBrush raise, TerrainBrush lower,
-                        Lightning lightning) {
+                        Lightning lightning, Hand hand) {
 
     /**
      * @param starting             faith at the start of a game
@@ -59,6 +59,33 @@ public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, Ter
                             int maxKills, float scareRadius, float scareSeconds, float fleeDistance) implements Power {
     }
 
+    /**
+     * The god's hand on a selected creature (phase 9c): faith costs, how long an attack order lasts and
+     * how the acts move the alignment.
+     */
+    public record Hand(float moveCost, float attackCost, float settleCost, float healCost, float blessCost,
+                       float attackSeconds, float attackAlignment, float healAlignment, float blessAlignment) {
+
+        public float cost(HandAction action) {
+            return switch (action) {
+                case MOVE -> moveCost;
+                case ATTACK -> attackCost;
+                case SETTLE -> settleCost;
+                case HEAL -> healCost;
+                case BLESS -> blessCost;
+            };
+        }
+
+        public float alignment(HandAction action) {
+            return switch (action) {
+                case ATTACK -> attackAlignment;
+                case HEAL -> healAlignment;
+                case BLESS -> blessAlignment;
+                default -> 0f;
+            };
+        }
+    }
+
     /** The parameters of a power. */
     public Power of(DivinePower power) {
         return switch (power) {
@@ -91,6 +118,11 @@ public record GodConfig(FaithSettings faith, Rain rain, Abundance abundance, Ter
         for (TerrainBrush brush : new TerrainBrush[]{raise, lower}) {
             check(brush.step() > 0 && brush.repeatSeconds() > 0, source, "terrain powers: \"step\" and \"repeatSeconds\" must be > 0");
         }
+        check(hand != null, source, "missing \"hand\"");
+        for (HandAction action : HandAction.values()) {
+            check(hand.cost(action) > 0, source, "\"hand\": every cost must be > 0");
+        }
+        check(hand.attackSeconds() > 0, source, "\"hand\": attackSeconds must be > 0");
         check(lightning.maxKills() >= 0 && lightning.scareRadius() >= lightning.radius() && lightning.scareSeconds() > 0
                 && lightning.fleeDistance() > 0, source, "\"lightning\": invalid maxKills / scareRadius / scareSeconds / fleeDistance");
     }

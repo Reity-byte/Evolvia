@@ -125,7 +125,7 @@ public final class GameMenu {
             }
             String title = EvolutionTreeView.fit(ui.bold, save.name(), 170f);
             ui.text(ui.bold, title, listX + 8f, ry + 6f, Ui.TEXT);
-            String info = String.format("%s · %d bytostí", date(save.meta().savedAt()), save.meta().population());
+            String info = String.format("%s · lid %d", date(save.meta().savedAt()), save.meta().population());
             ui.text(ui.small, info, listX + 186f, ry + 8f, Ui.TEXT_DIM);
 
             boolean confirming = save.name().equals(confirmDelete);

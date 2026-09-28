@@ -109,7 +109,8 @@ public final class SeekResourceAction implements Action {
             return null;
         }
         float need = kind == ResourceKind.FOOD ? c.needs.hunger : c.needs.thirst;
-        boolean herdOnly = c.leader() != null && need < c.species.groups().urgentNeed();
+        boolean sharedMemory = c.ref.hasAbility(Groups.ABILITY);
+        boolean herdOnly = sharedMemory && c.leader() != null && need < c.species.groups().urgentNeed();
         if (!herdOnly) {
             if (kind == ResourceKind.FOOD && memory.knowsFood) {
                 return new float[]{memory.foodX, memory.foodZ};
@@ -118,7 +119,7 @@ public final class SeekResourceAction implements Action {
                 return new float[]{memory.waterX, memory.waterZ};
             }
         }
-        Groups.Group group = c.group();
+        Groups.Group group = sharedMemory ? c.group() : null;
         if (group == null) {
             return null;
         }

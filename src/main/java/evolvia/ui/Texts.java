@@ -4,6 +4,7 @@ import evolvia.ai.ActionType;
 import evolvia.evolution.Effect;
 import evolvia.evolution.Species;
 import evolvia.evolution.Stat;
+import evolvia.god.HandAction;
 
 import java.util.Locale;
 
@@ -37,6 +38,17 @@ public final class Texts {
             case SEEK_MATE -> "Hledá partnera";
             case FLEE -> "Utíká v hrůze";
             case FOLLOW_LEADER -> "Jde za vůdcem";
+            case ATTACK -> "Bojuje";
+        };
+    }
+
+    public static String hand(HandAction action) {
+        return switch (action) {
+            case MOVE -> "Přenést";
+            case ATTACK -> "Zaútoč";
+            case SETTLE -> "Usaď se";
+            case HEAL -> "Uzdrav";
+            case BLESS -> "Požehnej";
         };
     }
 

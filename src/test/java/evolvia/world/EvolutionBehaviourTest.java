@@ -119,7 +119,8 @@ class EvolutionBehaviourTest {
         float carcassBefore = world.ecs().get(carcass, ResourceNode.class).amount;
         run(world, 0, 10 * Time.TICKS_PER_SECOND);
         assertEquals(bushBefore, world.ecs().get(bush, ResourceNode.class).amount, 1e-3f, "carnivore ate a plant");
-        assertTrue(world.ecs().get(carcass, ResourceNode.class).amount < carcassBefore - 0.5f, "carnivore did not eat the carcass");
+        ResourceNode eaten = world.ecs().get(carcass, ResourceNode.class);
+        assertTrue(eaten == null || eaten.amount < carcassBefore - 0.5f, "carnivore did not eat the carcass");
         assertTrue(world.ecs().get(creature, Needs.class).hunger < 0.5f);
     }
 

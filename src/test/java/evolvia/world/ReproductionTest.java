@@ -45,7 +45,7 @@ class ReproductionTest {
                 species.speed(), species.maxHealth(), species.lifespanMinSeconds(), species.lifespanMaxSeconds(),
                 species.senseRadius(), species.needs(), species.eating(), species.ai(), species.wander(),
                 species.reproduction(), new SpeciesDefinition.GenomeTuning(0.1f, 0f), species.population(),
-                species.diet(), species.climate(), species.evolution(), species.groups());
+                species.diet(), species.climate(), species.evolution(), species.groups(), species.combat());
 
         Genome a = new Genome();
         a.size = 0.9f;
@@ -73,11 +73,14 @@ class ReproductionTest {
     @Test
     void startingPopulationIsAGroupAroundOnePlace() {
         World world = World.create(config, biomes, species, resources, 7);
-        assertEquals(species.population().starting(), world.creatureCount());
+        assertEquals(species.population().starting(), world.population(), "the player's people");
         ComponentStore<SpeciesRef> creatures = world.ecs().store(SpeciesRef.class);
         float minX = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE;
         for (int i = 0; i < creatures.size(); i++) {
+            if (world.ecs().get(creatures.entityAt(i), evolvia.components.Believer.class) == null) {
+                continue; // wild herds live elsewhere
+            }
             float x = world.ecs().get(creatures.entityAt(i), evolvia.components.Transform.class).position.x;
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
@@ -87,11 +90,12 @@ class ReproductionTest {
 
     @Test
     void populationReproducesAndGenomesStayInRange() {
-        World world = World.create(config, biomes, species, resources, 7);
+        SpeciesDefinition many = species.withPopulation(new SpeciesDefinition.Population(200, 25f, 3000));
+        World world = World.create(config, biomes, many, resources, 7);
         run(world, 0, 10 * 60 * 20); // ten minutes
         assertTrue(world.births().total() > 50, "births: " + world.births().total());
         assertTrue(world.maxGeneration() >= 1);
-        assertTrue(world.creatureCount() > species.population().starting(), "population did not grow: " + world.creatureCount());
+        assertTrue(world.creatureCount() > many.population().starting(), "population did not grow: " + world.creatureCount());
 
         int adultTicks = SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
         int young = 0;

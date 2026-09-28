@@ -3,6 +3,8 @@ package evolvia.ai;
 import evolvia.components.Age;
 import evolvia.components.Believer;
 import evolvia.components.Fear;
+import evolvia.components.UnderAttack;
+import evolvia.core.Time;
 import evolvia.components.GroupMember;
 import evolvia.components.AiState;
 import evolvia.components.Health;
@@ -57,6 +59,9 @@ public final class ActionContext {
     private ComponentStore<Reproduction> reproductions;
     private ComponentStore<Memory> memories;
     private ComponentStore<GroupMember> groupMembers;
+    private ComponentStore<UnderAttack> underAttacks;
+    private ComponentStore<Fear> fears;
+    private ComponentStore<Believer> believers;
     public int tick;
 
     public int entity;
@@ -77,6 +82,8 @@ public final class ActionContext {
     private int foodInReach;
     private int waterInReach;
     private int nearestMate;
+    private int attackTarget;
+    private float attackScore;
 
     public ActionContext(Terrain terrain, Navigation navigation, PathQueue pathQueue,
                          SpatialGrid foodGrid, SpatialGrid waterGrid, SpatialGrid creatureGrid, Births births,
@@ -105,6 +112,9 @@ public final class ActionContext {
         this.reproductions = ecs.store(Reproduction.class);
         this.memories = ecs.store(Memory.class);
         this.groupMembers = ecs.store(GroupMember.class);
+        this.underAttacks = ecs.store(UnderAttack.class);
+        this.fears = ecs.store(Fear.class);
+        this.believers = ecs.store(Believer.class);
     }
 
     /** Points the context at one creature. */
@@ -122,6 +132,7 @@ public final class ActionContext {
         foodInReach = -2;
         waterInReach = -2;
         nearestMate = -2;
+        attackTarget = -2;
     }
 
     /** Makes the current creature a believer (it used something the god caused). */
@@ -149,6 +160,168 @@ public final class ActionContext {
             return null;
         }
         return transforms.get(group.leader);
+    }
+
+    // ---------------------------------------------------------------- fights (phase 9c)
+
+    /** True if {@code other} is a living creature of a herd this creature's herd fights. */
+    public boolean isEnemy(int other) {
+        if (other < 0 || other == entity || creatures.get(other) == null) {
+            return false;
+        }
+        Health health = healths.get(other);
+        if (health == null || health.hp <= 0f) {
+            return false;
+        }
+        GroupMember mine = groupMembers.get(entity);
+        GroupMember theirs = groupMembers.get(other);
+        if (mine == null || theirs == null) {
+            return false;
+        }
+        return Groups.enemies(groups.get(mine.group), groups.get(theirs.group));
+    }
+
+    /** Creature to attack now, or -1 (see {@link evolvia.ai.actions.AttackAction}). */
+    public int attackTarget() {
+        if (attackTarget == -2) {
+            findAttackTarget();
+        }
+        return attackTarget;
+    }
+
+    /** Utility of attacking {@link #attackTarget()}. */
+    public float attackScore() {
+        attackTarget();
+        return attackScore;
+    }
+
+    private void findAttackTarget() {
+        attackTarget = -1;
+        attackScore = 0f;
+        SpeciesDefinition.Combat combat = species.combat();
+        Health health = healths.get(entity);
+        Age age = ages.get(entity);
+        Fear fear = fears.get(entity);
+        if (health == null || age == null || health.hp < combat.fleeHealth() * health.maxHp
+                || age.ageTicks < SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds())
+                || (fear != null && fear.isActive(tick))) {
+            return; // the young, the wounded and the scared do not fight
+        }
+        float x = transform.position.x;
+        float z = transform.position.z;
+        UnderAttack hit = underAttacks.get(entity);
+        if (hit != null && hit.isActive(tick) && isEnemy(hit.attacker)) {
+            attackTarget = hit.attacker; // fight back
+            attackScore = combat.orderScore();
+            return;
+        }
+        Groups.Group group = group();
+        if (group == null) {
+            return;
+        }
+        int myRegion = pathfinder().regionAt(x, z);
+        if (group.attackOrdered(tick)) {
+            int ordered = group.attackGroup;
+            attackTarget = creatureGrid.nearest(x, z, species.senseRadius() * 2f, other -> {
+                GroupMember m = groupMembers.get(other);
+                return m != null && m.group == ordered && isEnemy(other) && reachable(other, myRegion);
+            });
+            if (attackTarget >= 0) {
+                attackScore = combat.orderScore();
+                return;
+            }
+        }
+        if (ref.hasAbility(Groups.ABILITY)) { // herd bonus: help a herd mate that is being attacked
+            int helped = creatureGrid.nearest(x, z, species.groups().followDistance() * 2f, other -> {
+                GroupMember m = groupMembers.get(other);
+                UnderAttack a = underAttacks.get(other);
+                return m != null && m.group == group.id && a != null && a.isActive(tick) && isEnemy(a.attacker);
+            });
+            if (helped >= 0) {
+                attackTarget = underAttacks.get(helped).attacker;
+                attackScore = combat.attackScore() + 0.2f;
+                return;
+            }
+        }
+        // Wild herds always drive intruders off their territory; the player's herds when hungry (or on order).
+        if (!group.player || group.hunger >= combat.aggroNeed()) {
+            float territorySq = combat.territoryRadius() * combat.territoryRadius();
+            attackTarget = creatureGrid.nearest(x, z, species.senseRadius(), other -> {
+                Transform t = transforms.get(other);
+                float dx = t.position.x - group.homeX;
+                float dz = t.position.z - group.homeZ;
+                return dx * dx + dz * dz <= territorySq && isEnemy(other) && reachable(other, myRegion);
+            });
+            if (attackTarget >= 0) {
+                attackScore = combat.attackScore();
+            }
+        }
+    }
+
+    private boolean reachable(int other, int myRegion) {
+        Transform t = transforms.get(other);
+        return myRegion >= 0 && pathfinder().regionAt(t.position.x, t.position.z) == myRegion;
+    }
+
+    /**
+     * One tick of hitting {@code target}: takes health, marks it as attacked (it fights back or, when
+     * weak, runs). A target that falls below {@code surrenderHealth} gives up and joins this creature's
+     * herd (and believes if that is the player's); a killed one dies "in a fight".
+     *
+     * @return true when this fight is over (the target surrendered or died)
+     */
+    public boolean hit(int target) {
+        SpeciesDefinition.Combat combat = species.combat();
+        Health health = healths.get(target);
+        health.hp -= SpeciesDefinition.perTick(combat.damagePerSecond());
+        UnderAttack attacked = underAttacks.get(target);
+        if (attacked == null) {
+            attacked = new UnderAttack();
+            ecs.add(target, attacked);
+        }
+        attacked.attacker = entity;
+        attacked.untilTick = tick + 3 * Time.TICKS_PER_SECOND;
+        Groups.Group mine = group();
+        if (health.hp <= 0f) {
+            if (mine != null && mine.player) {
+                groups.recordPlayerVictory();
+            }
+            return true; // the aging system removes it this tick ("in a fight")
+        }
+        float share = health.hp / health.maxHp;
+        if (share <= combat.surrenderHealth() && mine != null) {
+            GroupMember member = groupMembers.get(target);
+            if (member != null) {
+                member.group = mine.id;
+                member.farTicks = 0;
+            } else {
+                ecs.add(target, new GroupMember(mine.id));
+            }
+            if (mine.player) {
+                if (!believers.has(target)) {
+                    ecs.add(target, new Believer());
+                }
+                groups.recordPlayerVictory();
+            } else {
+                believers.remove(target); // joined a wild herd
+            }
+            underAttacks.remove(target);
+            return true;
+        }
+        Age age = ages.get(target);
+        boolean young = age == null || age.ageTicks < SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds());
+        if (share < combat.fleeHealth() || young) {
+            Fear fear = fears.get(target);
+            if (fear == null) {
+                fear = new Fear();
+                ecs.add(target, fear);
+            }
+            fear.fromX = transform.position.x;
+            fear.fromZ = transform.position.z;
+            fear.distance = 10f;
+            fear.untilTick = tick + 4 * Time.TICKS_PER_SECOND;
+        }
+        return false;
     }
 
     /** Pathfinder for the current creature's way of moving (walking, or also swimming). */

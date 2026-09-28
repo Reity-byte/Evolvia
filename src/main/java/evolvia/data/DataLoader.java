@@ -9,6 +9,7 @@ import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.evolution.Stat;
 import evolvia.god.GodConfig;
+import evolvia.world.Milestones;
 import evolvia.world.Biome;
 import evolvia.world.Biome.Range;
 import evolvia.world.BiomeTable;
@@ -42,6 +43,7 @@ public final class DataLoader {
     public static final String SPECIES = "data/species.json";
     public static final String RESOURCES = "data/resources.json";
     public static final String POWERS = "data/powers.json";
+    public static final String MILESTONES = "data/milestones.json";
     public static final String EVOLUTION_DIR = "data/evolution/";
     public static final String EVOLUTION_INDEX = EVOLUTION_DIR + "branches.json";
 
@@ -76,6 +78,39 @@ public final class DataLoader {
         GodConfig config = fromJson(json, GodConfig.class, source);
         config.validate(source);
         return config;
+    }
+
+    /** Loads and validates {@code data/milestones.json} (early game goals). */
+    public static List<Milestones.Milestone> loadMilestones() {
+        return parseMilestones(readResource(MILESTONES), MILESTONES);
+    }
+
+    public static List<Milestones.Milestone> parseMilestones(String json, String source) {
+        MilestoneFile file = fromJson(json, MilestoneFile.class, source);
+        require(file.milestones() != null, source, "missing \"milestones\" array");
+        List<Milestones.Milestone> milestones = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        for (MilestoneJson m : file.milestones()) {
+            String where = source + ": milestone " + m.id();
+            require(m.id() != null && ids.add(m.id()), source, "missing or duplicate milestone id " + m.id());
+            require(m.name() != null && m.type() != null && m.value() != null, where, "needs name, type and value");
+            Milestones.Type type;
+            try {
+                type = Milestones.Type.valueOf(m.type().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException(where + ": unknown type '" + m.type() + "'");
+            }
+            milestones.add(new Milestones.Milestone(m.id(), m.name(), m.description() != null ? m.description() : "", type,
+                    m.value(), m.rewardEp() != null ? m.rewardEp() : 0f, m.rewardFaith() != null ? m.rewardFaith() : 0f));
+        }
+        return milestones;
+    }
+
+    private record MilestoneFile(List<MilestoneJson> milestones) {
+    }
+
+    private record MilestoneJson(String id, String name, String description, String type, Integer value, Float rewardEp,
+                                 Float rewardFaith) {
     }
 
     /** Loads and validates {@code data/species.json}. */
@@ -156,6 +191,14 @@ public final class DataLoader {
                         && groups.urgentNeed() > 0 && groups.urgentNeed() <= 1, source,
                 "groups: positive values, 2 <= minSize <= minFounders, maxSize >= 2 * minSize, leaveDistance > followDistance, urgentNeed in 0..1");
 
+        SpeciesDefinition.Combat combat = s.combat();
+        require(combat != null && combat.territoryRadius() > 0 && combat.damagePerSecond() > 0 && combat.attackRange() > 0
+                        && combat.fleeHealth() >= combat.surrenderHealth() && combat.surrenderHealth() >= 0
+                        && combat.fleeHealth() < 1 && combat.attackScore() >= 0 && combat.orderScore() >= 0, source,
+                "combat: positive territoryRadius / damagePerSecond / attackRange, 0 <= surrenderHealth <= fleeHealth < 1");
+        require(population.wildHerds() >= 0 && population.wildHerdSize() >= 0 && population.herdSpacing() >= 0, source,
+                "population: wildHerds, wildHerdSize and herdSpacing must not be negative");
+
         return new SpeciesDefinition(
                 s.id(),
                 s.name() != null ? s.name() : s.id(),
@@ -176,7 +219,8 @@ public final class DataLoader {
                 diet,
                 climate,
                 evolution,
-                groups);
+                groups,
+                combat);
     }
 
     /** Loads and validates {@code data/resources.json}. */
@@ -415,7 +459,8 @@ public final class DataLoader {
                                WanderJson wander, SpeciesDefinition.Reproduction reproduction,
                                SpeciesDefinition.GenomeTuning genome, SpeciesDefinition.Population population,
                                SpeciesDefinition.Diet diet, SpeciesDefinition.Climate climate,
-                               SpeciesDefinition.EvolutionRates evolution, SpeciesDefinition.Groups groups) {
+                               SpeciesDefinition.EvolutionRates evolution, SpeciesDefinition.Groups groups,
+                               SpeciesDefinition.Combat combat) {
     }
 
     /** JSON shape of {@code data/evolution/branches.json}. */

@@ -56,7 +56,7 @@ Nepoužívat nic nad OpenGL 4.1.
 - Hráč za EP odemyká uzly **evolučního stromu** → mění se schopnosti, chování i vzhled celého druhu.
 - Pozdější větve vedou k inteligenci: nástroje, kmen, sběr zdrojů, stavby.
 - Hráč má **božské zásahy** (déšť, jídlo, terraforming, trest/odměna), placené **Vírou**.
-- Cíl první verze: sandbox bez výhry; game over = vyhynutí druhu, hrozbu přinášejí divoká zvěř a soupeřící kmeny (fáze 10 a 11+, přesná pravidla prohry se doplní s fází 11+).
+- Cíl první verze: sandbox bez výhry; game over = vyhyne hráčův lid (věřící, od fáze 9c), hrozbu přinášejí soupeřící stáda, divoká zvěř a soupeřící kmeny (9c, 9f, 10+).
 
 **Vizuální styl:** low-poly, jednobarevné plochy, jednoduché osvětlení. Bytosti se skládají **procedurálně z primitiv** (tělo, hlava, nohy, ocas…) podle svých vlastností, takže evoluce je vidět bez ručně modelovaných assetů.
 
@@ -108,6 +108,7 @@ packaging/package.ps1     lokální balení na Windows (totéž co CI, jako lok�
 - Ovládání rychlosti: mezerník = pauza (návrat na předchozí rychlost), `1` / `2` / `3` = 1× / 3× / 10×.
 - Klávesy: F4 evoluční strom (jinak tlačítko Evoluce), ESC zavře otevřené okno / zruší výběr, bez otevřeného okna ukončí hru.
 - Ukládání: F5 rychlé uložení, F9 rychlé načtení, menu *Hra* (uložit, načíst, smazat, nový svět, ukončit).
+- Božská ruka: klik na bytost → tlačítka v panelu; Přenést / Zaútoč čekají na klik do krajiny (pravé tlačítko nebo ESC zruší).
 - Ladicí klávesy: F3 přehled + graf populace + popisek nad vybranou bytostí, F6 vyprázdnit jídlo, F7 +100 EP, F8 +100 Víry, F10 všichni hned vyvinutí.
 - Veškerá herní logika je deterministická vzhledem k seedu (jeden `Random` na svět se seedem), aby šly reprodukovat bugy.
 - Seed se zadává `--seed <n>` (jinak náhodný); aktuální seed ukazuje F3 overlay a výpis v konzoli.
@@ -358,16 +359,19 @@ Rozděleno do podfází; každá má vlastní DoD, commit a vydání a začíná
 |---|---|---|
 | **9a Skupiny** | uzel *Sociální skupiny*, stáda s vůdcem, `FollowLeader`, sdílená paměť skupiny | po odemčení se populace rozpadne do skupin, které se pohybují spolu (viditelné a měřitelné) |
 | **9b Vzpřímená chůze** | větev Tělo: vzpřímení → chůze po dvou → šikovné ruce; humanoidní model (trup nahoře, 2 nohy, 2 ruce, animace rukou) | odemčení postupně mění čtyřnožce v dvounožce; ruce jsou podmínkou nástrojů |
-| **9c Nástroje a sběr** | stromy a kámen ve světě, uzel *Nástroje*, `Gather` / `Carry` / `Deliver`, sběrné místo skupiny | suroviny se sbírají a hromadí, je vidět, kdo co nese |
-| **9d Řeč a kmen** | uzel *Kmen*: z největší skupiny vznikne kmen s tábořištěm, zásoby, role (sběrač, stavitel), stavby sklad / přístřešek / ohniště, `Build` | kmen sám postaví ≥ 3 druhy staveb a ty mají měřitelný efekt |
+| **9c Tvůj lid a soupeři** | malý start, pomalejší růst, věřící stádo hráče vs. divoká stáda, území a boj, božská ruka, milníky, game over | prvních 10–15 minut má napětí: populace v desítkách, stáda o území bojují, hráč vůdce ovládá rukou, divoká stáda lze získat |
+| **9d Den, noc a útočiště** | cyklus dne a noci, útočiště (jeskyně, převisy, háje), posvátné místo | stáda v noci hledají útočiště, požehnané místo je domovem |
+| **9e Příroda** | roční období, počasí, nemoci ze zkaženého jídla, přírodní katastrofy | svět se v čase mění a zpomaluje hráče, katastrofy jsou vidět |
+| **9f Divoká zvěř** | kořist a predátoři jako druhy bez hráče, akce `Hunt` | predátoři ohrožují stáda, lov dává maso |
+| **9g Nástroje a sběr** | stromy a kámen ve světě, uzel *Nástroje*, `Gather` / `Carry` / `Deliver`, sběrné místo skupiny | suroviny se sbírají a hromadí, je vidět, kdo co nese |
+| **9h Řeč a kmen** | uzel *Kmen*: z největší skupiny vznikne kmen s tábořištěm, zásoby, role (sběrač, stavitel), stavby sklad / přístřešek / ohniště, `Build` | kmen sám postaví ≥ 3 druhy staveb a ty mají měřitelný efekt |
 
 Rozhodnutí k fázi 9 (celé):
-- **Stavby (9d):** kmen staví sám podle potřeb; hráč navíc může za Víru umístit *božský plán* stavby, který má přednost (kombinace Black & White a Universim).
-- **Kmeny (9d):** kmen vznikne z největší skupiny, ostatní skupiny se k němu časem přidají, nebo později založí vlastní kmen (příprava na soupeření). Ve fázi 9 jen jeden kmen hráčova druhu.
-- **Morálka (9d):** víra se promítne do kmene. Dobrý bůh = spokojenější kmen, rychlejší rozmnožování. Zlý bůh = strach, rychlejší práce, ale méně mláďat a občas útěk z kmene.
-- **Pořadí:** vzpřímená chůze a humanoidní model (9b) předchází nošení surovin a stavbám.
-- **Fáze 10 — Divoká zvěř:** kořist a predátoři jako druhy bez hráče, akce `Hunt`; základ pro boj. Detail před začátkem fáze.
-- **Fáze 11+ — Soupeřící kmeny a války:** AI kmeny jiného druhu, území, nájezdy, souboje, vliv dobrého / zlého boha; spolu s vyhynutím tvoří game over. Detail před začátkem fáze.
+- **Stavby (9h):** kmen staví sám podle potřeb; hráč navíc může za Víru umístit *božský plán* stavby, který má přednost (kombinace Black & White a Universim).
+- **Kmeny (9h):** kmen vznikne z největší skupiny, ostatní skupiny se k němu časem přidají, nebo později založí vlastní kmen (příprava na soupeření). Ve fázi 9 jen jeden kmen hráčova druhu.
+- **Morálka (9h):** víra se promítne do kmene. Dobrý bůh = spokojenější kmen, rychlejší rozmnožování. Zlý bůh = strach, rychlejší práce, ale méně mláďat a občas útěk z kmene.
+- **Pořadí:** vzpřímená chůze a humanoidní model (9b) předchází nošení surovin a stavbám. Po zpětné vazbě na prázdnou ranou hru přišly před nástroje podfáze 9c–9f (rané hraní, noc, příroda, zvěř).
+- **Fáze 10+ — Soupeřící kmeny a války:** AI kmeny jiného druhu, území, nájezdy, souboje, vliv dobrého / zlého boha; spolu s vyhynutím tvoří game over. Detail před začátkem fáze.
 
 #### 9a Skupiny (detail)
 - **Uzel** `mind_social_groups` „Sociální skupiny“ (větev Mysl, vyžaduje Paměť, podmínka populace ≥ 60, cena ~80 EP), efekt `unlock_ability: groups`.
@@ -385,6 +389,20 @@ Rozhodnutí k fázi 9 (celé):
 - **UI:** klávesa G / tlačítko *Stáda* zapne zobrazení skupin (barevný kroužek pod členy, značka nad vůdcem); panel bytosti ukazuje skupinu a roli; panel druhu počet a průměrnou velikost skupin.
 - **Save:** `saveVersion` 2 (skupiny a členství); save verze 1 se načte bez skupin (vytvoří se znovu).
 - **Testy:** skupiny vzniknou jen po odemčení, velikosti v mezích, členové jsou u vůdce výrazně blíž než bez skupin, výměna vůdce po smrti, dělení velké skupiny, mládě ve skupině rodiče, save → load → identický běh i se skupinami.
+
+#### 9c Tvůj lid a soupeři (detail)
+- **Start a tempo:** hráčovo stádo ~12 bytostí + `population.wildHerds` (3) divokých stád po `wildHerdSize` (~10), vzdálených aspoň `herdSpacing`, u jídla a vody. Pomalejší růst (delší dospívání a pauza mezi mláďaty, méně jídla); cíl 40–80 bytostí po 15 minutách, ladí se měřením.
+- **Stáda od začátku:** stádní život nevyžaduje uzel. *Sociální skupiny* dávají bonusy: sdílená paměť vody a jídla, větší stáda (×1.5), členové brání napadeného druha. Podmínky uzlů na velikost populace se snižují podle menšího startu.
+- **Tvůj lid = věřící.** Stádo má vlastníka (hráč / divoké). Členové hráčova stáda jsou věřící (`Believer`), jen oni dávají Víru. Divoké stádo přejde k hráči, když v něm věří aspoň polovina (zázraky, požehnání), nebo když se jeho bytosti v boji vzdají hráčovu stádu.
+- **Území:** stádo má domov (sleduje vůdce, nebo ho hráč pevně nastaví „Usaď se“, pak vůdce bloumá kolem domova) a území `combat.territoryRadius` kolem něj.
+- **Boj (`Attack`):** sám, když cizí stádo vstoupí na území a stádo má hlad nad `combat.aggroNeed` (hráčova stáda spolu nebojují); nebo na rozkaz. Útočník dojde k cíli a ubírá zdraví (`combat.damagePerSecond`); napadený se brání, pod `fleeHealth` utíká, pod `surrenderHealth` se vzdá a přidá se ke stádu vítěze. Nová příčina smrti „v boji“.
+- **Božská ruka** (panel vybrané bytosti, ceny ve Víře v `powers.json`): vlastní vůdce: *Přenést* (klik do krajiny), *Zaútoč* (klik na bytost cizího stáda; krutý čin), *Usaď se tady*, *Uzdrav*, *Požehnej*; ostatní vlastní: *Přenést*, *Uzdrav*, *Požehnej*; divoké: *Požehnej* (uvěří). Uzdrav = plné zdraví (laskavý čin). Požehnej vlastní = může mít mládě hned a uleví se jí od hladu a žízně (laskavý čin). Příkazy ruky se jako zásahy provedou na začátku dalšího ticku.
+- **Milníky** (`data/milestones.json`: typ, hodnota, odměna EP / Víra): 20 bytostí lidu, první odemčený uzel, první vyhraný střet, druhé stádo, 40 bytostí lidu. Panel „Cíle“ vlevo, oznámení a odměna při splnění.
+- **Game over:** když vyhyne lid (žádný věřící), hra se zastaví a ukáže „Tvůj lid zanikl“ s volbami Načíst / Nový svět.
+- **UI:** horní lišta ukazuje lid a divoké zvlášť; zobrazení stád odliší vlastní a divoká stáda (praporek) a ukáže území vybraného stáda.
+- **Save verze 4:** vlastník, domov a rozkazy stád, stav boje, splněné milníky, fronta příkazů ruky.
+- **Testy:** start (1 + 3 stáda), tempo růstu, boj a vzdání se, rozkaz útoku, přenesení vůdce a následování stáda, usazení, uzdravení a požehnání, převzetí divokého stáda, milníky s odměnou, game over, save → load → identický běh.
+- **Upřesněno při implementaci (měřeno na 4 seedech):** divoká stáda brání území vždy, hráčova jen při hladu nebo na rozkaz; divoká stáda vznikají 1–1,6× `herdSpacing` (38) od hráče na stejné pevnině, takže první střety přijdou v prvních minutách. Méně jídla (hustota 0.018, dorůstání 0.02) a delší dospívání / pauza mezi mláďaty (300 / 240 s): po 10 minutách ~50–100 bytostí celkem. Víra za věřícího 0.5 / min. Podmínky uzlů: Masožravec ≥ 40, Sociální skupiny ≥ 25 lidu. EP za populaci se počítají z lidu. Kamera startuje nad lidem, zobrazení stád je zapnuté od začátku.
 
 #### 9b Vzpřímená chůze (detail)
 - **Uzly** (větev Tělo, řetěz):
@@ -427,7 +445,7 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 ## 13. Mimo scope první verze
 
 - Sférická planeta
-- Více hráčem řízených druhů (soupeřící AI kmeny a divoká zvěř naopak do první verze patří, fáze 10 a 11+)
+- Více hráčem řízených druhů (soupeřící AI kmeny a divoká zvěř naopak do první verze patří, fáze 9f a 10+)
 - Good/evil morální systém
 - Multiplayer
 - Ručně modelované assety a kosterní animace
@@ -439,6 +457,6 @@ Distribuce a launcher. Mění se jen se schválením a nesmí rozbít DoD žádn
 
 - Finální název hry
 - Velikost mapy pro první hratelnou verzi (256² vs 512²)
-- ~~Zda má být v první verzi divoká zvěř jako predátor/kořist~~ → **rozhodnuto: ano, Fáze 10** (před soupeřícími kmeny).
+- ~~Zda má být v první verzi divoká zvěř jako predátor/kořist~~ → **rozhodnuto: ano, podfáze 9f** (před nástroji a soupeřícími kmeny).
 - ~~Ovládání evolučního stromu~~ → **rozhodnuto: EP utrácí hráč** (automatická evoluce případně později jako volitelný režim).
-- ~~Kmeny, války a boj proti jiným kmenům~~ → **rozhodnuto: patří do první verze jako Fáze 11+** (bez soupeřů by nebyl pořádný game over). Detail před začátkem fáze.
+- ~~Kmeny, války a boj proti jiným kmenům~~ → **rozhodnuto: patří do první verze jako Fáze 10+** (bez soupeřů by nebyl pořádný game over). Detail před začátkem fáze.

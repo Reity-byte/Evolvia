@@ -29,7 +29,7 @@
       "description": "Jí jen maso (mršiny), které hodně zasytí. Rostliny nejí.",
       "cost": 60,
       "exclusiveGroup": "diet",
-      "requiresCondition": { "type": "population_min", "value": 150 },
+      "requiresCondition": { "type": "population_min", "value": 40 },
       "effects": [
         { "type": "stat_mul", "stat": "plantNutrition", "value": 0.0 },
         { "type": "stat_add", "stat": "meatNutrition", "value": 1.6 },
