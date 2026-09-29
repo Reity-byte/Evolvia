@@ -34,7 +34,7 @@ public record SaveData(
         RivalData rival) {
 
     /** The rival people (phase 11): how far its evolution plan has come. */
-    public record RivalData(int step) {
+    public record RivalData(int step, evolvia.systems.RaidSystem.State raids) {
     }
 
     /** A save without the rival (older versions and tests). */
@@ -169,6 +169,6 @@ public record SaveData(
     public record GroupData(int id, int leader, int size, boolean player, float homeX, float homeZ, boolean settled,
                             float hunger, int attackGroup, int attackUntilTick, int shelter, boolean knowsWater, float waterX, float waterZ,
                             boolean knowsFood, float foodX, float foodZ, String species, boolean hasCamp, float campX,
-                            float campZ, Map<String, Float> stock, boolean tribe) {
+                            float campZ, Map<String, Float> stock, boolean tribe, boolean raid) {
     }
 }

@@ -37,7 +37,9 @@ public final class Milestones {
         /** Kinds of finished buildings (phase 9h). */
         BUILDINGS,
         /** Discoveries of the people (phase 10b). */
-        DISCOVERIES
+        DISCOVERIES,
+        /** The rival people are destroyed (phase 11c). */
+        RIVAL
     }
 
     public record Milestone(String id, String name, String description, Type type, int value, float rewardEp,

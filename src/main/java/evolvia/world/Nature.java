@@ -328,6 +328,14 @@ public final class Nature {
         }
     }
 
+    /** Burnt ground without a fire (a destroyed building, phase 11c). */
+    void charGround(int tx, int tz, int tick) {
+        if (terrain.inBounds(tx, tz)) {
+            int i = index(tx, tz);
+            burntUntil[i] = Math.max(burntUntil[i], tick + seconds(config.disasters().fire().burntSeconds()));
+        }
+    }
+
     void burnOut(int n, int tick) {
         int i = burning.remove(n);
         burnLeft[i] = 0;

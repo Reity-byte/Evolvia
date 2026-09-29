@@ -166,7 +166,7 @@ public final class ActionContext {
         if (age == null || age.ageTicks < SpeciesDefinition.secondsToTicks(species.reproduction().adultAgeSeconds())) {
             return false;
         }
-        return group() != null && Math.max(needs.hunger, needs.thirst) < gathering.maxNeed() && needs.energy > 0.25f;
+        return group() != null && !group().raid && Math.max(needs.hunger, needs.thirst) < gathering.maxNeed() && needs.energy > 0.25f;
     }
 
     /** How much of each material the herd's camp stores (more in the tribe's with a store). */

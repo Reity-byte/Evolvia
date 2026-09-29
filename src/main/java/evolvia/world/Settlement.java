@@ -226,6 +226,11 @@ public final class Settlement {
         return faith != null;
     }
 
+    /** Removes a building (destroyed by lightning, phase 11c). */
+    public void remove(Building building) {
+        buildings.remove(building);
+    }
+
     public void clear() {
         buildings.clear();
         nextId = 1;

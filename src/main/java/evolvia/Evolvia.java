@@ -337,6 +337,9 @@ public final class Evolvia implements GameLoop.Handler {
         for (String text : world.science().takeAnnouncements()) {
             notifications.info(text);
         }
+        for (String text : world.takeRivalAnnouncements()) {
+            notifications.error(text); // the rival: raids, its camp, its end (red, like a warning)
+        }
         for (String text : world.nature().takeAnnouncements()) {
             notifications.error(text); // disasters: red, like a warning
         }

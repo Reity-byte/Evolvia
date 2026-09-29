@@ -280,12 +280,18 @@ public final class DataLoader {
             species.grant(node);
         }
         require(r.tribeMinute() >= 0, source, "tribeMinute must not be negative");
+        evolvia.systems.RaidSystem.Rules raids = r.raids();
+        require(raids != null && raids.firstRaidMinutes() >= 0 && raids.raidMinutes() > 0 && raids.share() > 0
+                        && raids.maxShare() >= raids.share() && raids.maxShare() < 1 && raids.shareGrowth() >= 0
+                        && raids.minRaiders() >= 1 && raids.maxSeconds() > 0 && raids.stealPerRaider() > 0
+                        && raids.retreatShare() > 0 && raids.retreatShare() <= 1 && raids.stealRadius() > 0, source,
+                "raids: positive times and amounts, 0 < share <= maxShare < 1, 0 < retreatShare <= 1");
         return new evolvia.world.Rivals.Config(species, start, plan, r.herds(), r.herdSize(), r.tribeMinute(),
-                r.buildings() != null ? List.copyOf(r.buildings()) : List.of());
+                r.buildings() != null ? List.copyOf(r.buildings()) : List.of(), raids);
     }
 
     private record RivalJson(String id, int herds, int[] herdSize, List<String> start, List<evolvia.world.Rivals.Step> plan,
-                             float tribeMinute, List<String> buildings) {
+                             float tribeMinute, List<String> buildings, evolvia.systems.RaidSystem.Rules raids) {
     }
 
     private record AnimalJson(String role, List<String> prey, boolean nocturnal, int herds, int[] herdSize,

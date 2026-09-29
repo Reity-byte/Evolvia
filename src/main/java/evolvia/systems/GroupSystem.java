@@ -250,16 +250,24 @@ public final class GroupSystem implements GameSystem {
         list.removeAll(leaving);
     }
 
-    /** Members that stay too far from the leader for too long leave the herd. */
+    /** How much farther than a herd's leave distance a tribe's members may be from its camp (phase 11c). */
+    private static final float TRIBE_RANGE = 5f;
+
+    /** Members that stay too far from the leader (a tribe: from its camp) for too long leave the herd. */
     private static void leave(Groups.Group group, List<Integer> list, ComponentStore<GroupMember> members,
                               ComponentStore<Transform> transforms, SpeciesDefinition.Groups rules, int interval) {
         Transform leader = transforms.get(group.leader);
         int leaveTicks = SpeciesDefinition.secondsToTicks(rules.leaveSeconds());
-        float leaveSq = rules.leaveDistance() * rules.leaveDistance();
+        // A tribe is settled: its members belong to the camp, not to the leader, and range far (fights, gathering).
+        boolean tribe = group.tribe && group.hasCamp;
+        float centerX = tribe ? group.campX : leader.position.x;
+        float centerZ = tribe ? group.campZ : leader.position.z;
+        float range = rules.leaveDistance() * (tribe ? TRIBE_RANGE : 1f);
+        float leaveSq = range * range;
         List<Integer> leaving = new ArrayList<>();
         for (int entity : list) {
             GroupMember member = members.get(entity);
-            if (entity != group.leader && distanceSq(transforms.get(entity), leader.position.x, leader.position.z) > leaveSq) {
+            if (entity != group.leader && distanceSq(transforms.get(entity), centerX, centerZ) > leaveSq) {
                 member.farTicks += interval;
                 if (member.farTicks >= leaveTicks) {
                     leaving.add(entity);

@@ -29,6 +29,6 @@ public final class Rivals {
      * @param buildings buildings its tribe knows
      */
     public record Config(Species species, List<String> start, List<Step> plan, int herds, int[] herdSize,
-                         float tribeMinute, List<String> buildings) {
+                         float tribeMinute, List<String> buildings, evolvia.systems.RaidSystem.Rules raids) {
     }
 }

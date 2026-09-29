@@ -42,6 +42,8 @@ public final class Groups {
         /** The herd's camp (phase 9g): where gatherers bring materials; set by the first delivery. */
         /** The tribe (phase 9h): the one herd of the people that builds. */
         public boolean tribe;
+        /** A war party of the rival on a raid (phase 11c): it neither gathers nor founds a camp. */
+        public boolean raid;
         public boolean hasCamp;
         public float campX;
         public float campZ;

@@ -152,7 +152,7 @@ public final class WorldCodec {
                         world.rivalSettlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress,
                                 b.paid, b.planned, b.refuge, true))).toList(),
                 world.science().state(),
-                new SaveData.RivalData(world.rivalSystem().step()));
+                new SaveData.RivalData(world.rivalSystem().step(), world.raidSystem().state()));
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -223,7 +223,8 @@ public final class WorldCodec {
         for (Groups.Group g : groups.all()) {
             list.add(new GroupData(g.id, g.leader, g.size, g.player, g.homeX, g.homeZ, g.settled, g.hunger, g.attackGroup,
                     g.attackUntilTick, g.shelter, g.knowsWater, g.waterX, g.waterZ, g.knowsFood, g.foodX, g.foodZ,
-                    g.species != null ? g.species.id() : null, g.hasCamp, g.campX, g.campZ, new TreeMap<>(g.stock), g.tribe));
+                    g.species != null ? g.species.id() : null, g.hasCamp, g.campX, g.campZ, new TreeMap<>(g.stock), g.tribe,
+                    g.raid));
         }
         return new GroupsData(groups.nextId(), list, groups.playerVictories());
     }
@@ -320,6 +321,9 @@ public final class WorldCodec {
             restoreGroups(world, save.groups());
             if (world.rivalTribe() != null) {
                 world.teachRival();
+            }
+            if (save.rival() != null && save.rival().raids() != null) {
+                world.raidSystem().restore(save.rival().raids());
             }
             if (save.ecs().creatureSpecies() == null) {
                 world.placeAnimalsAfterLoad(save.seed()); // a save from before wild game
@@ -565,6 +569,7 @@ public final class WorldCodec {
             g.shelter = d.shelter();
             g.hasCamp = d.hasCamp();
             g.tribe = d.tribe();
+            g.raid = d.raid();
             g.campX = d.campX();
             g.campZ = d.campZ();
             if (d.stock() != null) {

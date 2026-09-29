@@ -12,6 +12,7 @@
     { "id": "tribe", "name": "Kmen", "description": "Tvůj lid založí kmen.", "type": "tribe", "value": 1, "rewardEp": 40, "rewardFaith": 40 },
     { "id": "builders", "name": "Stavitelé", "description": "Kmen postaví tři různé druhy staveb.", "type": "buildings", "value": 3, "rewardEp": 60, "rewardFaith": 50 },
     { "id": "discoveries_5", "name": "Učenci", "description": "Tvůj lid udělá pět objevů.", "type": "discoveries", "value": 5, "rewardEp": 50, "rewardFaith": 40 },
+    { "id": "rival_defeated", "name": "Pán krajiny", "description": "Vyhlaď soupeřící Hrubce.", "type": "rival", "value": 1, "rewardEp": 100, "rewardFaith": 100 },
     { "id": "people_40", "name": "Silný lid", "description": "Tvůj lid má 40 bytostí.", "type": "people", "value": 40, "rewardEp": 60, "rewardFaith": 40 }
   ]
 }

@@ -38,9 +38,13 @@ class RivalTribeTest {
         god = DataLoader.loadGodConfig();
     }
 
+    static World create(long seed) {
+        return World.create(config, biomes, people, tree, resources, god, seed);
+    }
+
     /** A world whose clock is past the rival's tribe minute and whose people have a tribe. */
     static World withBothTribes(long seed) {
-        World world = World.create(config, biomes, people, tree, resources, god, seed);
+        World world = create(seed);
         int late = Math.round(world.rivals().tribeMinute() * 60 * Time.TICKS_PER_SECOND);
         world.rivalTribeSystem().update(world.ecs(), late);
         assertNull(world.rivalTribe(), "no rival tribe while the player has none");

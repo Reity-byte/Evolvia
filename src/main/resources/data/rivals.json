@@ -5,6 +5,18 @@
     "herdSize": [6, 8],
     "tribeMinute": 25,
     "buildings": ["fire", "shelter", "storage"],
+    "raids": {
+      "firstRaidMinutes": 6,
+      "raidMinutes": 8,
+      "share": 0.3,
+      "shareGrowth": 0.08,
+      "maxShare": 0.7,
+      "minRaiders": 3,
+      "maxSeconds": 240,
+      "stealPerRaider": 3,
+      "retreatShare": 0.5,
+      "stealRadius": 10
+    },
     "start": ["body_larger", "adapt_fur", "body_strong_legs", "body_tough_hide", "diet_omnivore"],
     "plan": [
       { "minute": 6, "node": "mind_instincts" },

@@ -24,8 +24,9 @@ public final class DeliverAction implements Action {
 
     @Override
     public float score(ActionContext c) {
-        if (c.carrying() == null || Math.max(c.needs.hunger, c.needs.thirst) >= SleepAction.CRITICAL_NEED) {
-            return 0f;
+        if (c.carrying() == null || Math.max(c.needs.hunger, c.needs.thirst) >= SleepAction.CRITICAL_NEED
+                || (c.group() != null && c.group().raid)) {
+            return 0f; // raiders bring their loot home first (phase 11c)
         }
         return c.gathering.deliverScore();
     }

@@ -1,5 +1,6 @@
 package evolvia.world;
 
+import evolvia.systems.RaidSystem;
 import evolvia.systems.RivalSystem;
 import evolvia.systems.ScienceSystem;
 import evolvia.systems.TribeSystem;
@@ -112,6 +113,7 @@ public final class World implements EvolutionConditions {
     /** The rival people (phase 11). */
     private final Rivals.Config rivals;
     private final RivalSystem rivalSystem;
+    private final RaidSystem raidSystem;
     private final WorldClock clock;
     private final Nature nature;
     /** Tick being simulated (or last simulated), for the clock and milestones. */
@@ -135,6 +137,35 @@ public final class World implements EvolutionConditions {
         this.science = new Science(DataLoader.loadScience(), species);
         this.rivals = DataLoader.loadRivals(species.tree());
         this.rivalSystem = new RivalSystem(rivals);
+        this.raidSystem = new RaidSystem(rivals.raids(), new RaidSystem.Access() {
+            public Groups groups() {
+                return groups;
+            }
+
+            public Species rival() {
+                return rivals.species();
+            }
+
+            public Groups.Group playerTribe() {
+                return tribeSystem.tribe();
+            }
+
+            public Groups.Group rivalTribe() {
+                return rivalTribeSystem.tribe();
+            }
+
+            public Settlement rivalSettlement() {
+                return rivalSettlement;
+            }
+
+            public int rivalCount() {
+                return World.this.rivalCount();
+            }
+
+            public void razeRival() {
+                World.this.razeRival();
+            }
+        });
         this.foodGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.waterGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.materialGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
@@ -186,6 +217,7 @@ public final class World implements EvolutionConditions {
                         godConfig.sanctify().faithPerSleeperPerMinute(), this::shrineFaithPerMinute),
                 tribeSystem,
                 rivalTribeSystem,
+                raidSystem,
                 new ScienceSystem(science, species, this, () -> tribeSystem.tribe() != null),
                 new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
@@ -469,6 +501,77 @@ public final class World implements EvolutionConditions {
     /** The rival's tribe herd, or null. */
     public Groups.Group rivalTribe() {
         return rivalTribeSystem.tribe();
+    }
+
+    /** Raids of the rival and its end (phase 11c). */
+    public RaidSystem raidSystem() {
+        return raidSystem;
+    }
+
+    /** The rival is gone: its camp falls apart and its huts belong to nobody. */
+    void razeRival() {
+        for (Settlement.Building building : rivalSettlement.all()) {
+            scorchAround(building.x, building.z);
+        }
+        rivalSettlement.clear();
+        for (Refuges.Refuge refuge : refuges.all()) {
+            if (rivals.species().id().equals(refuge.owner)) {
+                refuge.owner = RUIN;
+            }
+        }
+        Groups.Group tribe = rivalTribeSystem.tribe();
+        if (tribe != null) {
+            tribe.hasCamp = false;
+            tribe.stock.clear();
+        }
+    }
+
+    /** Burnt ground where a building stood. */
+    private void scorchAround(float x, float z) {
+        for (int dz = -2; dz <= 2; dz++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                nature.charGround((int) Math.floor(x) + dx, (int) Math.floor(z) + dz, currentTick);
+            }
+        }
+    }
+
+    /** Owner of refuges nobody may use any more (a destroyed hut). */
+    private static final String RUIN = "-";
+
+    /**
+     * The god's lightning destroys the rival's buildings it hits (phase 11c).
+     *
+     * @return how many were destroyed
+     */
+    private int strikeRivalBuildings(float x, float z, float radius) {
+        List<Settlement.Building> hit = new ArrayList<>();
+        for (Settlement.Building building : rivalSettlement.all()) {
+            if (Math.hypot(building.x - x, building.z - z) <= radius) {
+                hit.add(building);
+            }
+        }
+        for (Settlement.Building building : hit) {
+            rivalSettlement.remove(building);
+            if (building.refuge != 0 && refuges.get(building.refuge) != null) {
+                refuges.get(building.refuge).owner = RUIN;
+            }
+            scorchAround(building.x, building.z);
+        }
+        if (!hit.isEmpty()) {
+            rivalAnnouncements.add(hit.size() == 1 ? "Blesk zničil stavbu Hrubců." : "Blesk zničil " + hit.size() + " stavby Hrubců.");
+        }
+        return hit.size();
+    }
+
+    private final List<String> rivalAnnouncements = new ArrayList<>();
+
+    /** Messages about the rival (raids, lightning on its camp, its end) since the last call. */
+    public List<String> takeRivalAnnouncements() {
+        List<String> list = new ArrayList<>(rivalTribeSystem.takeAnnouncements());
+        list.addAll(raidSystem.takeAnnouncements());
+        list.addAll(rivalAnnouncements);
+        rivalAnnouncements.clear();
+        return list;
     }
 
     /** With its tribe the rival learns to gather (its culture; again after loading a save). */
@@ -937,6 +1040,7 @@ public final class World implements EvolutionConditions {
      */
     public int lightning(float x, float z, float killRadius, int maxKills, float scareRadius, int scareTicks,
                          float fleeDistance, int tick) {
+        strikeRivalBuildings(x, z, killRadius + 1.5f); // lightning razes the rival's buildings (phase 11c)
         List<Integer> near = new ArrayList<>();
         creatureGrid.forEachWithin(x, z, scareRadius, near::add);
         ComponentStore<Transform> transforms = ecs.store(Transform.class);

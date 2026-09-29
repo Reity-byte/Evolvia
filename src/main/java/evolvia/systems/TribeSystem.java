@@ -146,8 +146,8 @@ public final class TribeSystem implements GameSystem {
         ComponentStore<Transform> transforms = world.store(Transform.class);
         ComponentStore<GroupMember> members = world.store(GroupMember.class);
         for (Groups.Group other : new ArrayList<>(groups.all())) {
-            if (other == tribe || !owner.owns(other) || other.leader < 0) {
-                continue;
+            if (other == tribe || !owner.owns(other) || other.leader < 0 || (other.raid && other.attackGroup != 0)) {
+                continue; // a war party joins again only on its way home (phase 11c)
             }
             Transform leader = transforms.get(other.leader);
             if (leader == null || Math.hypot(leader.position.x - tribe.campX, leader.position.z - tribe.campZ) > rules.joinRadius()) {

@@ -30,6 +30,11 @@ public final class WanderAction implements Action {
         float threshold = c.species.ai().needThreshold();
         boolean exploring = c.needs.hunger >= threshold || c.needs.thirst >= threshold;
         float radius = wander.radius() * (exploring ? c.species.ai().exploreRadiusFactor() : 1f);
+        Groups.Group band = c.group();
+        boolean marching = band != null && band.raid && c.leader() == null; // a war party's leader heads straight home
+        if (marching) {
+            radius = Math.min(radius, MARCH_RADIUS);
+        }
         // Looking for water: of several candidates prefer the lowest one - water collects in low ground.
         boolean seekLowGround = c.needs.thirst >= threshold;
         int myRegion = c.pathfinder().regionAt(c.transform.position.x, c.transform.position.z);
@@ -94,7 +99,14 @@ public final class WanderAction implements Action {
         return Status.DONE;
     }
 
+    /** A war party's leader aims this close to its target (phase 11c). */
+    private static final float MARCH_RADIUS = 5f;
+
     private static int pauseTicks(ActionContext c) {
+        Groups.Group band = c.group();
+        if (band != null && band.raid && c.leader() == null) {
+            return 0; // raiders do not dawdle
+        }
         SpeciesDefinition.Wander wander = c.species.wander();
         int min = SpeciesDefinition.secondsToTicks(wander.pauseMinSeconds());
         int max = SpeciesDefinition.secondsToTicks(wander.pauseMaxSeconds());
