@@ -209,13 +209,20 @@ class EarlyGameTest {
         float homeZ = leader.position.z;
         assertTrue(hand(world, HandAction.SETTLE, player.leader, -1, 0, 0, 0));
         assertTrue(player.settled);
-        run(world, 1, 3 * 60 * Time.TICKS_PER_SECOND);
-        if (world.groups().get(player.id) != null && player.leader >= 0) {
-            Transform now = at(world, player.leader);
-            assertTrue(Math.hypot(now.position.x - homeX, now.position.z - homeZ) < species.combat().territoryRadius() * 1.5,
-                    "the leader stays around home");
-            assertEquals(homeX, player.homeX, 1e-4f, "home does not follow the leader");
+        // Sampled every 10 s: a fight or a flight may take the leader away for a moment, but it comes back.
+        int samples = 0;
+        int home = 0;
+        int tick = 1;
+        for (int k = 0; k < 18 && world.groups().get(player.id) != null; k++) {
+            tick = run(world, tick, 10 * Time.TICKS_PER_SECOND);
+            if (player.leader >= 0) {
+                Transform now = at(world, player.leader);
+                samples++;
+                home += Math.hypot(now.position.x - homeX, now.position.z - homeZ) < species.combat().territoryRadius() * 1.5 ? 1 : 0;
+            }
         }
+        assertTrue(home >= samples * 0.75f, "the leader stays around home: " + home + " of " + samples);
+        assertEquals(homeX, player.homeX, 1e-4f, "home does not follow the leader");
     }
 
     @Test
@@ -266,7 +273,7 @@ class EarlyGameTest {
         assertFalse(world.playerDefeated());
         ComponentStore<Believer> believers = world.ecs().store(Believer.class);
         for (int i = 0; i < believers.size(); i++) {
-            world.ecs().get(believers.entityAt(i), Health.class).hp = 0f;
+            world.ecs().get(believers.entityAt(i), Health.class).hp = -1f; // below what one tick of healing gives back
         }
         run(world, 1, 2);
         assertTrue(world.playerDefeated());

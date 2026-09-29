@@ -122,11 +122,27 @@ class NatureTest {
         assertTrue(seen.size() >= 2 || a.nature().weatherUntilTick() > 0, "weather periods: " + seen);
     }
 
+    /** Moves the creature to the nearest land outside every refuge. */
+    private static void outInTheOpen(World world, int entity) {
+        evolvia.components.Transform t = world.ecs().get(entity, evolvia.components.Transform.class);
+        for (int r = 0; r < 60; r++) {
+            for (int k = 0; k < 16; k++) {
+                float x = t.position.x + (float) Math.sin(k * Math.PI / 8) * r;
+                float z = t.position.z + (float) Math.cos(k * Math.PI / 8) * r;
+                if (world.terrain().isPassable((int) x, (int) z) && world.refuges().at(x, z) == null) {
+                    world.moveCreature(entity, x, z);
+                    return;
+                }
+            }
+        }
+    }
+
     @Test
     void rainQuenchesThirstAndRefugesKeepTheBlizzardOut() {
         World world = create(4);
         Nature nature = world.nature();
         int entity = playerCreature(world);
+        outInTheOpen(world, entity); // rain falls on it (not in a refuge)
         Needs needs = world.ecs().get(entity, Needs.class);
         NeedsSystem system = new NeedsSystem(world.terrain(), world.clock(), world.refuges(), nature);
 

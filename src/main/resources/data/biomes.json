@@ -13,15 +13,16 @@
       "name": "Tundra",
       "color": "#dbe3e1",
       "fertility": 0.15,
-      "temperature": [0.0, 0.2]
+      "temperature": [0.0, 0.25],
+      "altitude": [0.12, 1.0]
     },
     {
       "id": "desert",
       "name": "Poušť",
       "color": "#e3c77a",
       "fertility": 0.05,
-      "temperature": [0.56, 1.0],
-      "moisture": [0.0, 0.45]
+      "temperature": [0.6, 1.0],
+      "moisture": [0.0, 0.42]
     },
     {
       "id": "swamp",
@@ -29,8 +30,8 @@
       "color": "#5e6b3c",
       "fertility": 0.6,
       "temperature": [0.4, 1.0],
-      "moisture": [0.62, 1.0],
-      "altitude": [0.0, 0.25]
+      "moisture": [0.7, 1.0],
+      "altitude": [0.0, 0.1]
     },
     {
       "id": "forest",

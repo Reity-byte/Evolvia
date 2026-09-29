@@ -496,6 +496,9 @@ public final class World implements EvolutionConditions {
         return true;
     }
 
+    /** How much warmer than its coldest comfort a herd's first home is (nights and winters are colder). */
+    private static final float MILD_MARGIN = 0.2f;
+
     private static Random animalRandom(long seed) {
         return new Random(seed ^ 0xa11a1L);
     }
@@ -661,6 +664,7 @@ public final class World implements EvolutionConditions {
      */
     private float[] herdSpot(Random random, float radius, List<float[]> homes, float spacing, float[] near) {
         float[] fallback = null;
+        float[] fed = null;
         float need = Math.max(radius, 10f);
         int region = near != null ? navigation.land().regionAt(near[0], near[1]) : -1;
         for (int attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
@@ -691,10 +695,25 @@ public final class World implements EvolutionConditions {
                 fallback = new float[]{x, z};
             }
             if (foodGrid.nearest(x, z, need, e -> true) >= 0 && waterGrid.nearest(x, z, need, e -> true) >= 0) {
-                return new float[]{x, z}; // good spot: food and water within the herd's area
+                if (mild(x, z)) {
+                    return new float[]{x, z}; // good spot: food and water within the herd's area, a mild climate
+                }
+                if (fed == null) {
+                    fed = new float[]{x, z};
+                }
             }
         }
-        return fallback;
+        return fed != null ? fed : fallback;
+    }
+
+    /**
+     * Whether the climate at (x, z) is mild for the species: within its comfort with room for cold nights and
+     * winters. Climate zones are large (after phase 10), so a herd born in the cold would have nowhere warm nearby.
+     */
+    private boolean mild(float x, float z) {
+        SpeciesDefinition.Climate climate = species.stats().climate();
+        float temperature = terrain.temperature(Math.clamp((int) x, 0, terrain.width() - 1), Math.clamp((int) z, 0, terrain.depth() - 1));
+        return temperature >= climate.comfortMin() + MILD_MARGIN && temperature <= climate.comfortMax();
     }
 
     /** A herd of {@code count} creatures around {@code home}, led by its oldest member. */

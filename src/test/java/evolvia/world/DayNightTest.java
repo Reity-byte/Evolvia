@@ -139,6 +139,18 @@ class DayNightTest {
         World world = World.create(config, biomes, species, tree, resources, 4);
         WorldClock clock = world.clock();
         int entity = world.ecs().store(Believer.class).entityAt(0);
+        // Herds start where it is mild (after phase 10): take it where a night can be cold.
+        float cool = world.species().stats().climate().comfortMin() + 0.05f;
+        search:
+        for (int tz = 0; tz < world.terrain().depth(); tz++) {
+            for (int tx = 0; tx < world.terrain().width(); tx++) {
+                float temperature = world.terrain().temperature(tx, tz);
+                if (world.terrain().isPassable(tx, tz) && temperature > cool - 0.03f && temperature < cool + 0.03f) {
+                    world.moveCreature(entity, tx + 0.5f, tz + 0.5f);
+                    break search;
+                }
+            }
+        }
         Transform t = world.ecs().get(entity, Transform.class);
         Needs needs = world.ecs().get(entity, Needs.class);
         Refuges none = new Refuges(world.refuges().config());

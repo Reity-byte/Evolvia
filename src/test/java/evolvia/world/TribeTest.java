@@ -249,8 +249,28 @@ class TribeTest {
             }
         }
         world.ecs().flushDestroyed();
+        // The hunted strays ~15 tiles from its herd: the others are out of the wolf's scare radius (9) but within
+        // earshot of the alarm (22), so only speech makes them run.
+        Transform lead = world.ecs().get(herd.leader >= 0 ? herd.leader : mates.getLast(), Transform.class);
+        float px = lead.position.x;
+        float pz = lead.position.z;
+        for (int k = 0; k < 16; k++) {
+            float x = lead.position.x + (float) Math.sin(k * Math.PI / 8) * 15f;
+            float z = lead.position.z + (float) Math.cos(k * Math.PI / 8) * 15f;
+            float wx = lead.position.x + (float) Math.sin(k * Math.PI / 8) * 19f;
+            float wz = lead.position.z + (float) Math.cos(k * Math.PI / 8) * 19f;
+            if (world.terrain().isPassable((int) x, (int) z) && world.terrain().isPassable((int) wx, (int) wz)) {
+                px = x;
+                pz = z;
+                break;
+            }
+        }
+        world.moveCreature(prey, px, pz);
         Transform p = world.ecs().get(prey, Transform.class);
-        world.moveCreature(wolf, p.position.x + 4f, p.position.z);
+        float dx = px - lead.position.x;
+        float dz = pz - lead.position.z;
+        float len = Math.max(1e-3f, (float) Math.hypot(dx, dz));
+        world.moveCreature(wolf, p.position.x + dx / len * 4f, p.position.z + dz / len * 4f);
         world.ecs().get(wolf, Needs.class).hunger = 0.9f;
         world.ecs().get(wolf, Needs.class).sleeping = false;
         int most = 0;

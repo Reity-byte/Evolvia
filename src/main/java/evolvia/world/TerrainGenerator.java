@@ -12,6 +12,7 @@ public final class TerrainGenerator {
 
     /** Shape of the map border falloff: 2 = circle, higher = closer to a square. */
     private static final double EDGE_SHAPE_EXPONENT = 4.0;
+    private static final long RELIEF_SALT = 0x4e11ef5L;
 
     private TerrainGenerator() {
     }
@@ -35,6 +36,10 @@ public final class TerrainGenerator {
         float seaLevel = config.seaLevel() * config.heightScale();
 
         float[] heights = generateHeights(config, heightNoise);
+        if (config.relief() != null) {
+            // Its own random (from the seed), so the world's random and everything after it stay as they were.
+            shapeRelief(config, heights, new SimplexNoise(new Random(seed ^ RELIEF_SALT)));
+        }
 
         int tiles = width * depth;
         float[] temperature = new float[tiles];
@@ -48,6 +53,9 @@ public final class TerrainGenerator {
         }
         normalize(temperature);
         normalize(moisture);
+        if (config.climate() != null) {
+            shapeClimate(config.climate(), temperature, width, depth);
+        }
         float[] baseTemperature = temperature.clone();
 
         Biome[] tileBiomes = new Biome[tiles];
@@ -96,6 +104,66 @@ public final class TerrainGenerator {
             }
         }
         return heights;
+    }
+
+    /**
+     * Reshapes the land into plains with hills here and there (in place). Water stays where the height noise put it,
+     * so coasts, lakes and islands keep their shape; above the sea the land rises over {@code coastWidth} to the
+     * plain, the plain undulates a little, and where the hill noise is above the threshold a hill rises (higher
+     * deeper inland).
+     */
+    private static void shapeRelief(WorldConfig config, float[] heights, SimplexNoise noise) {
+        WorldConfig.Relief relief = config.relief();
+        int columns = config.width() + 1;
+        int rows = config.depth() + 1;
+        float scale = config.heightScale();
+        float sea = config.seaLevel();
+        float[] hills = new float[heights.length];
+        for (int z = 0; z < rows; z++) {
+            for (int x = 0; x < columns; x++) {
+                hills[z * columns + x] = (float) sample(noise, relief.hills(), x, z);
+            }
+        }
+        normalize(hills);
+        for (int z = 0; z < rows; z++) {
+            for (int x = 0; x < columns; x++) {
+                int i = z * columns + x;
+                float h = heights[i] / scale;
+                if (h < sea) {
+                    continue; // sea and lakes keep their depth
+                }
+                float land = (h - sea) / Math.max(1e-6f, 1f - sea); // 0 at the coast, 1 at the highest noise
+                float coast = smoothstep(clamp01(land / relief.coastWidth()));
+                float ripple = (float) noise.fbm(x / relief.rippleScale() + 517.3, z / relief.rippleScale() - 211.9, 2, 2.0, 0.5);
+                float plain = sea + coast * (relief.plainHeight() + relief.ripple() * ripple);
+                float hill = smoothstep(clamp01((hills[i] - relief.hillThreshold()) / relief.hillSoftness()));
+                float inland = smoothstep(clamp01(land / (relief.coastWidth() * 3f)));
+                float mountain = smoothstep(clamp01((hills[i] - relief.mountainThreshold())
+                        / Math.max(1e-6f, 0.5f * (1f - relief.mountainThreshold())))); // full height halfway to the top
+                float height = plain + (relief.hillHeight() * hill * (1f + land) + relief.mountainHeight() * mountain) * inland;
+                heights[i] = Math.clamp(height, sea, 1f) * scale;
+            }
+        }
+    }
+
+    /**
+     * Large climate zones (in place): part of the temperature follows the map from the cold north to the warm south,
+     * and the lowlands never get as cold as tundra; only altitude (mountains) brings snow.
+     */
+    private static void shapeClimate(WorldConfig.ClimateShape climate, float[] temperature, int width, int depth) {
+        for (int tz = 0; tz < depth; tz++) {
+            float latitude = (tz + 0.5f) / depth;
+            for (int tx = 0; tx < width; tx++) {
+                int i = tz * width + tx;
+                float t = (1f - climate.latitudeWeight()) * temperature[i] + climate.latitudeWeight() * latitude;
+                temperature[i] = t;
+            }
+        }
+        normalize(temperature);
+        for (int i = 0; i < temperature.length; i++) {
+            float t = 0.5f + (temperature[i] - 0.5f) * climate.contrast();
+            temperature[i] = climate.lowlandFloor() + (1f - climate.lowlandFloor()) * t;
+        }
     }
 
     /**

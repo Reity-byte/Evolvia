@@ -4,6 +4,7 @@ import evolvia.components.SpeciesRef;
 import evolvia.components.Transform;
 import evolvia.core.Time;
 import evolvia.data.DataLoader;
+import evolvia.ecs.ComponentStore;
 import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.SpeciesDefinition;
 import evolvia.god.DivinePower;
@@ -109,8 +110,10 @@ class SaveLoadTest {
                         }
                     }
                 }
-                int patient = world.ecs().store(SpeciesRef.class).entityAt(1);
-                evolvia.components.Sick.infect(world.ecs(), patient, tick, 3000, 3000);
+                ComponentStore<evolvia.components.Believer> people = world.ecs().store(evolvia.components.Believer.class);
+                for (int i = 0; i < people.size() && i < 5; i++) { // a few, so one survives until the check
+                    evolvia.components.Sick.infect(world.ecs(), people.entityAt(i), tick, 3000, 3000);
+                }
             }
             case 2000 -> { // phase 9d: a sacred place (saved with the refuges)
                 world.godPowers().faith().add(100f);

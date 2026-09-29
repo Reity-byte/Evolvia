@@ -96,7 +96,9 @@ class TerrainGeneratorTest {
 
     @Test
     void everyBiomeAppearsWithDefaultData() {
-        for (long seed : new long[]{1, 2, 3, 42}) {
+        // Climate zones are large (after phase 10), so a single map need not have every biome; together they do.
+        Set<String> all = new HashSet<>();
+        for (long seed : new long[]{1, 2, 3, 42, 99}) {
             Terrain terrain = TerrainGenerator.generate(config, biomes, seed);
             Set<String> seen = new HashSet<>();
             for (int z = 0; z < terrain.depth(); z++) {
@@ -104,9 +106,86 @@ class TerrainGeneratorTest {
                     seen.add(terrain.biome(x, z).id());
                 }
             }
-            for (Biome biome : biomes.all()) {
-                assertTrue(seen.contains(biome.id()), "seed " + seed + ": biome '" + biome.id() + "' missing");
+            assertTrue(seen.size() >= biomes.all().size() - 1, "seed " + seed + ": only " + seen);
+            assertTrue(seen.contains("tundra"), "seed " + seed + ": every map has snowy mountains");
+            all.addAll(seen);
+        }
+        for (Biome biome : biomes.all()) {
+            assertTrue(all.contains(biome.id()), "biome '" + biome.id() + "' missing");
+        }
+    }
+
+    /** Height difference within the tile (world units). */
+    private static float relief(Terrain t, int x, int z) {
+        float h0 = t.cornerHeight(x, z);
+        float h1 = t.cornerHeight(x + 1, z);
+        float h2 = t.cornerHeight(x, z + 1);
+        float h3 = t.cornerHeight(x + 1, z + 1);
+        return Math.max(Math.max(h0, h1), Math.max(h2, h3)) - Math.min(Math.min(h0, h1), Math.min(h2, h3));
+    }
+
+    private static float altitude(Terrain t, int x, int z) {
+        return (t.heightAt(x + 0.5f, z + 0.5f) - t.seaLevel()) / (config.heightScale() - t.seaLevel());
+    }
+
+    @Test
+    void theLandIsMostlyPlainWithHillsAndMountainsHereAndThere() {
+        for (long seed : new long[]{1, 7, 42, 99}) {
+            Terrain t = TerrainGenerator.generate(config, biomes, seed);
+            int land = 0;
+            int flat = 0;
+            int steep = 0;
+            int high = 0;
+            for (int z = 0; z < t.depth(); z++) {
+                for (int x = 0; x < t.width(); x++) {
+                    if (!t.isPassable(x, z)) {
+                        continue;
+                    }
+                    land++;
+                    float d = relief(t, x, z);
+                    flat += d < 0.25f ? 1 : 0;
+                    steep += d > 0.8f ? 1 : 0;
+                    high += altitude(t, x, z) > 0.35f ? 1 : 0;
+                }
             }
+            assertTrue(flat > 0.6f * land, "seed " + seed + ": flat " + flat + " of " + land);
+            assertTrue(steep < 0.13f * land, "seed " + seed + ": steep " + steep + " of " + land);
+            assertTrue(high > 0.005f * land, "seed " + seed + ": no mountains");
+        }
+    }
+
+    @Test
+    void snowLiesOnlyUpInTheMountainsAndClimateZonesAreLarge() {
+        for (long seed : new long[]{1, 7, 42, 99}) {
+            Terrain t = TerrainGenerator.generate(config, biomes, seed);
+            int tundra = 0;
+            int clustered = 0;
+            int pairs = 0;
+            int changes = 0;
+            for (int z = 1; z < t.depth() - 1; z++) {
+                for (int x = 1; x < t.width() - 1; x++) {
+                    if (!t.isPassable(x, z)) {
+                        continue;
+                    }
+                    String id = t.biome(x, z).id();
+                    if (id.equals("tundra")) {
+                        tundra++;
+                        assertTrue(altitude(t, x, z) > 0.1f, "seed " + seed + ": snow in the lowland at " + x + "," + z);
+                        int near = 0;
+                        for (int[] d : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                            near += t.biome(x + d[0], z + d[1]).id().equals("tundra") ? 1 : 0;
+                        }
+                        clustered += near >= 2 ? 1 : 0;
+                    }
+                    if (t.isPassable(x + 1, z)) {
+                        pairs++;
+                        changes += id.equals(t.biome(x + 1, z).id()) ? 0 : 1;
+                    }
+                }
+            }
+            assertTrue(tundra > 0, "seed " + seed);
+            assertTrue(clustered > 0.8f * tundra, "seed " + seed + ": snow in patches, " + clustered + " of " + tundra);
+            assertTrue(changes < 0.05f * pairs, "seed " + seed + ": small climate patches, " + changes + " changes of " + pairs);
         }
     }
 

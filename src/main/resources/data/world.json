@@ -6,9 +6,22 @@
   "height": { "scale": 110.0, "octaves": 4, "lacunarity": 2.0, "gain": 0.42 },
   "heightExponent": 1.2,
   "edgeFalloff": { "width": 28.0, "minFactor": 0.0 },
-  "temperature": { "scale": 220.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
-  "altitudeCooling": 0.25,
-  "moisture": { "scale": 160.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
+  "temperature": { "scale": 300.0, "octaves": 2, "lacunarity": 2.0, "gain": 0.4 },
+  "altitudeCooling": 1.0,
+  "moisture": { "scale": 220.0, "octaves": 2, "lacunarity": 2.0, "gain": 0.4 },
   "water": { "color": "#2f6fa8", "alpha": 0.72, "shallowDepth": 2.5 },
-  "time": { "dayLengthSeconds": 480, "startTimeOfDay": 0.3, "nightCooling": 0.12 }
+  "time": { "dayLengthSeconds": 480, "startTimeOfDay": 0.3, "nightCooling": 0.12 },
+  "relief": {
+    "plainHeight": 0.06,
+    "coastWidth": 0.25,
+    "ripple": 0.025,
+    "rippleScale": 45.0,
+    "hills": { "scale": 55.0, "octaves": 3, "lacunarity": 2.0, "gain": 0.5 },
+    "hillThreshold": 0.62,
+    "hillSoftness": 0.35,
+    "hillHeight": 0.14,
+    "mountainThreshold": 0.76,
+    "mountainHeight": 0.45
+  },
+  "climate": { "latitudeWeight": 0.5, "lowlandFloor": 0.0, "contrast": 0.75 }
 }
