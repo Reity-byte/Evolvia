@@ -60,10 +60,12 @@ public record WorldConfig(
      * @param hillHeight     height of the hills; they grow up to twice as high deep inland
      * @param mountainThreshold where the hill noise is above this, the hill grows into a mountain
      * @param mountainHeight extra height of the mountains (their tops get snow through {@code altitudeCooling})
+     * @param talus          steepest slope (world units per tile) land keeps; steeper land slides down (0 = none)
+     * @param erosion        rounds of sliding (thermal erosion)
      */
     public record Relief(float plainHeight, float coastWidth, float ripple, float rippleScale, NoiseSettings hills,
                          float hillThreshold, float hillSoftness, float hillHeight, float mountainThreshold,
-                         float mountainHeight) {
+                         float mountainHeight, float talus, int erosion) {
     }
 
     /**
@@ -120,7 +122,8 @@ public record WorldConfig(
                             && relief.hillHeight() >= 0 && seaLevel + relief.plainHeight() + 2 * relief.hillHeight() <= 1.5f, source,
                     "relief: non-negative heights, coastWidth, rippleScale and hillSoftness > 0, hillThreshold in [0, 1)");
             require(relief.mountainThreshold() > relief.hillThreshold() && relief.mountainThreshold() < 1
-                    && relief.mountainHeight() >= 0, source, "relief: hillThreshold < mountainThreshold < 1, mountainHeight >= 0");
+                    && relief.mountainHeight() >= 0 && relief.talus() >= 0 && relief.erosion() >= 0, source,
+                    "relief: hillThreshold < mountainThreshold < 1, mountainHeight, talus and erosion >= 0");
         }
         if (climate != null) {
             require(climate.latitudeWeight() >= 0 && climate.latitudeWeight() <= 1 && climate.lowlandFloor() >= 0

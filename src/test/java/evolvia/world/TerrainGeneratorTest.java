@@ -151,6 +151,16 @@ class TerrainGeneratorTest {
             assertTrue(flat > 0.6f * land, "seed " + seed + ": flat " + flat + " of " + land);
             assertTrue(steep < 0.13f * land, "seed " + seed + ": steep " + steep + " of " + land);
             assertTrue(high > 0.005f * land, "seed " + seed + ": no mountains");
+            float steepest = 0f;
+            for (int z = 0; z < t.depth(); z++) {
+                for (int x = 0; x < t.width(); x++) {
+                    if (t.isPassable(x, z)) {
+                        steepest = Math.max(steepest, relief(t, x, z));
+                    }
+                }
+            }
+            // Mountains fall into foothills (thermal erosion): no walls anywhere on land.
+            assertTrue(steepest < 3f * config.relief().talus(), "seed " + seed + ": a wall " + steepest + " high in one tile");
         }
     }
 

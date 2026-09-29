@@ -21,7 +21,9 @@
     "hillSoftness": 0.35,
     "hillHeight": 0.14,
     "mountainThreshold": 0.76,
-    "mountainHeight": 0.45
+    "mountainHeight": 0.45,
+    "talus": 1.0,
+    "erosion": 60
   },
   "climate": { "latitudeWeight": 0.5, "lowlandFloor": 0.0, "contrast": 0.75 }
 }

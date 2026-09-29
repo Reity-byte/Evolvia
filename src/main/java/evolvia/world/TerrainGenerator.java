@@ -138,10 +138,58 @@ public final class TerrainGenerator {
                 float plain = sea + coast * (relief.plainHeight() + relief.ripple() * ripple);
                 float hill = smoothstep(clamp01((hills[i] - relief.hillThreshold()) / relief.hillSoftness()));
                 float inland = smoothstep(clamp01(land / (relief.coastWidth() * 3f)));
-                float mountain = smoothstep(clamp01((hills[i] - relief.mountainThreshold())
-                        / Math.max(1e-6f, 0.5f * (1f - relief.mountainThreshold())))); // full height halfway to the top
+                // A mountain rises out of its hills all the way up to the top of the noise (no step).
+                float peak = clamp01((hills[i] - relief.mountainThreshold()) / Math.max(1e-6f, 1f - relief.mountainThreshold()));
+                float mountain = (float) Math.pow(smoothstep(peak), 0.75);
                 float height = plain + (relief.hillHeight() * hill * (1f + land) + relief.mountainHeight() * mountain) * inland;
-                heights[i] = Math.clamp(height, sea, 1f) * scale;
+                heights[i] = softCap(Math.max(height, sea)) * scale;
+            }
+        }
+        if (relief.talus() > 0f && relief.erosion() > 0) {
+            erode(heights, columns, rows, sea * scale + 0.01f, relief.talus(), relief.erosion());
+        }
+    }
+
+    /** Heights near the top bend under 1 instead of being cut flat there (no table mountains from the cap). */
+    private static float softCap(float h) {
+        float knee = 0.8f;
+        if (h <= knee) {
+            return h;
+        }
+        float over = h - knee;
+        return knee + (1f - knee) * over / (over + (1f - knee));
+    }
+
+    /**
+     * Thermal erosion (in place): wherever land is steeper than {@code talus} (world units per tile) towards a
+     * neighbouring land corner, some of the difference slides down, for {@code iterations} rounds. Mountains get
+     * slopes that fall into foothills instead of walls. Only land moves (the sea and the coasts keep their shape).
+     */
+    private static void erode(float[] heights, int columns, int rows, float sea, float talus, int iterations) {
+        float[] delta = new float[heights.length];
+        int[][] neighbours = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int round = 0; round < iterations; round++) {
+            java.util.Arrays.fill(delta, 0f);
+            for (int z = 1; z < rows - 1; z++) {
+                for (int x = 1; x < columns - 1; x++) {
+                    int i = z * columns + x;
+                    float h = heights[i];
+                    if (h <= sea) {
+                        continue;
+                    }
+                    for (int[] n : neighbours) {
+                        int j = (z + n[1]) * columns + x + n[0];
+                        float drop = h - heights[j];
+                        if (heights[j] > sea && drop > talus) {
+                            float move = (drop - talus) * 0.2f; // a quarter-ish per neighbour keeps it stable
+                            delta[i] -= move;
+                            delta[j] += move;
+                        }
+                    }
+                }
+            }
+            for (int i = 0; i < heights.length; i++) {
+                heights[i] += delta[i];
             }
         }
     }
