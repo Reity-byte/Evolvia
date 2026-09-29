@@ -123,7 +123,8 @@ public final class Groups {
     }
 
     public static boolean enemies(Group a, Group b) {
-        return a != null && b != null && a != b && !(a.player && b.player) && a.species == b.species; // territory: own kind
+        return a != null && b != null && a != b && !(a.player && b.player) && a.species == b.species // territory: own kind
+                && (a.species == null || !a.species.isRival()); // the rival people are one people (phase 11)
     }
 
     /** Called when a creature dies: a dead leader has to be replaced. */

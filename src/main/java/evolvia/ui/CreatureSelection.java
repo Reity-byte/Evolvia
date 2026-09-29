@@ -185,9 +185,9 @@ public final class CreatureSelection {
             }
             hand.add(HandAction.HEAL);
         }
-        boolean animal = ref.species.isAnimal();
+        boolean animal = !ref.species.canBelieve();
         if (!animal) {
-            hand.add(HandAction.BLESS); // wild game does not believe
+            hand.add(HandAction.BLESS); // wild game and the rival do not believe
         }
         int handRows = (hand.size() + 2) / 3;
         float h = padding + ui.title.lineHeight() + line + 6f + 4 * (line + 2f) + 8f + 7 * line + 10f
@@ -224,7 +224,11 @@ public final class CreatureSelection {
         ui.text(ui.regular, String.format(Locale.ROOT, "Generace %d, potomků %d", genome.generation, reproduction.offspring),
                 x + padding, ty, Ui.TEXT);
         ty += line;
-        String herd = animal
+        boolean game = ref.species.isAnimal();
+        String herd = ref.species.isRival()
+                ? "Soupeř (" + ref.species.stats().name() + ")" + (group != null ? String.format(Locale.ROOT, " · %s #%d (%d)",
+                group.tribe ? "kmen" : "stádo", group.id, group.size) : "")
+                : game
                 ? (ref.species.animal().isPredator() ? "Zvěř, predátor" : "Zvěř, kořist")
                         + (group != null ? String.format(Locale.ROOT, " · %s #%d (%d)",
                         ref.species.animal().isPredator() ? "smečka" : "stádo", group.id, group.size) : "")
@@ -235,7 +239,7 @@ public final class CreatureSelection {
                 : group != null && group.leader == entity ? Ui.TEXT_ACCENT : Ui.TEXT);
         ty += line;
         int latest = ref.species.latestStage().index();
-        ui.text(ui.regular, animal ? (ref.species.animal().nocturnal() ? "Loví v noci, ve dne spí" : "Vývoj: divoká zvěř")
+        ui.text(ui.regular, game ? (ref.species.animal().nocturnal() ? "Loví v noci, ve dne spí" : "Vývoj: divoká zvěř")
                         : latest == 0 ? "Vývoj: původní druh"
                         : String.format(Locale.ROOT, "Vývoj: %d z %d znaků%s", ref.stage, latest, ref.stage < latest ? " (starší generace)" : ""),
                 x + padding, ty, ref.stage < latest ? Ui.TEXT_DIM : Ui.TEXT);
@@ -254,7 +258,7 @@ public final class CreatureSelection {
         if (role != null) {
             work = (role.builder ? "Stavitel" : "Sběrač") + " · " + work;
         }
-        ui.text(ui.regular, animal ? "" : work, x + padding, ty, Ui.TEXT_DIM);
+        ui.text(ui.regular, game ? "" : work, x + padding, ty, Ui.TEXT_DIM);
         ty += line + 10f;
 
         // The god's hand (nothing for wild game: it can only be the target of an attack order)

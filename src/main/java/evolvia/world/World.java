@@ -1,5 +1,6 @@
 package evolvia.world;
 
+import evolvia.systems.RivalSystem;
 import evolvia.systems.ScienceSystem;
 import evolvia.systems.TribeSystem;
 import evolvia.ai.ActionContext;
@@ -104,6 +105,9 @@ public final class World implements EvolutionConditions {
     private final Refuges refuges = new Refuges(DataLoader.loadRefuges());
     /** Wild game and the rules of hunting (phase 9f). */
     private final Wildlife.Config wildlife = DataLoader.loadAnimals();
+    /** The rival people (phase 11). */
+    private final Rivals.Config rivals;
+    private final RivalSystem rivalSystem;
     private final WorldClock clock;
     private final Nature nature;
     /** Tick being simulated (or last simulated), for the clock and milestones. */
@@ -125,6 +129,8 @@ public final class World implements EvolutionConditions {
         this.species = species;
         this.resourceTable = resourceTable;
         this.science = new Science(DataLoader.loadScience(), species);
+        this.rivals = DataLoader.loadRivals(species.tree());
+        this.rivalSystem = new RivalSystem(rivals);
         this.foodGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.waterGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
         this.materialGrid = new SpatialGrid(terrain.width(), terrain.depth(), GRID_CELL_SIZE);
@@ -160,6 +166,7 @@ public final class World implements EvolutionConditions {
                 reproductionSystem,
                 agingSystem,
                 new GroupSystem(groups, creatureGrid, clock, refuges, species),
+                rivalSystem,
                 evolutionSystem,
                 new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
                         godConfig.sanctify().faithPerSleeperPerMinute(), this::shrineFaithPerMinute),
@@ -181,6 +188,7 @@ public final class World implements EvolutionConditions {
         world.spawnMaterials(materialRandom(seed));
         world.spawnPopulation(random);
         world.spawnAnimals(animalRandom(seed));
+        world.spawnRivals(rivalRandom(seed));
         world.history.record(world.creatureCount(), world.totalFood());
         return world;
     }
@@ -367,6 +375,95 @@ public final class World implements EvolutionConditions {
     /** Places wild game in a world loaded from a save made before there was any: the same as in a new world. */
     public void placeAnimalsAfterLoad(long seed) {
         spawnAnimals(animalRandom(seed));
+    }
+
+    /** Places the rival people in a world loaded from a save made before there were any (phase 11). */
+    public void placeRivalsAfterLoad(long seed) {
+        spawnRivals(rivalRandom(seed));
+    }
+
+    private static Random rivalRandom(long seed) {
+        return new Random(seed ^ 0x51a7a1L);
+    }
+
+    /**
+     * The rival people (phase 11): its herds as far from the player's people as possible (on the same land when
+     * there is room), in a mild climate with food and water, next to each other.
+     */
+    private void spawnRivals(Random random) {
+        Groups.Group player = groups.all().stream().filter(g -> g.player).findFirst().orElse(null);
+        if (player == null) {
+            return;
+        }
+        Species kind = rivals.species();
+        int region = navigation.land().regionAt(player.homeX, player.homeZ);
+        float[] best = null;
+        double bestScore = -1;
+        for (int attempt = 0; attempt < SPAWN_ATTEMPTS * 4; attempt++) {
+            int tx = random.nextInt(terrain.width());
+            int tz = random.nextInt(terrain.depth());
+            float x = tx + 0.5f;
+            float z = tz + 0.5f;
+            int tileRegion = navigation.land().regionAt(x, z);
+            if (tileRegion < 0 || foodGrid.nearest(x, z, 12f, e -> true) < 0 || waterGrid.nearest(x, z, 12f, e -> true) < 0) {
+                continue;
+            }
+            double score = Math.hypot(x - player.homeX, z - player.homeZ)
+                    + (tileRegion == region ? 1000 : 0) + (mild(x, z) ? 500 : 0); // same land and mild first, then far
+            if (score > bestScore) {
+                bestScore = score;
+                best = new float[]{x, z};
+            }
+        }
+        if (best == null) {
+            return; // no room (tiny map)
+        }
+        for (int h = 0; h < rivals.herds(); h++) {
+            float[] home = best;
+            for (int attempt = 0; attempt < SPAWN_ATTEMPTS && h > 0; attempt++) {
+                float angle = random.nextFloat() * TWO_PI;
+                float x = best[0] + (float) Math.sin(angle) * 14f;
+                float z = best[1] + (float) Math.cos(angle) * 14f;
+                if (navigation.land().regionAt(x, z) == navigation.land().regionAt(best[0], best[1])) {
+                    home = new float[]{x, z};
+                    break;
+                }
+            }
+            int size = rivals.herdSize()[0] + random.nextInt(rivals.herdSize()[1] - rivals.herdSize()[0] + 1);
+            spawnAnimalHerd(kind, random, home, size);
+        }
+    }
+
+    /** The rival people (phase 11). */
+    public Rivals.Config rivals() {
+        return rivals;
+    }
+
+    public RivalSystem rivalSystem() {
+        return rivalSystem;
+    }
+
+    /** Creatures of the rival people (phase 11). */
+    public int rivalCount() {
+        ComponentStore<SpeciesRef> creatures = ecs.store(SpeciesRef.class);
+        int count = 0;
+        for (int i = 0; i < creatures.size(); i++) {
+            if (creatures.componentAt(i).species == rivals.species()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** The rival's biggest herd, or null when it is gone. */
+    public Groups.Group rivalHerd() {
+        Groups.Group best = null;
+        for (Groups.Group group : groups.all()) {
+            if (group.species == rivals.species() && (best == null || group.size > best.size)) {
+                best = group;
+            }
+        }
+        return best;
     }
 
     /** Places trees and rocks in a world loaded from a save made before there were any. */
@@ -823,7 +920,7 @@ public final class World implements EvolutionConditions {
             fear.fromZ = z;
             fear.distance = fleeDistance;
             fear.untilTick = tick + scareTicks;
-            if (!ecs.get(entity, SpeciesRef.class).species.isAnimal() && ecs.get(entity, Believer.class) == null) {
+            if (ecs.get(entity, SpeciesRef.class).species.canBelieve() && ecs.get(entity, Believer.class) == null) {
                 ecs.add(entity, new Believer());
             }
         }
@@ -970,7 +1067,7 @@ public final class World implements EvolutionConditions {
             return false;
         }
         boolean own = ecs.get(entity, Believer.class) != null;
-        boolean animal = ecs.get(entity, SpeciesRef.class).species.isAnimal();
+        boolean animal = !ecs.get(entity, SpeciesRef.class).species.canBelieve(); // game or the rival (phase 11)
         GroupMember member = ecs.get(entity, GroupMember.class);
         Groups.Group group = member != null ? groups.get(member.group) : null;
         boolean leader = group != null && group.player && group.leader == entity;
@@ -1021,7 +1118,7 @@ public final class World implements EvolutionConditions {
                     needs.hunger = Math.max(0f, needs.hunger - 0.3f);
                     needs.thirst = Math.max(0f, needs.thirst - 0.3f);
                 } else if (animal) {
-                    return false; // wild game does not believe
+                    return false; // wild game and the rival do not believe
                 } else {
                     ecs.add(entity, new Believer());
                 }
@@ -1261,7 +1358,7 @@ public final class World implements EvolutionConditions {
 
     /** Wild game (phase 9f). */
     public int animalCount() {
-        return ecs.store(SpeciesRef.class).size() - creatureCount();
+        return ecs.store(SpeciesRef.class).size() - creatureCount() - rivalCount();
     }
 
     /** Creatures of one animal species. */
@@ -1283,6 +1380,9 @@ public final class World implements EvolutionConditions {
 
     /** The player's species or a wild game species by id, or null. */
     public Species speciesById(String id) {
+        if (rivals.species().id().equals(id)) {
+            return rivals.species();
+        }
         return species.id().equals(id) ? species : wildlife.byId(id);
     }
 

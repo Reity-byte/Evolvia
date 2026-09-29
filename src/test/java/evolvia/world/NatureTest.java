@@ -172,6 +172,17 @@ class NatureTest {
         int durationTicks = SpeciesDefinition.secondsToTicks(world.nature().config().disease().durationSeconds());
         assertTrue(Sick.infect(world.ecs(), patient, 0, durationTicks, 1000));
         assertFalse(Sick.infect(world.ecs(), patient, 0, durationTicks, 1000), "no second infection");
+        // A few herd mates right next to the patient (spreading is a matter of chance per second and distance).
+        evolvia.components.Transform at = world.ecs().get(patient, evolvia.components.Transform.class);
+        ComponentStore<GroupMember> mates = world.ecs().store(GroupMember.class);
+        int moved = 0;
+        for (int i = 0; i < mates.size() && moved < 5; i++) {
+            int mate = mates.entityAt(i);
+            if (mate != patient && mates.componentAt(i).group == herd.id) {
+                world.moveCreature(mate, at.position.x + 0.5f * (moved + 1), at.position.z);
+                moved++;
+            }
+        }
 
         int tick = run(world, 0, 60 * Time.TICKS_PER_SECOND);
         Health health = world.ecs().get(patient, Health.class);

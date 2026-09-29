@@ -286,7 +286,7 @@ public final class ActionContext {
 
     /** Makes the current creature a believer (it used something the god caused). */
     public void makeBeliever() {
-        if (!kind.isAnimal() && ecs.get(entity, Believer.class) == null) {
+        if (kind.canBelieve() && ecs.get(entity, Believer.class) == null) {
             ecs.add(entity, new Believer());
         }
     }
@@ -328,6 +328,9 @@ public final class ActionContext {
         Groups.Group theirGroup = theirs != null ? groups.get(theirs.group) : null;
         if (myGroup != null && theirGroup != null && myGroup.attackOrdered(tick) && myGroup.attackGroup == theirGroup.id) {
             return true; // the god ordered it (also a hunt)
+        }
+        if (myGroup != null && theirGroup != null && theirGroup.attackOrdered(tick) && theirGroup.attackGroup == myGroup.id) {
+            return true; // they came to fight us
         }
         Species theirKind = creatures.get(other).species;
         if (theirKind != kind) {
@@ -552,8 +555,8 @@ public final class ActionContext {
         Groups.Group mine = group();
         boolean sameKind = creatures.get(target) != null && creatures.get(target).species == kind;
         if (health.hp <= 0f) {
-            if (mine != null && mine.player && (sameKind || creatures.get(target).species.isAnimal())) {
-                groups.recordPlayerVictory(); // a wild rival, a predator or game (phase 9i)
+            if (mine != null && mine.player && (sameKind || !creatures.get(target).species.canBelieve())) {
+                groups.recordPlayerVictory(); // a wild rival, a predator, game (phase 9i) or the rival people (phase 11)
             }
             return true; // the aging system removes it this tick ("in a fight")
         }

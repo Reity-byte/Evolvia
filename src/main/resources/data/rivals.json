@@ -1,0 +1,29 @@
+{
+  "rival": {
+    "id": "rival",
+    "herds": 2,
+    "herdSize": [6, 8],
+    "start": ["body_larger", "adapt_fur", "body_strong_legs", "body_tough_hide", "diet_omnivore"],
+    "plan": [
+      { "minute": 6, "node": "mind_instincts" },
+      { "minute": 10, "node": "body_upright" },
+      { "minute": 14, "node": "mind_memory" },
+      { "minute": 18, "node": "body_bipedal" },
+      { "minute": 22, "node": "mind_social_groups" },
+      { "minute": 26, "node": "body_hands" },
+      { "minute": 30, "node": "body_keen_eyes" },
+      { "minute": 34, "node": "trait_strength_1" },
+      { "minute": 38, "node": "mind_speech" },
+      { "minute": 44, "node": "trait_strength_2" },
+      { "minute": 50, "node": "trait_endurance_1" },
+      { "minute": 56, "node": "trait_resilience_1" },
+      { "minute": 64, "node": "trait_strength_3" }
+    ],
+    "species": {
+      "name": "Hrubci",
+      "color": "#6e5c4f",
+      "population": { "starting": 0, "max": 70, "wildHerds": 0, "wildHerdSize": 0 },
+      "climate": { "comfortMin": 0.2, "comfortMax": 0.72 }
+    }
+  }
+}

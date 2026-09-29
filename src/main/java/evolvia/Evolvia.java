@@ -319,6 +319,11 @@ public final class Evolvia implements GameLoop.Handler {
             }
             selection.buildPanel(ui, world, Hud.BAR_HEIGHT, notifications);
             bottomBar.build(ui, world);
+            float[] focus = bottomBar.takeFocus();
+            if (focus != null) {
+                selection.clear();
+                cameraController.focusOn(focus[0], focus[1], 45f);
+            }
             if (selection.hasPendingHand()) {
                 bottomBar.disarm();
             }

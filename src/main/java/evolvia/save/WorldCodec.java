@@ -72,9 +72,10 @@ public final class WorldCodec {
      * saves get the game of a new world with the same seed; 8: carried materials, camps and their stock (phase 9g),
      * older saves get the trees and rocks of a new world with the same seed; 9: the tribe, roles, buildings and
      * the god's building plans (phase 9h); 10: science (phase 10b), older saves turn the evolution node Tools into
-     * the discovery Tools and get the discoveries of the buildings they already have.
+     * the discovery Tools and get the discoveries of the buildings they already have; 11: the rival people (phase 11),
+     * older saves get the rival of a new world with the same seed.
      */
-    public static final int SAVE_VERSION = 10;
+    public static final int SAVE_VERSION = 11;
 
     /** Component types this codec saves; any other non-empty store is an error (would be lost silently). */
     private static final Set<Class<?>> SAVED = Set.of(Transform.class, PrevTransform.class, Velocity.class,
@@ -147,7 +148,8 @@ public final class WorldCodec {
                 world.nature().state((int) tick),
                 world.settlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress, b.paid,
                         b.planned, b.refuge)).toList(),
-                world.science().state());
+                world.science().state(),
+                new SaveData.RivalData(world.rivalSystem().step()));
     }
 
     private static TerrainData terrain(Terrain.Snapshot t) {
@@ -285,6 +287,9 @@ public final class WorldCodec {
             List<String> skipped = species.restore(save.species().points(), save.species().pointsEarned(), save.species().unlocked());
             World world = World.restore(save.seed(), terrain, species, data.resources(), data.shallowDepth(), data.time(),
                     data.god(), SimRandom.restore(save.random()));
+            if (save.rival() != null) {
+                world.rivalSystem().restore(save.rival().step()); // before the creatures: their stages need its nodes
+            }
             world.restoreTick((int) save.tick());
             if (save.nature() != null) {
                 world.nature().restore(save.nature());
@@ -332,6 +337,9 @@ public final class WorldCodec {
             }
             if (save.saveVersion() < 8) {
                 world.placeMaterialsAfterLoad(save.seed()); // a save from before trees and rocks
+            }
+            if (save.rival() == null) {
+                world.placeRivalsAfterLoad(save.seed()); // a save from before the rival people
             }
             if (save.milestones() != null) {
                 world.milestones().restore(save.milestones());

@@ -122,7 +122,7 @@ class WildlifeTest {
         for (int i = 0; i < members.size(); i++) {
             Groups.Group group = world.groups().get(members.componentAt(i).group);
             Species kind = world.ecs().get(members.entityAt(i), SpeciesRef.class).species;
-            assertEquals(kind.isAnimal() ? kind : null, group.species, "a herd has one species");
+            assertEquals(kind.canBelieve() ? null : kind, group.species, "a herd has one species");
             if (kind.isAnimal()) {
                 assertFalse(group.player);
             }

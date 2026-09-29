@@ -222,8 +222,18 @@ public final class BottomBar {
         return top + 14f + ui.regular.lineHeight();
     }
 
-    /** The people, the tribe and its mood, the wild kin and the game. */
-    private static void people(Ui ui, World world, float x, float top) {
+    /** Where the camera should go (a click on the rival), or null; taken by {@link #takeFocus()}. */
+    private float[] focus;
+
+    /** The point to move the camera to after a click in the bar, or null (phase 11). */
+    public float[] takeFocus() {
+        float[] taken = focus;
+        focus = null;
+        return taken;
+    }
+
+    /** The people, the tribe and its mood, the wild kin, the rival (click: look at it) and the game. */
+    private void people(Ui ui, World world, float x, float top) {
         float y = line1(ui, top);
         float dx = stat(ui, "Lid", Integer.toString(world.population()), Ui.TEXT, x, y);
         Groups.Group tribe = world.tribeGroup();
@@ -233,13 +243,17 @@ public final class BottomBar {
         }
         y = line2(ui, top);
         dx = stat(ui, "Divocí", Integer.toString(world.creatureCount() - world.population()), Ui.TEXT, x, y);
-        stat(ui, "Zvěř", Integer.toString(world.animalCount()), Ui.TEXT, x + dx, y);
+        int rivals = world.rivalCount();
+        float rw = stat(ui, "Soupeř", Integer.toString(rivals), rivals > 0 ? 0xFFE08A7A : Ui.TEXT_DIM, x + dx, y);
+        Groups.Group rivalHerd = world.rivalHerd();
+        if (rivalHerd != null && ui.clicked(x + dx - 4f, y - 2f, rw, ui.regular.lineHeight() + 4f)) {
+            focus = new float[]{rivalHerd.homeX, rivalHerd.homeZ}; // look at the rival
+        }
         if (ui.hovered(x, top, PEOPLE_WIDTH, HEIGHT)) {
-            String text = tribe != null
-                    ? String.format(Locale.ROOT, "Tvůj lid %d, z toho kmen %d (%s) · divocí lidé %d · zvěř %d",
-                    world.population(), tribe.size, mood.label, world.creatureCount() - world.population(), world.animalCount())
-                    : String.format(Locale.ROOT, "Tvůj lid %d · divocí lidé %d · zvěř %d (kmen vznikne s uzlem Kmen)",
-                    world.population(), world.creatureCount() - world.population(), world.animalCount());
+            String rival = world.rivals().species().stats().name();
+            String text = String.format(Locale.ROOT, "Tvůj lid %d%s · divocí lidé %d · soupeř %s %d (klik: ukázat) · zvěř %d",
+                    world.population(), tribe != null ? String.format(Locale.ROOT, ", z toho kmen %d (%s)", tribe.size, mood.label) : "",
+                    world.creatureCount() - world.population(), rival, rivals, world.animalCount());
             hint(ui, text, x, top);
         }
     }

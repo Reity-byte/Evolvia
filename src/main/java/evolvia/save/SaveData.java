@@ -30,7 +30,21 @@ public record SaveData(
         List<RefugeData> refuges,
         Nature.State nature,
         List<BuildingData> buildings,
-        evolvia.world.Science.State science) {
+        evolvia.world.Science.State science,
+        RivalData rival) {
+
+    /** The rival people (phase 11): how far its evolution plan has come. */
+    public record RivalData(int step) {
+    }
+
+    /** A save without the rival (older versions and tests). */
+    public SaveData(int saveVersion, Meta meta, long seed, long tick, String speed, View view, SimRandom.State random,
+                    TerrainData terrain, SpeciesData species, GodData god, StatsData stats, EcsData ecs, int[] pathQueue,
+                    GroupsData groups, List<String> milestones, List<RefugeData> refuges, Nature.State nature,
+                    List<BuildingData> buildings, evolvia.world.Science.State science) {
+        this(saveVersion, meta, seed, tick, speed, view, random, terrain, species, god, stats, ecs, pathQueue, groups,
+                milestones, refuges, nature, buildings, science, null);
+    }
 
     /** A save without science (older versions and tests). */
     public SaveData(int saveVersion, Meta meta, long seed, long tick, String speed, View view, SimRandom.State random,
@@ -38,7 +52,7 @@ public record SaveData(
                     GroupsData groups, List<String> milestones, List<RefugeData> refuges, Nature.State nature,
                     List<BuildingData> buildings) {
         this(saveVersion, meta, seed, tick, speed, view, random, terrain, species, god, stats, ecs, pathQueue, groups,
-                milestones, refuges, nature, buildings, null);
+                milestones, refuges, nature, buildings, null, null);
     }
 
     /** Shown in the save list. */

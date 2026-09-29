@@ -61,7 +61,7 @@ class SaveLoadTest {
                 new SaveData.Meta(meta.name(), "", meta.speciesName(), meta.population(), meta.generation(), meta.tick()),
                 save.seed(), save.tick(), save.speed(), save.view(), save.random(), save.terrain(), save.species(),
                 save.god(), save.stats(), save.ecs(), save.pathQueue(), save.groups(), save.milestones(), save.refuges(), save.nature(), save.buildings(),
-                save.science());
+                save.science(), save.rival());
         return SaveManager.toJson(timeless);
     }
 

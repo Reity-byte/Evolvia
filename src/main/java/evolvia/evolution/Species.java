@@ -40,6 +40,8 @@ public final class Species {
     private final EvolutionTree tree;
     /** Wild game (phase 9f), or null for the player's species. */
     private final Animal animal;
+    /** The rival people (phase 11): not the player's, no faith, evolves by a plan. */
+    private final boolean rival;
     private final Set<String> unlocked = new LinkedHashSet<>();
     private final Set<String> abilities = new HashSet<>();
     private final Set<String> actions = new HashSet<>();
@@ -53,19 +55,49 @@ public final class Species {
     private int revision;
 
     public Species(SpeciesDefinition base, EvolutionTree tree) {
-        this(base, tree, null);
+        this(base, tree, null, false);
     }
 
     /** A species of wild game: no evolution, its look from {@code animal}. */
     public Species(SpeciesDefinition base, Animal animal) {
-        this(base, new EvolutionTree(List.of(), "none"), animal);
+        this(base, new EvolutionTree(List.of(), "none"), animal, false);
     }
 
-    private Species(SpeciesDefinition base, EvolutionTree tree, Animal animal) {
+    private Species(SpeciesDefinition base, EvolutionTree tree, Animal animal, boolean rival) {
         this.base = base;
         this.tree = tree;
         this.animal = animal;
+        this.rival = rival;
         recompute();
+    }
+
+    /** The rival people (phase 11): the same evolution tree as the player's, but its nodes come by a plan. */
+    public static Species rival(SpeciesDefinition base, EvolutionTree tree) {
+        return new Species(base, tree, null, true);
+    }
+
+    /** The rival people (phase 11). */
+    public boolean isRival() {
+        return rival;
+    }
+
+    /** Only the player's species can believe (not wild game, not the rival). */
+    public boolean canBelieve() {
+        return animal == null && !rival;
+    }
+
+    /**
+     * Gives the species a node for free, without its requirements or conditions (the rival's plan, phase 11).
+     * Unknown nodes are ignored.
+     *
+     * @return whether the node was new
+     */
+    public boolean grant(String nodeId) {
+        if (tree.node(nodeId) == null || !unlocked.add(nodeId)) {
+            return false;
+        }
+        recompute();
+        return true;
     }
 
     /** Wild game (phase 9f): no faith, no evolution, hunts or is hunted. */

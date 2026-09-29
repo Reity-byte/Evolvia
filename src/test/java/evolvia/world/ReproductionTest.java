@@ -110,7 +110,7 @@ class ReproductionTest {
             }
         }
         assertTrue(young > 0, "no young creatures after ten minutes");
-        assertEquals(world.creatureCount() + world.animalCount(), world.creatureGrid().size(), "creature grid out of sync");
+        assertEquals(world.creatureCount() + world.animalCount() + world.rivalCount(), world.creatureGrid().size(), "creature grid out of sync");
     }
 
     @Test
@@ -131,6 +131,6 @@ class ReproductionTest {
         }
         assertTrue(min > 20, "population collapsed: min " + min); // wolves hunt them too (phase 9f)
         assertTrue(max < 4 * min, "population not settled: " + min + " .. " + max); // winters thin it out (phase 9e)
-        assertEquals(world.creatureCount() + world.animalCount(), world.creatureGrid().size(), "creature grid out of sync");
+        assertEquals(world.creatureCount() + world.animalCount() + world.rivalCount(), world.creatureGrid().size(), "creature grid out of sync");
     }
 }

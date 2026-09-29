@@ -131,7 +131,7 @@ public final class GodPowerSystem implements GameSystem {
                 if (needs != null && needs.thirst >= RAIN_THIRST) {
                     needs.thirst = Math.max(0f, needs.thirst - relief);
                     SpeciesRef ref = ecs.get(entity, SpeciesRef.class);
-                    if (ref != null && !ref.species.isAnimal() && ecs.get(entity, Believer.class) == null) {
+                    if (ref != null && ref.species.canBelieve() && ecs.get(entity, Believer.class) == null) {
                         ecs.add(entity, new Believer()); // drank the god's rain
                     }
                 }

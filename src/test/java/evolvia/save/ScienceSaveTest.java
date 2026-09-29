@@ -53,7 +53,7 @@ class ScienceSaveTest {
         SaveData.Meta m = s.meta();
         return SaveManager.toJson(new SaveData(s.saveVersion(), new SaveData.Meta(m.name(), "", m.speciesName(), m.population(),
                 m.generation(), m.tick()), s.seed(), s.tick(), s.speed(), s.view(), s.random(), s.terrain(), s.species(), s.god(),
-                s.stats(), s.ecs(), s.pathQueue(), s.groups(), s.milestones(), s.refuges(), s.nature(), s.buildings(), s.science()));
+                s.stats(), s.ecs(), s.pathQueue(), s.groups(), s.milestones(), s.refuges(), s.nature(), s.buildings(), s.science(), s.rival()));
     }
 
     @Test

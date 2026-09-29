@@ -187,8 +187,8 @@ public final class GroupSystem implements GameSystem {
      * herds are believers (they are the player's people).
      */
     private static void allegiance(EcsWorld world, Groups.Group group, List<Integer> list, ComponentStore<Believer> believers) {
-        if (group.species != null && group.species.isAnimal()) {
-            return; // wild game has no faith
+        if (group.species != null && !group.species.canBelieve()) {
+            return; // wild game and the rival have no faith
         }
         if (!group.player) {
             int believing = 0;
@@ -331,7 +331,7 @@ public final class GroupSystem implements GameSystem {
             List<Integer> herd = new ArrayList<>(founders.subList(0, Math.min(founders.size(), maxSize)));
             herd.sort(null);
             Groups.Group group = groups.create();
-            group.species = kind.isAnimal() ? kind : null; // null = the player's species
+            group.species = kind.canBelieve() ? null : kind; // null = the player's species
             int believing = 0;
             for (int founder : herd) {
                 members.put(founder, new GroupMember(group.id));
@@ -342,7 +342,7 @@ public final class GroupSystem implements GameSystem {
             }
             group.leader = oldest(herd, ages, adultTicks(kind));
             group.size = herd.size();
-            group.player = !kind.isAnimal() && believing * 2 >= herd.size();
+            group.player = kind.canBelieve() && believing * 2 >= herd.size();
             Transform leader = transforms.get(group.leader);
             group.homeX = leader.position.x;
             group.homeZ = leader.position.z;

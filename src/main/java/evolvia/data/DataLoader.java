@@ -56,6 +56,7 @@ public final class DataLoader {
     public static final String REFUGES = "data/refuges.json";
     public static final String NATURE = "data/nature.json";
     public static final String ANIMALS = "data/animals.json";
+    public static final String RIVALS = "data/rivals.json";
     public static final String TRIBE = "data/tribe.json";
     public static final String SCIENCE = "data/science/science.json";
     public static final String SCIENCE_DIR = "data/science/";
@@ -231,6 +232,57 @@ public final class DataLoader {
             }
         }
         return new Wildlife.Config(hunting, List.copyOf(species));
+    }
+
+    /**
+     * Loads the rival people (phase 11) over {@code species.json}; its start nodes and plan must exist in
+     * {@code tree} (unless the tree is empty, as in some tests).
+     */
+    public static evolvia.world.Rivals.Config loadRivals(EvolutionTree tree) {
+        return parseRivals(readResource(RIVALS), readResource(SPECIES), tree, RIVALS);
+    }
+
+    public static evolvia.world.Rivals.Config parseRivals(String json, String baseSpeciesJson, EvolutionTree tree, String source) {
+        JsonObject rival;
+        JsonObject base;
+        try {
+            rival = JsonParser.parseString(json).getAsJsonObject().getAsJsonObject("rival");
+            base = JsonParser.parseString(baseSpeciesJson).getAsJsonObject();
+        } catch (RuntimeException e) {
+            throw new IllegalStateException(source + ": invalid JSON: " + e.getMessage(), e);
+        }
+        require(rival != null && rival.has("id") && rival.has("species"), source, "missing \"rival\" with \"id\" and \"species\"");
+        RivalJson r = fromJson(rival.toString(), RivalJson.class, source);
+        require(!r.id().equals(base.get("id").getAsString()), source, "the rival needs its own id");
+        require(r.herds() >= 1 && r.herdSize() != null && r.herdSize().length == 2 && r.herdSize()[0] >= 2
+                && r.herdSize()[0] <= r.herdSize()[1], source, "herds >= 1, herdSize [min, max] with 2 <= min <= max");
+        List<String> start = r.start() != null ? List.copyOf(r.start()) : List.of();
+        List<evolvia.world.Rivals.Step> plan = r.plan() != null ? List.copyOf(r.plan()) : List.of();
+        float last = 0f;
+        for (evolvia.world.Rivals.Step step : plan) {
+            require(step.node() != null && step.minute() >= last, source, "plan: nodes in the order of their minutes");
+            last = step.minute();
+        }
+        if (tree.size() > 0) {
+            for (String node : start) {
+                require(tree.node(node) != null, source, "unknown start node " + node);
+            }
+            for (evolvia.world.Rivals.Step step : plan) {
+                require(tree.node(step.node()) != null, source, "unknown plan node " + step.node());
+            }
+        }
+        JsonObject merged = base.deepCopy();
+        merge(merged, rival.getAsJsonObject("species"));
+        merged.addProperty("id", r.id());
+        SpeciesDefinition definition = parseSpecies(merged.toString(), source);
+        Species species = Species.rival(definition, tree);
+        for (String node : start) {
+            species.grant(node);
+        }
+        return new evolvia.world.Rivals.Config(species, start, plan, r.herds(), r.herdSize());
+    }
+
+    private record RivalJson(String id, int herds, int[] herdSize, List<String> start, List<evolvia.world.Rivals.Step> plan) {
     }
 
     private record AnimalJson(String role, List<String> prey, boolean nocturnal, int herds, int[] herdSize,
