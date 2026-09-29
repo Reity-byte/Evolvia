@@ -73,7 +73,15 @@ public final class ActionContext {
     /** The materials there are (wood, stone...), in name order. */
     public final java.util.List<String> materials;
     /** The tribe's buildings and mood (phase 9h). */
-    public final Settlement settlement;
+    /** The settlement of the current creature's tribe (the player's or the rival's, phase 11b). */
+    public Settlement settlement;
+    private final Settlement playerSettlement;
+    private Settlement rivalSettlement;
+
+    /** The rival's settlement (phase 11b). */
+    public void setRivalSettlement(Settlement rivalSettlement) {
+        this.rivalSettlement = rivalSettlement;
+    }
     /** Rules of the tribe (phase 9h). */
     public final Tribe.Rules tribeRules;
     /** Living creatures of each species this tick (population caps). */
@@ -138,6 +146,7 @@ public final class ActionContext {
         this.gathering = gathering;
         this.materials = java.util.List.copyOf(materials);
         this.settlement = settlement;
+        this.playerSettlement = settlement;
         this.tribeRules = settlement.config().tribe();
     }
 
@@ -240,7 +249,7 @@ public final class ActionContext {
         if (group != null) {
             return refuges.get(group.shelter);
         }
-        return refuges.nearest(transform.position.x, transform.position.z, species.senseRadius(), false);
+        return refuges.nearest(transform.position.x, transform.position.z, species.senseRadius(), false, r -> r.usableBy(kind));
     }
 
     /** Prepares the context for one tick. */
@@ -274,6 +283,7 @@ public final class ActionContext {
         this.ai = ai;
         this.ref = ref;
         this.kind = ref.species;
+        this.settlement = kind.isRival() && rivalSettlement != null ? rivalSettlement : playerSettlement;
         this.species = ref.stats();
         nearestFood = -2;
         nearestWater = -2;

@@ -145,7 +145,8 @@ public record SaveData(
     public record UnderAttackData(int e, int attacker, int untilTick) {
     }
 
-    public record RefugeData(String type, float x, float z, boolean sacred) {
+    /** @param owner species id of the people whose hut it is (phase 11b), null = anyone's */
+    public record RefugeData(String type, float x, float z, boolean sacred, String owner) {
     }
 
     public record SickData(int e, int untilTick, int immuneUntilTick) {
@@ -157,7 +158,9 @@ public record SaveData(
     public record RoleData(int e, boolean builder) {
     }
 
-    public record BuildingData(int id, String type, float x, float z, float progress, boolean paid, boolean planned, int refuge) {
+    /** @param rival a building of the rival's tribe (phase 11b) */
+    public record BuildingData(int id, String type, float x, float z, float progress, boolean paid, boolean planned, int refuge,
+                               boolean rival) {
     }
 
     public record GroupsData(int nextId, List<GroupData> groups, int playerVictories) {

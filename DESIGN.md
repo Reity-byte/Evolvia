@@ -596,6 +596,7 @@ Rozhodnutí (Lucas): soupeřem je **jiný druh** („zvířecí lidé“ s vlast
 - **Víc kmenů:** každý kmen má vlastní osadu (`Settlement`): stavby, rozestavěné místo, nálada. `TribeSystem` běží pro hráče i soupeře (pro soupeře bez Víry, morálky a plánů boha); bytost staví a sbírá pro kmen svého stáda.
 - **Založení:** když hráč má kmen a soupeř je aspoň v minutě `tribeMinute`, největší stádo soupeře se stane kmenem, dostane Nástroje (sběr) a zná stavby ohniště, přístřešek a sklad; ostatní jeho stáda se připojí.
 - **Stavby soupeře** jsou vidět v jeho barvách (tmavší dřevo, kostěné ozdoby) a jeho přístřešky jsou útočiště jen pro něj.
+- **Upřesněno při implementaci:** `TribeSystem.People` (druh, hráč ano/ne, kdy smí kmen vzniknout, které stavby zná, co se stane při založení, oznámení); běží dvě instance. `ActionContext.settlement` je osada kmene právě zpracovávané bytosti. Osada soupeře nemá Víru (nálada vždy klidná, žádné plány boha ani útěky). Útočiště má majitele (`owner` = id druhu stavitele): přístřešky kmene používá jen jeho druh, jeskyně a háje kdokoli. Ohně obou kmenů hřejí kohokoli. Soupeř dostane s kmenem Nástroje jako kulturu (znovu i po načtení savu). Stavby soupeře jsou tmavší (×0.62). Save: stavba nese příznak soupeře, útočiště majitele.
 - **Testy:** kmen soupeře vznikne až po hráčově, sám sbírá a postaví ≥ 2 druhy staveb, stavby obou kmenů se neplete, save → load.
 
 #### 11c Nájezdy a zničení (detail)

@@ -3,6 +3,8 @@
     "id": "rival",
     "herds": 2,
     "herdSize": [6, 8],
+    "tribeMinute": 25,
+    "buildings": ["fire", "shelter", "storage"],
     "start": ["body_larger", "adapt_fur", "body_strong_legs", "body_tough_hide", "diet_omnivore"],
     "plan": [
       { "minute": 6, "node": "mind_instincts" },

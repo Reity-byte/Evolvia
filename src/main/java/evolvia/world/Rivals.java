@@ -25,7 +25,10 @@ public final class Rivals {
      * @param plan     further nodes over time, ordered by minute
      * @param herds    herds at the start
      * @param herdSize members per herd [min, max]
+     * @param tribeMinute the rival founds its tribe at this game minute at the earliest, and only once the player has one
+     * @param buildings buildings its tribe knows
      */
-    public record Config(Species species, List<String> start, List<Step> plan, int herds, int[] herdSize) {
+    public record Config(Species species, List<String> start, List<Step> plan, int herds, int[] herdSize,
+                         float tribeMinute, List<String> buildings) {
     }
 }

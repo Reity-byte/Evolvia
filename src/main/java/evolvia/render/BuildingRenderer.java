@@ -57,10 +57,26 @@ public final class BuildingRenderer implements AutoCloseable {
     }
 
     /** @param cooking the tribe knows Cooking: smoke rises from its fire (phase 10c) */
-    public void render(Camera camera, Lighting lighting, Terrain terrain, Settlement settlement, double simSeconds,
+    public void render(Camera camera, Lighting lighting, Terrain terrain, java.util.List<Settlement> settlements, double simSeconds,
                        boolean cooking) {
         shapes.values().forEach(InstanceBatch::begin);
         boxes.begin();
+        for (Settlement settlement : settlements) {
+            add(terrain, settlement, simSeconds, cooking && settlement.hasFaith(), settlement.hasFaith() ? 1f : RIVAL_SHADE);
+        }
+        shader.bind();
+        shader.setUniform("uProjection", camera.projection());
+        shader.setUniform("uView", camera.view());
+        shader.setUniform("uAlpha", 1f);
+        lighting.apply(shader, camera);
+        shapes.values().forEach(InstanceBatch::draw);
+        boxes.draw();
+    }
+
+    /** The rival's buildings are of darker wood (phase 11b). */
+    private static final float RIVAL_SHADE = 0.62f;
+
+    private void add(Terrain terrain, Settlement settlement, double simSeconds, boolean cooking, float tone) {
         for (Settlement.Building building : settlement.all()) {
             float y = ground(terrain, building.x, building.z);
             if (!building.paid) {
@@ -73,7 +89,7 @@ public final class BuildingRenderer implements AutoCloseable {
                 continue;
             }
             float rise = building.done() ? 1f : 0.15f + 0.85f * building.progress;
-            float shade = building.done() ? 1f : 0.7f;
+            float shade = (building.done() ? 1f : 0.7f) * tone;
             model.translation(building.x, y - 0.05f, building.z).rotateY(building.id * 0.9f).scale(1f, rise, 1f);
             batch.add(model, color[0] * shade, color[1] * shade, color[2] * shade);
             if (!building.done()) {
@@ -88,13 +104,6 @@ public final class BuildingRenderer implements AutoCloseable {
                 boxes.add(model, 1.9f, 1.6f, 0.6f); // golden top
             }
         }
-        shader.bind();
-        shader.setUniform("uProjection", camera.projection());
-        shader.setUniform("uView", camera.view());
-        shader.setUniform("uAlpha", 1f);
-        lighting.apply(shader, camera);
-        shapes.values().forEach(InstanceBatch::draw);
-        boxes.draw();
     }
 
     private void stakes(Terrain terrain, Settlement.Building building, float[] color) {

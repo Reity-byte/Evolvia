@@ -82,7 +82,7 @@ public final class SceneRenderer implements AutoCloseable {
                 Math.round(world.nature().config().disease().spoilSeconds() * Time.TICKS_PER_SECOND));
         refugeRenderer.render(camera, lighting, world.terrain(), world.refuges());
         campRenderer.render(camera, lighting, world.terrain(), world.groups());
-        buildingRenderer.render(camera, lighting, world.terrain(), world.settlement(), simSeconds,
+        buildingRenderer.render(camera, lighting, world.terrain(), java.util.List.of(world.settlement(), world.rivalSettlement()), simSeconds,
                 world.science().isDiscovered("sci_cooking"));
         creatureRenderer.render(camera, lighting, world.ecs(), alpha, simSeconds, selected);
         weatherRenderer.render(camera, lighting, world.terrain(), world.nature(), simSeconds);

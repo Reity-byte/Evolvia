@@ -34,6 +34,8 @@ public final class Refuges {
         public final float x;
         public final float z;
         public boolean sacred;
+        /** Species id of the people who built it (a hut, phase 11b), or null: anyone may use it. */
+        public String owner;
 
         public Refuge(int id, Type type, float x, float z) {
             this.id = id;
@@ -44,6 +46,11 @@ public final class Refuges {
 
         public float radius() {
             return type.radius();
+        }
+
+        /** Whether creatures of {@code species} may pick it for the night. */
+        public boolean usableBy(evolvia.evolution.Species species) {
+            return owner == null || owner.equals(species.id());
         }
 
         public boolean contains(float px, float pz) {

@@ -58,6 +58,13 @@ public final class NeedsSystem implements GameSystem {
         this.settlement = settlement;
     }
 
+    /** A second settlement whose fires warm too (the rival's, phase 11b). */
+    private Settlement other;
+
+    public void setOtherSettlement(Settlement other) {
+        this.other = other;
+    }
+
     @Override
     public void update(EcsWorld world, int tick) {
         ComponentStore<Needs> needsStore = world.store(Needs.class);
@@ -87,6 +94,9 @@ public final class NeedsSystem implements GameSystem {
             float temperature = transform != null ? temperatureAt(transform) : 0.5f;
             float warmth = settlement != null && transform != null
                     ? settlement.warmthAt(transform.position.x, transform.position.z) : 0f;
+            if (other != null && transform != null) {
+                warmth = Math.max(warmth, other.warmthAt(transform.position.x, transform.position.z));
+            }
             if (clock != null && !sheltered && warmth <= 0f) {
                 temperature -= clock.settings().nightCooling() * clock.nightness(tick);
             }

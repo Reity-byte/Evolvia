@@ -32,6 +32,7 @@ import evolvia.ecs.ComponentStore;
 import evolvia.ecs.EcsWorld;
 import evolvia.ecs.GameSystem;
 import evolvia.evolution.EvolutionConditions;
+import evolvia.evolution.EvolutionNode;
 import evolvia.evolution.EvolutionTree;
 import evolvia.evolution.Species;
 import evolvia.evolution.SpeciesDefinition;
@@ -85,6 +86,9 @@ public final class World implements EvolutionConditions {
     /** The tribe's buildings and mood (phase 9h). */
     private final Settlement settlement;
     private final TribeSystem tribeSystem;
+    /** The rival's tribe (phase 11b). */
+    private final Settlement rivalSettlement;
+    private final TribeSystem rivalTribeSystem;
     /** The people's science (phase 10b). */
     private final Science science;
     private final SpatialGrid creatureGrid;
@@ -147,10 +151,20 @@ public final class World implements EvolutionConditions {
                 creatureGrid, births, random, groups, clock, refuges, nature, wildlife.hunting(), materialGrid, tribe.gathering(),
                 materials(), settlement);
         actionContext.setScience(science, this);
-        this.tribeSystem = new TribeSystem(groups, species, settlement, refuges, terrain, random);
-        tribeSystem.setScience(science);
+        this.tribeSystem = new TribeSystem(groups, new TribeSystem.People(species, true,
+                tick -> species.hasAbility(tribe.tribe().ability()), this::canBuild, () -> { },
+                "Vznikl kmen! Největší stádo tvého lidu se usadilo a začne stavět."), settlement, refuges, terrain, random);
+        this.rivalSettlement = new Settlement(tribe, null);
+        actionContext.setRivalSettlement(rivalSettlement);
+        Species rival = rivals.species();
+        this.rivalTribeSystem = new TribeSystem(groups, new TribeSystem.People(rival, false,
+                tick -> tribeSystem.tribe() != null && tick >= rivals.tribeMinute() * 60 * evolvia.core.Time.TICKS_PER_SECOND,
+                type -> rivals.buildings().contains(type.id()),
+                this::teachRival,
+                "Hrubci založili kmen! Staví tábor a sbírají zásoby."), rivalSettlement, refuges, terrain, random);
         NeedsSystem needsSystem = new NeedsSystem(terrain, clock, refuges, nature);
         needsSystem.setSettlement(settlement);
+        needsSystem.setOtherSettlement(rivalSettlement);
         // Fixed system order (DESIGN.md §5). Cleanup (deferred destruction) runs after all systems.
         this.systems = List.of(
                 new PrevTransformSystem(),
@@ -171,6 +185,7 @@ public final class World implements EvolutionConditions {
                 new FaithSystem(godPowers.faith(), godConfig.faith(), this::sacredSleepers,
                         godConfig.sanctify().faithPerSleeperPerMinute(), this::shrineFaithPerMinute),
                 tribeSystem,
+                rivalTribeSystem,
                 new ScienceSystem(science, species, this, () -> tribeSystem.tribe() != null),
                 new MilestoneSystem(this));
         this.systemNanos = new long[systems.size()];
@@ -437,6 +452,29 @@ public final class World implements EvolutionConditions {
     /** The rival people (phase 11). */
     public Rivals.Config rivals() {
         return rivals;
+    }
+
+    /** The discovery that lets the people gather (the rival gets it with its tribe). */
+    private static final String TOOLS = "sci_tools";
+
+    /** The rival's tribe (phase 11b). */
+    public Settlement rivalSettlement() {
+        return rivalSettlement;
+    }
+
+    public TribeSystem rivalTribeSystem() {
+        return rivalTribeSystem;
+    }
+
+    /** The rival's tribe herd, or null. */
+    public Groups.Group rivalTribe() {
+        return rivalTribeSystem.tribe();
+    }
+
+    /** With its tribe the rival learns to gather (its culture; again after loading a save). */
+    public void teachRival() {
+        EvolutionNode tools = science.tree().node(TOOLS);
+        rivals.species().setCulture(tools != null ? List.of(tools) : List.of());
     }
 
     public RivalSystem rivalSystem() {

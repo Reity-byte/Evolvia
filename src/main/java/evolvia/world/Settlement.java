@@ -176,6 +176,9 @@ public final class Settlement {
 
     /** Extra faith from the tribe's believers (0 without a shrine). */
     public float faithBonus() {
+        if (faith == null) {
+            return 0f;
+        }
         float bonus = 0f;
         for (Building building : buildings) {
             if (building.done() && "faith".equals(building.type.effect())) {
@@ -188,6 +191,9 @@ public final class Settlement {
     // ---------------------------------------------------------------- morality
 
     public Mood mood() {
+        if (faith == null) {
+            return Mood.CALM; // a tribe without the god (the rival, phase 11)
+        }
         float alignment = faith.alignment();
         float threshold = config.tribe().moralityThreshold();
         if (alignment > threshold) {
@@ -213,6 +219,11 @@ public final class Settlement {
     /** Chance per member and minute to run away from the tribe (only under an evil god). */
     public float desertionPerMinute() {
         return mood() == Mood.AFRAID ? config.tribe().desertionPerMinute() * Math.min(1f, -faith.alignment()) : 0f;
+    }
+
+    /** Whether this is the player's tribe (the god's faith counts there). */
+    public boolean hasFaith() {
+        return faith != null;
     }
 
     public void clear() {

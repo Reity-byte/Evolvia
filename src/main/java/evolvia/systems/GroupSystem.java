@@ -174,10 +174,11 @@ public final class GroupSystem implements GameSystem {
         float x = leader.position.x;
         float z = leader.position.z;
         float radius = refuges.config().searchRadius();
+        Species kind = kind(group);
         Refuges.Refuge refuge = refuges.nearest(x, z, radius, group.player,
-                r -> !taken.contains(r.id) && (group.player || !r.sacred));
+                r -> !taken.contains(r.id) && (group.player || !r.sacred) && r.usableBy(kind));
         if (refuge == null) {
-            refuge = refuges.nearest(x, z, radius, group.player, r -> group.player || !r.sacred);
+            refuge = refuges.nearest(x, z, radius, group.player, r -> (group.player || !r.sacred) && r.usableBy(kind));
         }
         group.shelter = refuge != null ? refuge.id : 0;
     }

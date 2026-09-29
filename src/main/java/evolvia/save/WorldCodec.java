@@ -144,10 +144,13 @@ public final class WorldCodec {
                 new SpeciesData(species.base().id(), species.points(), species.pointsEarned(), List.copyOf(species.unlockedNodes())),
                 god, stats, ecs(ecs), world.pathQueue().toArray(), groups(world.groups()),
                 List.copyOf(world.milestones().completed()),
-                world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred)).toList(),
+                world.refuges().all().stream().map(r -> new RefugeData(r.type.id(), r.x, r.z, r.sacred, r.owner)).toList(),
                 world.nature().state((int) tick),
-                world.settlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress, b.paid,
-                        b.planned, b.refuge)).toList(),
+                java.util.stream.Stream.concat(
+                        world.settlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress,
+                                b.paid, b.planned, b.refuge, false)),
+                        world.rivalSettlement().all().stream().map(b -> new BuildingData(b.id, b.type.id(), b.x, b.z, b.progress,
+                                b.paid, b.planned, b.refuge, true))).toList(),
                 world.science().state(),
                 new SaveData.RivalData(world.rivalSystem().step()));
     }
@@ -299,7 +302,9 @@ public final class WorldCodec {
                 for (RefugeData d : save.refuges()) {
                     Refuges.Type type = world.refuges().type(d.type());
                     if (type != null) {
-                        world.refuges().add(type, d.x(), d.z()).sacred = d.sacred();
+                        Refuges.Refuge refuge = world.refuges().add(type, d.x(), d.z());
+                        refuge.sacred = d.sacred();
+                        refuge.owner = d.owner();
                     }
                 }
             } else {
@@ -313,6 +318,9 @@ public final class WorldCodec {
             restoreStats(world, save.stats());
             restoreGod(world.godPowers(), save.god());
             restoreGroups(world, save.groups());
+            if (world.rivalTribe() != null) {
+                world.teachRival();
+            }
             if (save.ecs().creatureSpecies() == null) {
                 world.placeAnimalsAfterLoad(save.seed()); // a save from before wild game
             }
@@ -322,7 +330,8 @@ public final class WorldCodec {
                     if (type == null) {
                         throw new IllegalArgumentException("Unknown building '" + d.type() + "'");
                     }
-                    world.settlement().restore(d.id(), type, d.x(), d.z(), d.planned(), d.progress(), d.paid(), d.refuge());
+                    (d.rival() ? world.rivalSettlement() : world.settlement())
+                            .restore(d.id(), type, d.x(), d.z(), d.planned(), d.progress(), d.paid(), d.refuge());
                 }
             }
             if (save.saveVersion() < 4) {

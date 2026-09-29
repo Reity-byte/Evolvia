@@ -33,27 +33,41 @@ import java.util.Random;
  */
 public final class TribeSystem implements GameSystem {
 
+    /**
+     * Whose tribe this is (phase 11b): the player's people or the rival.
+     *
+     * @param species   the people's species
+     * @param player    the player's people (herds of the player, faith, the god's plans, desertion)
+     * @param canFound  whether the tribe may be founded at this tick
+     * @param known     buildings the tribe knows how to build
+     * @param founded   called once when the tribe is founded
+     * @param message   announcement when it is founded
+     */
+    public record People(Species species, boolean player, java.util.function.IntPredicate canFound,
+                         java.util.function.Predicate<Tribe.BuildingType> known, Runnable founded, String message) {
+
+        /** A herd of these people. */
+        boolean owns(Groups.Group group) {
+            return player ? group.player && group.species == null : group.species == species;
+        }
+    }
+
     private final Groups groups;
     private final Species people;
+    private final People owner;
     private final Settlement settlement;
     private final Refuges refuges;
     private final Terrain terrain;
     private final Random random;
     private final List<String> announcements = new ArrayList<>();
-    /** Buildings need discoveries (phase 10b); null = everything can be built. */
-    private evolvia.world.Science science;
-
-    public void setScience(evolvia.world.Science science) {
-        this.science = science;
-    }
-
     private boolean known(Tribe.BuildingType type) {
-        return type.requires() == null || science == null || science.isDiscovered(type.requires());
+        return owner.known().test(type);
     }
 
-    public TribeSystem(Groups groups, Species people, Settlement settlement, Refuges refuges, Terrain terrain, Random random) {
+    public TribeSystem(Groups groups, People owner, Settlement settlement, Refuges refuges, Terrain terrain, Random random) {
         this.groups = groups;
-        this.people = people;
+        this.people = owner.species();
+        this.owner = owner;
         this.settlement = settlement;
         this.refuges = refuges;
         this.terrain = terrain;
@@ -76,7 +90,7 @@ public final class TribeSystem implements GameSystem {
         }
         Groups.Group tribe = tribe();
         if (tribe == null) {
-            tribe = found(rules);
+            tribe = found(rules, tick);
             if (tribe == null) {
                 clearRoles(world, -1);
                 return;
@@ -94,7 +108,7 @@ public final class TribeSystem implements GameSystem {
         choose(tribe, members.size());
         finish();
         roles(world, tribe, members, rules);
-        if (tick % (60 * Time.TICKS_PER_SECOND) == 0) {
+        if (owner.player() && tick % (60 * Time.TICKS_PER_SECOND) == 0) {
             desert(world, members, tick);
         }
     }
@@ -102,26 +116,27 @@ public final class TribeSystem implements GameSystem {
     /** The tribe's herd, or null. */
     public Groups.Group tribe() {
         for (Groups.Group group : groups.all()) {
-            if (group.tribe) {
+            if (group.tribe && owner.owns(group)) {
                 return group;
             }
         }
         return null;
     }
 
-    private Groups.Group found(Tribe.Rules rules) {
-        if (!people.hasAbility(rules.ability())) {
+    private Groups.Group found(Tribe.Rules rules, int tick) {
+        if (!owner.canFound().test(tick)) {
             return null;
         }
         Groups.Group largest = null;
         for (Groups.Group group : groups.all()) {
-            if (group.player && group.species == null && (largest == null || group.size > largest.size)) {
+            if (owner.owns(group) && (largest == null || group.size > largest.size)) {
                 largest = group;
             }
         }
         if (largest != null) {
             largest.tribe = true;
-            announcements.add("Vznikl kmen! Největší stádo tvého lidu se usadilo a začne stavět.");
+            owner.founded().run();
+            announcements.add(owner.message());
         }
         return largest;
     }
@@ -131,7 +146,7 @@ public final class TribeSystem implements GameSystem {
         ComponentStore<Transform> transforms = world.store(Transform.class);
         ComponentStore<GroupMember> members = world.store(GroupMember.class);
         for (Groups.Group other : new ArrayList<>(groups.all())) {
-            if (other == tribe || !other.player || other.species != null || other.leader < 0) {
+            if (other == tribe || !owner.owns(other) || other.leader < 0) {
                 continue;
             }
             Transform leader = transforms.get(other.leader);
@@ -278,7 +293,9 @@ public final class TribeSystem implements GameSystem {
         Refuges.Type hut = refuges.type("hut");
         for (Settlement.Building building : settlement.all()) {
             if (building.done() && building.refuge == 0 && "refuge".equals(building.type.effect()) && hut != null) {
-                building.refuge = refuges.add(hut, building.x, building.z).id;
+                Refuges.Refuge refuge = refuges.add(hut, building.x, building.z);
+                refuge.owner = people.id(); // a hut is for its builders (phase 11b)
+                building.refuge = refuge.id;
             }
         }
     }
@@ -316,10 +333,14 @@ public final class TribeSystem implements GameSystem {
         }
     }
 
-    /** Removes the roles of everyone who is not in the tribe (any more). */
-    private static void clearRoles(EcsWorld world, int tribeId) {
+    /** Removes the roles of everyone of these people who is not in the tribe (any more). */
+    private void clearRoles(EcsWorld world, int tribeId) {
         ComponentStore<Role> roles = world.store(Role.class);
         for (int i = roles.size() - 1; i >= 0; i--) {
+            SpeciesRef ref = world.get(roles.entityAt(i), SpeciesRef.class);
+            if (ref != null && ref.species != people) {
+                continue; // the other tribe's
+            }
             GroupMember member = world.get(roles.entityAt(i), GroupMember.class);
             if (member == null || member.group != tribeId) {
                 roles.remove(roles.entityAt(i));

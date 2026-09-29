@@ -279,10 +279,13 @@ public final class DataLoader {
         for (String node : start) {
             species.grant(node);
         }
-        return new evolvia.world.Rivals.Config(species, start, plan, r.herds(), r.herdSize());
+        require(r.tribeMinute() >= 0, source, "tribeMinute must not be negative");
+        return new evolvia.world.Rivals.Config(species, start, plan, r.herds(), r.herdSize(), r.tribeMinute(),
+                r.buildings() != null ? List.copyOf(r.buildings()) : List.of());
     }
 
-    private record RivalJson(String id, int herds, int[] herdSize, List<String> start, List<evolvia.world.Rivals.Step> plan) {
+    private record RivalJson(String id, int herds, int[] herdSize, List<String> start, List<evolvia.world.Rivals.Step> plan,
+                             float tribeMinute, List<String> buildings) {
     }
 
     private record AnimalJson(String role, List<String> prey, boolean nocturnal, int herds, int[] herdSize,
